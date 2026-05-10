@@ -446,6 +446,42 @@ async function handle(request, { params }) {
       })
     }
 
+    // ============ AI PATIENT SUMMARY ============
+    if (route === '/generate-summary' && m === 'POST') {
+      const b = await request.json()
+      if (!b.patient_id) return err('patient_id required')
+      const p = await db.collection('patients').findOne({ id: b.patient_id, clinic_id: cid })
+      if (!p) return err('Patient not found', 404)
+      const visits = await db.collection('visits').find({ patient_id: b.patient_id, clinic_id: cid }).sort({ visit_date: -1, created_at: -1 }).limit(8).toArray()
+      if (visits.length === 0) return err('No visits to summarize yet', 400)
+      const visitText = visits.map(v => `Date: ${v.visit_date}\nComplaint: ${v.chief_complaint||'-'}\nDiagnosis: ${v.diagnosis||'-'}\nTreatment: ${v.treatment_done||'-'}\nPlan: ${v.treatment_plan||'-'}\n---`).join('\n')
+      const prompt = `You are a clinical documentation assistant for a dental clinic in India. Based on the visit history below, write a concise clinical summary (maximum 200 words).\n\nCover: main dental complaints, treatments completed, current dental status, and recommended follow-up actions already mentioned by the doctor.\n\nDo not diagnose. Do not suggest treatments not already mentioned in the notes. Use professional clinical language.\n\nPatient: ${p.name}, Age: ${p.age||'unknown'}\nBlood Group: ${p.blood_group||'unknown'}\nKnown Allergies: ${p.allergies||'None recorded'}\n\nVisit History (most recent first):\n${visitText}\n\nWrite the clinical summary now:`
+      try {
+        const apiKey = process.env.EMERGENT_LLM_KEY || process.env.ANTHROPIC_API_KEY
+        const baseURL = process.env.EMERGENT_LLM_KEY ? 'https://integrations.emergentagent.com/llm/v1' : 'https://api.anthropic.com/v1'
+        const useBearer = !!process.env.EMERGENT_LLM_KEY
+        const r = await fetch(baseURL + '/messages', {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'anthropic-version': '2023-06-01',
+            ...(useBearer ? { 'Authorization': `Bearer ${apiKey}` } : { 'x-api-key': apiKey })
+          },
+          body: JSON.stringify({ model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5', max_tokens: 600, messages: [{ role: 'user', content: prompt }] })
+        })
+        if (!r.ok) { const t = await r.text(); console.error('AI gateway:', r.status, t); return err(`AI service error: ${r.status}`, 502) }
+        const msg = await r.json()
+        const block = msg.content?.find(c => c.type === 'text')
+        const text = block?.text || ''
+        if (!text) return err('Empty AI response', 500)
+        await db.collection('patients').updateOne({ id: b.patient_id, clinic_id: cid }, { $set: { ai_summary: text, ai_summary_generated_at: new Date() } })
+        return json({ ok: true, summary: text, generated_at: new Date() })
+      } catch (e) {
+        console.error('AI summary error:', e?.message || e)
+        return err(`AI service error: ${e?.message || 'Unknown'}`, 502)
+      }
+    }
+
     return err(`Route ${route} not found`, 404)
   } catch (e) {
     console.error('API Error:', e)

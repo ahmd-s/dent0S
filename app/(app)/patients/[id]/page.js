@@ -1,8 +1,9 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { Sparkles, RefreshCw } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Phone, Edit2, AlertTriangle, ChevronDown, ChevronUp, CalendarPlus, FilePlus, FileText, Sparkles, Upload, ExternalLink, Loader2 } from 'lucide-react'
+import { ArrowLeft, Phone, Edit2, AlertTriangle, ChevronDown, ChevronUp, CalendarPlus, FilePlus, FileText, Upload, ExternalLink, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -171,10 +172,7 @@ function App() {
               </Card>
             </TabsContent>
             <TabsContent value="ai" className="mt-4">
-              <Card className="p-12 text-center bg-white border-border rounded-lg">
-                <Sparkles className="w-10 h-10 mx-auto text-[#0D9488]"/>
-                <p className="mt-3 text-muted-foreground">AI patient summary coming in Phase 4 — needs LLM integration.</p>
-              </Card>
+              <AISummaryPanel patient={patient} visits={visits} onUpdated={load}/>
             </TabsContent>
           </Tabs>
         </div>
@@ -242,3 +240,58 @@ function BookForPatient({ open, setOpen, patient, onCreated }) {
 }
 
 export default App
+function AISummaryPanel({ patient, visits, onUpdated }) {
+  const [summary, setSummary] = useState(patient?.ai_summary || '')
+  const [genAt, setGenAt] = useState(patient?.ai_summary_generated_at || null)
+  const [loading, setLoading] = useState(false)
+  const lastVisitDate = visits[0]?.visit_date || null
+  const isStale = !genAt || (lastVisitDate && new Date(genAt) < new Date(lastVisitDate))
+  const fmt = d => d ? `${String(new Date(d).getDate()).padStart(2,'0')}/${String(new Date(d).getMonth()+1).padStart(2,'0')}/${new Date(d).getFullYear()}` : ''
+
+  const generate = async () => {
+    setLoading(true)
+    const r = await fetch('/api/generate-summary', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ patient_id: patient.id }) })
+    const d = await r.json()
+    setLoading(false)
+    if (r.ok) { setSummary(d.summary); setGenAt(d.generated_at); toast.success('Summary generated successfully'); onUpdated && onUpdated() }
+    else toast.error(d.error || 'Could not generate summary. Please try again.')
+  }
+
+  if (visits.length === 0) {
+    return (
+      <Card className="p-10 text-center bg-[#F8FAFC] border-border rounded-lg">
+        <Sparkles className="w-10 h-10 mx-auto text-muted-foreground/50"/>
+        <p className="mt-3 text-muted-foreground">Add at least one visit to generate an AI summary</p>
+        <Button disabled className="mt-4 bg-[#0D9488] opacity-50 cursor-not-allowed">Generate Summary</Button>
+      </Card>
+    )
+  }
+
+  if (summary && !isStale) {
+    return (
+      <Card className="p-6 bg-blue-50/40 border-blue-200 rounded-lg">
+        <div className="flex items-start justify-between mb-3">
+          <div>
+            <div className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-[#0D9488]"/><h3 className="font-semibold text-[#0F172A]">AI Clinical Summary</h3></div>
+            <p className="text-xs text-muted-foreground mt-0.5">Generated {fmt(genAt)} · Documentation only</p>
+          </div>
+          <Button size="sm" variant="outline" onClick={generate} disabled={loading}>{loading?<Loader2 className="w-3.5 h-3.5 animate-spin"/>:<><RefreshCw className="w-3.5 h-3.5 mr-1"/>Regenerate</>}</Button>
+        </div>
+        <div className="text-sm leading-relaxed whitespace-pre-line text-[#0F172A]">{summary}</div>
+        <p className="mt-4 pt-3 border-t border-blue-200 text-xs text-muted-foreground italic">This summary is generated from doctor&apos;s notes. It is a documentation tool only and does not constitute medical advice or diagnosis.</p>
+      </Card>
+    )
+  }
+
+  return (
+    <Card className="p-10 text-center bg-white border-2 border-dashed border-border rounded-lg">
+      <Sparkles className="w-10 h-10 mx-auto text-[#0D9488]"/>
+      <h3 className="mt-3 font-semibold text-[#0F172A]">{summary ? 'New Visits Since Last Summary' : 'Generate AI Summary'}</h3>
+      <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">Automatically summarize this patient&apos;s treatment history from recorded visits. Documentation assistant only — does not diagnose.</p>
+      <Button onClick={generate} disabled={loading} className="mt-5 bg-[#0D9488] hover:bg-[#0B7E73]">
+        {loading ? <><Loader2 className="w-4 h-4 animate-spin mr-2"/>Generating summary…</> : <><Sparkles className="w-4 h-4 mr-2"/>{summary?'Regenerate Summary':'Generate Summary'}</>}
+      </Button>
+    </Card>
+  )
+}
+

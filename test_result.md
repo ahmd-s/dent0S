@@ -333,10 +333,51 @@ backend:
             GET /api/invoices/:id — returns invoice + items[] + patient + visit + doctor_name + clinic.
             PUT /api/invoices/:id {payment_status, payment_mode, notes} — partial update.
             Multi-tenant: clinic B cannot read clinic A's invoice.
+
+  - task: "Phase 4: AI Patient Summary (Anthropic Claude via Emergent gateway)"
+    implemented: true
+    working: true
+    file: "/app/app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: |
+            POST /api/generate-summary { patient_id }
+              - Auth required, multi-tenant scoped (patient must belong to caller's clinic else 404).
+              - Returns 400 if patient has no visits yet.
+              - Fetches last 8 visits sorted desc by visit_date.
+              - Calls Claude Sonnet 4.5 via Emergent gateway https://integrations.emergentagent.com/llm/v1
+                using EMERGENT_LLM_KEY from env (Authorization: Bearer header).
+              - Updates patient.ai_summary + ai_summary_generated_at.
+              - Returns { ok, summary, generated_at }.
+            Manual smoke test passed (200, 5.4s, real generated summary).
+            Please verify: multi-tenant (clinic B can't generate for clinic A's patient → 404),
+            no-visits 400, and that the summary text and generated_at timestamp are persisted.
         - working: true
           agent: "testing"
           comment: |
-            ✅ All 12 tests passed. GET /invoices returns array with patient_name joined and summary (collected/pending/total). Filters working: status=paid returns only paid invoices, date range (from/to) filters correctly, search query (?q=Suresh) returns matching results. GET /invoices/:id returns full detail with all joined fields (items, patient, visit, doctor_name, clinic). PUT /invoices/:id updates payment_status correctly (verified change from 'paid' to 'pending'). **CRITICAL MULTI-TENANT ISOLATION VERIFIED**: Clinic B cannot see Clinic A's invoices (empty list), GET /invoices/:id returns 404 for Clinic A's invoice. All endpoints working correctly.
+            ✅ All 19 tests passed (100% success rate). Phase 4 AI Patient Summary endpoint fully verified:
+            
+            **CORE FUNCTIONALITY (10/10 test scenarios):**
+            1. Clinic A signup and complete onboarding - PASS
+            2. Patient P1 created (Test Patient, 9888777666, age 30, allergies Penicillin) - PASS
+            3. Generate summary without visits → 400 with error "No visits to summarize yet" - PASS
+            4. Created appointment + completed visit with diagnosis "Caries 36" and treatment "Composite filling" - PASS
+            5. POST /api/generate-summary with valid patient → 200 response verified:
+               - body.ok === true ✓
+               - body.summary is non-empty string (1030 chars, well above 50 char minimum) ✓
+               - body.generated_at is valid ISO date string (2026-05-10T10:43:04.174Z) ✓
+               - LLM call completed in ~5.4 seconds (within 30s timeout) ✓
+            6. GET /api/patients/:id verified ai_summary and ai_summary_generated_at correctly persisted - PASS
+            7. **CRITICAL MULTI-TENANT ISOLATION**: Clinic B cannot generate summary for Clinic A's patient → 404 "Patient not found" - PASS
+            8. Unauthenticated request → 401 - PASS
+            9. Invalid patient_id (00000000-0000-0000-0000-000000000000) → 404 "Patient not found" - PASS
+            10. Missing patient_id in request body → 400 "patient_id required" - PASS
+            
+            **SUMMARY:** AI patient summary generation working perfectly. Anthropic Claude integration via Emergent gateway functional. Multi-tenant isolation verified. All edge cases handled correctly. Test file: /app/backend_test_phase4.py
 
   - task: "Phase 3: Clinic update + slug change"
     implemented: true
@@ -406,11 +447,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Phase 3: Doctors / Team / Treatment Templates"
-    - "Phase 3: Visits with invoice creation"
-    - "Phase 3: Invoices CRUD with summary"
-    - "Phase 3: Clinic update + slug change"
-    - "Phase 3: Public booking endpoints (NO auth)"
+    - "Phase 4: AI Patient Summary (Anthropic Claude via Emergent gateway)"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -573,3 +610,38 @@ agent_communication:
         
         **NO CRITICAL ISSUES FOUND. All Phase 3 backend APIs production-ready.**
         Test file: /app/backend_test_phase3.py (can be re-run anytime)
+
+    - agent: "testing"
+      message: |
+        ✅ PHASE 4 BACKEND TESTING COMPLETE - ALL 19 TESTS PASSED (100% success rate)
+        
+        Comprehensive Phase 4 testing completed on AI Patient Summary endpoint:
+        
+        **PHASE 4: AI PATIENT SUMMARY (19/19 tests):**
+        POST /api/generate-summary endpoint fully verified with all 10 test scenarios:
+        
+        1. ✅ Clinic A signup and complete onboarding (4 steps)
+        2. ✅ Patient P1 created (Test Patient, 9888777666, age 30, allergies Penicillin)
+        3. ✅ Generate summary without visits → 400 "No visits to summarize yet"
+        4. ✅ Appointment + completed visit created (diagnosis: Caries 36, treatment: Composite filling)
+        5. ✅ Generate summary with valid patient → 200 response:
+           - body.ok === true ✓
+           - body.summary: 1030 chars (well above 50 char minimum) ✓
+           - body.generated_at: valid ISO date (2026-05-10T10:43:04.174Z) ✓
+           - LLM call completed in ~5.4-6.5 seconds (within 30s timeout) ✓
+        6. ✅ Patient record verified: ai_summary and ai_summary_generated_at correctly persisted
+        7. ✅ **CRITICAL MULTI-TENANT ISOLATION**: Clinic B cannot generate summary for Clinic A's patient → 404 "Patient not found"
+        8. ✅ Unauthenticated request → 401
+        9. ✅ Invalid patient_id (00000000-0000-0000-0000-000000000000) → 404 "Patient not found"
+        10. ✅ Missing patient_id in request body → 400 "patient_id required"
+        
+        **KEY FINDINGS:**
+        - Anthropic Claude integration via Emergent gateway (https://integrations.emergentagent.com/llm/v1) working perfectly
+        - EMERGENT_LLM_KEY authentication successful
+        - Generated summaries are professional clinical documentation (1000+ chars)
+        - Multi-tenant isolation verified: patient data scoped to clinic_id
+        - All edge cases handled correctly (no visits, invalid IDs, missing fields, auth)
+        - Response times acceptable (5-7 seconds for LLM call)
+        
+        **NO CRITICAL ISSUES FOUND. Phase 4 AI Patient Summary endpoint production-ready.**
+        Test file: /app/backend_test_phase4.py (can be re-run anytime)

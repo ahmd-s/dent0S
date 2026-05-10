@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { LayoutDashboard, Users, Calendar, Receipt, Settings, LogOut, Bell, Search, Loader2, Plus } from 'lucide-react'
+import { LayoutDashboard, Users, Calendar, Receipt, Settings, LogOut, Bell, Search, Loader2, Plus, Menu, X } from 'lucide-react'
 import { ToothIcon } from './Logo'
 
 const NAV = [
@@ -29,6 +29,7 @@ export default function AppShell({ children }) {
   const [q, setQ] = useState('')
   const [results, setResults] = useState([])
   const [showResults, setShowResults] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
   const debounceRef = useRef(null)
 
   useEffect(() => {
@@ -57,20 +58,24 @@ export default function AppShell({ children }) {
 
   return (
     <div className="min-h-screen flex bg-white">
-      <aside className="w-60 sidebar-bg sidebar-fg fixed inset-y-0 left-0 flex flex-col">
-        <div className="p-5 border-b border-white/10">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-lg bg-[#0D9488] flex items-center justify-center"><ToothIcon className="w-5 h-5 text-white"/></div>
-            <div className="font-bold text-lg">DentOS</div>
+      {mobileOpen && <div onClick={()=>setMobileOpen(false)} className="md:hidden fixed inset-0 bg-black/40 z-40"/>}
+      <aside className={`w-60 sidebar-bg sidebar-fg fixed inset-y-0 left-0 flex flex-col z-50 transition-transform md:translate-x-0 ${mobileOpen?'translate-x-0':'-translate-x-full md:translate-x-0'}`}>
+        <div className="p-5 border-b border-white/10 flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-lg bg-[#0D9488] flex items-center justify-center"><ToothIcon className="w-5 h-5 text-white"/></div>
+              <div className="font-bold text-lg">DentOS</div>
+            </div>
+            <div className="text-xs text-[#5EEAD4] mt-1.5 truncate">{me.clinic?.name}</div>
           </div>
-          <div className="text-xs text-[#5EEAD4] mt-1.5 truncate">{me.clinic?.name}</div>
+          <button onClick={()=>setMobileOpen(false)} className="md:hidden p-1.5 hover:bg-white/10 rounded"><X className="w-4 h-4"/></button>
         </div>
         <nav className="flex-1 p-3 space-y-1">
           {NAV.map(n => {
             const active = pathname === n.href || pathname.startsWith(n.href + '/')
             const Icon = n.icon
             return (
-              <Link key={n.href} href={n.href}
+              <Link key={n.href} href={n.href} onClick={()=>setMobileOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition ${active?'bg-[#0D9488] text-white':'text-white/70 hover:bg-white/5 hover:text-white'}`}>
                 <Icon className="w-4 h-4"/>{n.label}
               </Link>
@@ -85,9 +90,10 @@ export default function AppShell({ children }) {
           <button onClick={logout} className="flex items-center gap-3 px-3 py-2 w-full text-sm text-white/70 hover:bg-white/5 hover:text-white rounded-md"><LogOut className="w-4 h-4"/>Sign out</button>
         </div>
       </aside>
-      <div className="flex-1 ml-60">
-        <header className="h-16 border-b border-border bg-white flex items-center px-6 sticky top-0 z-30">
-          <h1 className="text-lg font-bold text-[#0F172A] w-48">{title}</h1>
+      <div className="flex-1 md:ml-60">
+        <header className="h-16 border-b border-border bg-white flex items-center px-4 md:px-6 sticky top-0 z-30 gap-3">
+          <button onClick={()=>setMobileOpen(true)} className="md:hidden w-9 h-9 rounded-md hover:bg-[#F8FAFC] flex items-center justify-center"><Menu className="w-5 h-5"/></button>
+          <h1 className="text-lg font-bold text-[#0F172A] hidden md:block w-48">{title}</h1>
           <div className="flex-1 max-w-xl mx-auto relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"/>
             <input value={q} onChange={e=>{setQ(e.target.value); setShowResults(true)}}
