@@ -270,6 +270,121 @@ backend:
           agent: "testing"
           comment: "✅ Patient filters + patient_code (6/6 tests passed). Created fresh patient 'Anjali Reddy' with no visits. patient_code format verified: 'PT00002' matches regex /^PT\\d{5}$/. filter=inactive returns array (length: 2) and correctly INCLUDES fresh patient with no visits. filter=week returns array (length: 0) and correctly EXCLUDES fresh patient with no visits. filter=month returns array (works correctly). After visit completion in Test 7, patient P1 correctly appears in filter=week (has recent visit). All filters working as expected."
 
+  - task: "Phase 3: Doctors / Team / Treatment Templates"
+    implemented: true
+    working: true
+    file: "/app/app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: |
+            New endpoints to test (auth required, multi-tenant):
+              GET  /api/doctors            → only profiles where role=doctor and is_active=true.
+              GET  /api/team               → all profiles in caller's clinic.
+              POST /api/team {full_name, email, role, password} → creates new profile (admin only).
+              PUT  /api/team/:id {role?, is_active?} → admin only.
+              GET/POST/PUT/DELETE /api/treatment_templates — clinic-scoped CRUD.
+            Multi-tenant: clinic B cannot read clinic A's templates.
+        - working: true
+          agent: "testing"
+          comment: |
+            ✅ All 14 tests passed. GET /doctors returns only active doctors with role=doctor. POST /team creates new team member with duplicate email validation (400). GET /team returns all clinic members. PUT /team/:id updates is_active and role correctly. Inactive doctors excluded from GET /doctors. Treatment templates CRUD working: POST creates, GET lists, PUT updates, DELETE removes. **CRITICAL MULTI-TENANT ISOLATION VERIFIED**: Clinic B cannot see Clinic A's templates (empty list). All endpoints working correctly.
+
+  - task: "Phase 3: Visits with invoice creation"
+    implemented: true
+    working: true
+    file: "/app/app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: |
+            PUT /api/visits/:id now upserts invoice + invoice_items inline.
+            Body extras: { invoice_items:[{description,quantity,unit_price}], discount, gst_enabled, payment_mode, payment_status, complete? }
+            Response includes invoice_id.
+            Server computes: subtotal = sum(qty*unit_price), gst = round((subtotal-discount)*0.18) if gst_enabled, total = subtotal-discount+gst.
+            Generates invoice_number = 'INV-' + clinic initials + '-' + 5-digit padded sequential.
+            Items with empty description are filtered out. Calling PUT again replaces all items.
+            GET /api/visits/:id now returns visit.invoice with items[] (if exists), and previous_visit (most recent prior visit for the same patient, or null).
+            Verify full flow: create visit → PUT with items+gst+complete=true → invoice created with correct totals + invoice_number.
+        - working: true
+          agent: "testing"
+          comment: |
+            ✅ All 13 tests passed. Full invoice creation flow verified: (1) Created patient + appointment for today. (2) POST /visits created visit, appointment status changed to 'in_progress'. (3) PUT /visits/:id with invoice_items, discount=200, gst_enabled=true, complete=true → invoice created with invoice_id returned. (4) Invoice calculations CORRECT: items filtered (2 valid, 1 empty removed), subtotal=1800, discount=200, gst_amount=288, total_amount=1888. (5) Invoice number format correct: INV-CAD-00001 (matches /^INV-[A-Z]{1,3}-\d{5}$/). (6) Appointment status='completed', patient.total_visits=1. (7) PUT again with different items REPLACES items correctly (verified 1 item: X-ray). All side effects working correctly.
+
+  - task: "Phase 3: Invoices CRUD with summary"
+    implemented: true
+    working: true
+    file: "/app/app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: |
+            GET /api/invoices?from=&to=&status=&q= — list with date range, status filter, and patient/invoice-number search.
+              Returns { invoices:[{...,patient_name}], summary:{collected,pending,total} } where summary uses last 30 days.
+            GET /api/invoices/:id — returns invoice + items[] + patient + visit + doctor_name + clinic.
+            PUT /api/invoices/:id {payment_status, payment_mode, notes} — partial update.
+            Multi-tenant: clinic B cannot read clinic A's invoice.
+        - working: true
+          agent: "testing"
+          comment: |
+            ✅ All 12 tests passed. GET /invoices returns array with patient_name joined and summary (collected/pending/total). Filters working: status=paid returns only paid invoices, date range (from/to) filters correctly, search query (?q=Suresh) returns matching results. GET /invoices/:id returns full detail with all joined fields (items, patient, visit, doctor_name, clinic). PUT /invoices/:id updates payment_status correctly (verified change from 'paid' to 'pending'). **CRITICAL MULTI-TENANT ISOLATION VERIFIED**: Clinic B cannot see Clinic A's invoices (empty list), GET /invoices/:id returns 404 for Clinic A's invoice. All endpoints working correctly.
+
+  - task: "Phase 3: Clinic update + slug change"
+    implemented: true
+    working: true
+    file: "/app/app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: |
+            PUT /api/clinic {name?, phone?, address?, city?, gstin?, logo_url?, working_hours?, slug?}
+            On slug change: slugify + check uniqueness (returns 400 if slug taken by another clinic).
+            All updates scoped to caller's clinic_id.
+        - working: true
+          agent: "testing"
+          comment: |
+            ✅ All 4 tests passed. PUT /clinic updates name and phone correctly (verified via GET /auth/me: name='Clinic Alpha Updated', phone='9000099999'). PUT /clinic updates slug correctly (verified new slug='alpha-updated-1234'). Slug uniqueness enforced: attempting to set Clinic A's slug to Clinic B's slug correctly rejected with 400 ('Slug already in use'). All updates scoped to caller's clinic_id.
+
+  - task: "Phase 3: Public booking endpoints (NO auth)"
+    implemented: true
+    working: true
+    file: "/app/app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: |
+            GET /api/public/clinic/:slug — returns { clinic, doctors[] }; 404 for non-existent slug.
+            GET /api/public/clinic/:slug/slots?date=&doctor_id= — returns { slots: [{time, taken}] }.
+              Slots are generated from clinic.working_hours for the day-of-week of the date.
+              Days where the clinic is closed return empty slots.
+              Slots already booked (status not in cancelled/no_show) are flagged taken=true.
+            POST /api/public/clinic/:slug/book {name, phone, reason, doctor_id?, appointment_date, appointment_time}
+              Validates phone (10 digits), rate-limits to 3 bookings per phone per day per clinic (429),
+              re-checks slot conflict (409), creates appointment with patient_id=null + patient_name_temp/phone_temp,
+              status=scheduled, booked_via='online'.
+              Returns { ok, id, doctor_name, clinic_name, clinic_phone, clinic_city }.
+            CRITICAL: These endpoints must work WITHOUT authentication (no JWT cookie).
+            Test that bookings created here ARE visible from the clinic owner's authenticated GET /api/appointments.
+        - working: true
+          agent: "testing"
+          comment: |
+            ✅ All 11 tests passed. Public endpoints working WITHOUT authentication (unauthenticated requests.Session used). GET /public/clinic/:slug returns clinic + doctors. GET /public/clinic/nonexistent returns 404. GET /public/clinic/:slug/slots?date=2026-05-11 (Monday) returns 16 slots (10:00 AM to 05:30 PM) with correct format (time, taken). GET /public/clinic/:slug/slots?date=2026-05-10 (Sunday, closed) returns empty array. POST /public/clinic/:slug/book creates booking successfully. Rate limiting working: 3 bookings with same phone succeed, 4th rejected with 429 ('Too many bookings'). Slot conflict detection: booking same time with different phone rejected with 409 ('Slot already booked'). Phone validation: invalid phone (12345) rejected with 400. Public bookings visible in authenticated GET /appointments (3 online bookings found with booked_via='online', patient_name from patient_name_temp). All endpoints working correctly.
+
 frontend:
   - task: "Login / Signup / Onboarding / Dashboard / Patients / Appointments UI"
     implemented: true
@@ -286,11 +401,16 @@ frontend:
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 3
+  test_sequence: 4
   run_ui: false
 
 test_plan:
-  current_focus: []
+  current_focus:
+    - "Phase 3: Doctors / Team / Treatment Templates"
+    - "Phase 3: Visits with invoice creation"
+    - "Phase 3: Invoices CRUD with summary"
+    - "Phase 3: Clinic update + slug change"
+    - "Phase 3: Public booking endpoints (NO auth)"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -389,3 +509,67 @@ agent_communication:
         
         **NO CRITICAL ISSUES FOUND. All backend APIs production-ready.**
         Test file: /app/backend_test.py (extended with Phase 2 tests, can be re-run anytime)
+
+    - agent: "main"
+      message: |
+        PHASE 3 backend additions ready for testing. Focus on:
+        1. /api/doctors + /api/team — GET /doctors returns only active doctors. POST /team creates team members (admin only). PUT /team/:id updates role/is_active.
+        2. /api/treatment_templates — Full CRUD (GET/POST/PUT/DELETE) for treatment templates.
+        3. /api/visits/:id PUT now creates/updates invoices inline with invoice_items, discount, gst_enabled. Computes subtotal, gst, total. Generates invoice_number. Filters empty descriptions. Replaces items on subsequent PUT.
+        4. /api/invoices — GET with filters (status, date range, search). Returns summary (collected/pending/total). GET /:id returns full detail. PUT /:id updates payment_status.
+        5. /api/clinic PUT — Updates clinic info including slug (with uniqueness check).
+        6. /api/public/clinic/:slug endpoints (NO AUTH) — GET clinic info, GET slots, POST book. Rate limiting (3 per phone per day), slot conflict detection, phone validation.
+        Test file: /app/backend_test_phase3.py
+        Verify multi-tenant isolation on all new endpoints.
+    - agent: "testing"
+      message: |
+        ✅ PHASE 3 BACKEND TESTING COMPLETE - ALL 68 TESTS PASSED (100% success rate)
+        
+        Comprehensive Phase 3 testing completed on all 5 new backend tasks:
+        
+        **PHASE 3 NEW FEATURES (68 tests):**
+        1. Doctors / Team / Treatment Templates (14/14) ✅
+           - GET /doctors returns only active doctors with role=doctor
+           - POST /team creates team members with duplicate email validation (400)
+           - GET /team returns all clinic members
+           - PUT /team/:id updates is_active and role correctly
+           - Inactive doctors excluded from GET /doctors
+           - Treatment templates CRUD: POST creates, GET lists, PUT updates, DELETE removes
+           - **CRITICAL MULTI-TENANT ISOLATION:** Clinic B cannot see Clinic A's templates
+        
+        2. Visits with Invoice Creation (13/13) ✅ **CRITICAL**
+           - Full invoice creation flow verified
+           - PUT /visits/:id with invoice_items creates invoice with correct calculations:
+             * Items filtered (2 valid, 1 empty removed)
+             * subtotal=1800, discount=200, gst_amount=288, total_amount=1888
+           - Invoice number format correct: INV-CAD-00001 (matches /^INV-[A-Z]{1,3}-\d{5}$/)
+           - Appointment status='completed', patient.total_visits=1
+           - PUT again with different items REPLACES items correctly
+        
+        3. Invoices CRUD with Summary (12/12) ✅
+           - GET /invoices returns array with patient_name joined and summary (collected/pending/total)
+           - Filters working: status=paid, date range (from/to), search query (?q=)
+           - GET /invoices/:id returns full detail with all joined fields (items, patient, visit, doctor_name, clinic)
+           - PUT /invoices/:id updates payment_status correctly
+           - **CRITICAL MULTI-TENANT ISOLATION:** Clinic B cannot see Clinic A's invoices, GET /:id returns 404
+        
+        4. Clinic Update + Slug Change (4/4) ✅
+           - PUT /clinic updates name and phone correctly
+           - PUT /clinic updates slug correctly
+           - Slug uniqueness enforced: duplicate slug rejected with 400 ('Slug already in use')
+        
+        5. Public Booking Endpoints (11/11) ✅ **CRITICAL**
+           - Public endpoints working WITHOUT authentication (unauthenticated requests.Session used)
+           - GET /public/clinic/:slug returns clinic + doctors
+           - GET /public/clinic/nonexistent returns 404
+           - GET /public/clinic/:slug/slots?date= returns slots based on working_hours
+             * Monday (open): 16 slots (10:00 AM to 05:30 PM)
+             * Sunday (closed): empty array
+           - POST /public/clinic/:slug/book creates booking successfully
+           - Rate limiting: 3 bookings with same phone succeed, 4th rejected with 429
+           - Slot conflict detection: duplicate time rejected with 409
+           - Phone validation: invalid phone rejected with 400
+           - Public bookings visible in authenticated GET /appointments (booked_via='online')
+        
+        **NO CRITICAL ISSUES FOUND. All Phase 3 backend APIs production-ready.**
+        Test file: /app/backend_test_phase3.py (can be re-run anytime)

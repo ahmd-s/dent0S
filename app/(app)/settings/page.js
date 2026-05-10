@@ -1,18 +1,192 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { Loader2, Plus, Copy, ExternalLink, Trash2, Edit2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Card } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Switch } from '@/components/ui/switch'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { toast } from 'sonner'
+
+const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+const TIMES = (() => { const arr = []; for (let h=6; h<=22; h++) for (let m=0;m<60;m+=30) { const hh=h%12===0?12:h%12, ap=h<12?'AM':'PM'; arr.push(`${String(hh).padStart(2,'0')}:${String(m).padStart(2,'0')} ${ap}`) } return arr })()
+
 function App() {
   const [me, setMe] = useState(null)
   useEffect(() => { fetch('/api/auth/me').then(r=>r.json()).then(setMe) }, [])
-  return <div className="max-w-3xl mx-auto">
-    <Card className="p-6 bg-white border-border rounded-lg">
-      <h3 className="font-semibold mb-4">Clinic</h3>
-      {me?.clinic && <dl className="grid grid-cols-2 gap-y-3 gap-x-6 text-sm">
-        {[['Name',me.clinic.name],['Slug',me.clinic.slug],['City',me.clinic.city],['Phone',me.clinic.phone],['Address',me.clinic.address],['GSTIN',me.clinic.gstin||'—'],['Plan',me.clinic.subscription_plan]].map(([k,v])=>(
-          <div key={k}><dt className="text-muted-foreground text-xs">{k}</dt><dd className="font-medium text-[#0F172A]">{v||'—'}</dd></div>
-        ))}
-      </dl>}
-    </Card>
-  </div>
+  return (
+    <div className="max-w-4xl mx-auto">
+      <Tabs defaultValue="clinic">
+        <TabsList className="bg-[#F8FAFC]"><TabsTrigger value="clinic">Clinic Profile</TabsTrigger><TabsTrigger value="team">Team</TabsTrigger></TabsList>
+        <TabsContent value="clinic" className="mt-4 space-y-5"><ClinicTab me={me} reload={()=>fetch('/api/auth/me').then(r=>r.json()).then(setMe)}/></TabsContent>
+        <TabsContent value="team" className="mt-4"><TeamTab/></TabsContent>
+      </Tabs>
+    </div>
+  )
 }
+
+function ClinicTab({ me, reload }) {
+  const [c, setC] = useState(null)
+  const [hours, setHours] = useState(DAYS.map(d => ({ day:d, open: d!=='Sun', start:'10:00 AM', end:'07:00 PM' })))
+  const [saving, setSaving] = useState(false)
+  const [templates, setTemplates] = useState([])
+  const [tplOpen, setTplOpen] = useState(false)
+  const [tpl, setTpl] = useState({ id:null, name:'', category:'', default_notes:'', default_price:'' })
+
+  useEffect(() => { if (me?.clinic) { setC(me.clinic); if (Array.isArray(me.clinic.working_hours) && me.clinic.working_hours.length) setHours(me.clinic.working_hours) } }, [me])
+  useEffect(() => { fetch('/api/treatment_templates').then(r=>r.json()).then(d=>setTemplates(d.templates||[])) }, [])
+
+  if (!c) return <Loader2 className="w-6 h-6 animate-spin text-[#0D9488]"/>
+
+  const save = async () => {
+    setSaving(true)
+    const r = await fetch('/api/clinic', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name: c.name, phone: c.phone, address: c.address, city: c.city, gstin: c.gstin, logo_url: c.logo_url, working_hours: hours }) })
+    setSaving(false)
+    if (r.ok) { toast.success('Saved'); reload() } else toast.error('Failed')
+  }
+  const updateSlug = async () => {
+    const r = await fetch('/api/clinic', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ slug: c.slug }) })
+    const d = await r.json()
+    if (r.ok) { toast.success('Slug updated'); reload() } else toast.error(d.error||'Failed')
+  }
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
+  const bookingLink = `${baseUrl}/book/${c.slug}`
+
+  const saveTpl = async () => {
+    const url = tpl.id ? `/api/treatment_templates/${tpl.id}` : '/api/treatment_templates'
+    const r = await fetch(url, { method: tpl.id?'PUT':'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(tpl) })
+    if (r.ok) { toast.success('Saved'); setTplOpen(false); fetch('/api/treatment_templates').then(r=>r.json()).then(d=>setTemplates(d.templates||[])) } else toast.error('Failed')
+  }
+  const deleteTpl = async id => {
+    if (!confirm('Delete template?')) return
+    const r = await fetch(`/api/treatment_templates/${id}`, { method:'DELETE' })
+    if (r.ok) { toast.success('Deleted'); setTemplates(p => p.filter(t => t.id !== id)) }
+  }
+
+  return (
+    <>
+      <Card className="p-6 bg-white border-border rounded-lg">
+        <h3 className="font-semibold mb-4">Clinic Profile</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5 col-span-2"><Label>Clinic Name</Label><Input value={c.name||''} onChange={e=>setC({...c,name:e.target.value})}/></div>
+          <div className="space-y-1.5"><Label>Phone</Label><Input value={c.phone||''} onChange={e=>setC({...c,phone:e.target.value})}/></div>
+          <div className="space-y-1.5"><Label>City</Label><Input value={c.city||''} onChange={e=>setC({...c,city:e.target.value})}/></div>
+          <div className="space-y-1.5 col-span-2"><Label>Address</Label><Textarea rows={2} value={c.address||''} onChange={e=>setC({...c,address:e.target.value})}/></div>
+          <div className="space-y-1.5"><Label>GSTIN</Label><Input value={c.gstin||''} onChange={e=>setC({...c,gstin:e.target.value})}/></div>
+          <div className="space-y-1.5"><Label>Logo URL</Label><Input value={c.logo_url||''} onChange={e=>setC({...c,logo_url:e.target.value})} placeholder="https://…"/></div>
+        </div>
+        <h4 className="font-medium mt-6 mb-3">Working Hours</h4>
+        {hours.map((h,i) => (
+          <div key={h.day} className="flex items-center gap-4 py-2 border-b border-border last:border-0">
+            <div className="w-12 font-medium text-sm">{h.day}</div>
+            <div className="flex items-center gap-2 w-28"><Switch checked={h.open} onCheckedChange={v=>setHours(p=>p.map((x,j)=>j===i?{...x,open:v}:x))}/><span className="text-sm text-muted-foreground">{h.open?'Open':'Closed'}</span></div>
+            <div className="flex-1 grid grid-cols-2 gap-2">
+              <Select value={h.start} disabled={!h.open} onValueChange={v=>setHours(p=>p.map((x,j)=>j===i?{...x,start:v}:x))}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{TIMES.map(t=><SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select>
+              <Select value={h.end} disabled={!h.open} onValueChange={v=>setHours(p=>p.map((x,j)=>j===i?{...x,end:v}:x))}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{TIMES.map(t=><SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select>
+            </div>
+          </div>
+        ))}
+        <div className="mt-4 flex justify-end"><Button onClick={save} disabled={saving} className="bg-[#0D9488] hover:bg-[#0B7E73]">{saving?<Loader2 className="w-4 h-4 animate-spin"/>:'Save Changes'}</Button></div>
+      </Card>
+
+      <Card className="p-6 bg-white border-border rounded-lg mt-5">
+        <h3 className="font-semibold mb-1">Public Booking Page</h3>
+        <p className="text-sm text-muted-foreground mb-3">Share this link with patients to let them book online.</p>
+        <div className="flex items-center gap-2 p-3 bg-[#F8FAFC] rounded-md border border-border">
+          <span className="flex-1 font-mono text-sm break-all">{bookingLink}</span>
+          <button onClick={()=>{navigator.clipboard.writeText(bookingLink); toast.success('Copied')}} className="px-2 py-1 hover:bg-white rounded"><Copy className="w-4 h-4 text-muted-foreground"/></button>
+          <a href={bookingLink} target="_blank" rel="noreferrer" className="px-2 py-1 hover:bg-white rounded"><ExternalLink className="w-4 h-4 text-muted-foreground"/></a>
+        </div>
+        <div className="mt-3 flex items-center gap-2">
+          <Input value={c.slug} onChange={e=>setC({...c,slug:e.target.value})} className="font-mono text-sm" placeholder="clinic-slug"/>
+          <Button variant="outline" size="sm" onClick={updateSlug}>Update Slug</Button>
+        </div>
+        <p className="text-xs text-orange-600 mt-2">⚠️ Changing this will break existing shared links</p>
+      </Card>
+
+      <Card className="p-6 bg-white border-border rounded-lg mt-5">
+        <div className="flex items-center justify-between mb-3"><h3 className="font-semibold">Treatment Templates</h3><Button size="sm" onClick={()=>{setTpl({id:null,name:'',category:'',default_notes:'',default_price:''}); setTplOpen(true)}}><Plus className="w-4 h-4 mr-1"/>Add Template</Button></div>
+        {templates.length === 0 && <div className="text-sm text-muted-foreground py-2">No templates yet. Add common treatments to apply them quickly during visits.</div>}
+        {templates.map(t => (
+          <div key={t.id} className="flex items-center gap-3 py-3 border-b border-border last:border-0">
+            <div className="flex-1"><div className="font-medium">{t.name}</div><div className="text-xs text-muted-foreground">{t.category||'—'} · {t.default_notes?.slice(0,80)||'No notes'}</div></div>
+            <div className="text-sm font-medium">₹{t.default_price?.toLocaleString('en-IN')||0}</div>
+            <button onClick={()=>{setTpl({...t, default_price: String(t.default_price||'')}); setTplOpen(true)}} className="p-1.5 hover:bg-muted rounded"><Edit2 className="w-4 h-4 text-muted-foreground"/></button>
+            <button onClick={()=>deleteTpl(t.id)} className="p-1.5 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4 text-red-500"/></button>
+          </div>
+        ))}
+      </Card>
+
+      <Dialog open={tplOpen} onOpenChange={setTplOpen}>
+        <DialogContent className="max-w-md"><DialogHeader><DialogTitle>{tpl.id?'Edit Template':'Add Template'}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5"><Label>Name</Label><Input value={tpl.name} onChange={e=>setTpl({...tpl,name:e.target.value})} placeholder="e.g. Composite filling"/></div>
+            <div className="space-y-1.5"><Label>Category</Label><Input value={tpl.category} onChange={e=>setTpl({...tpl,category:e.target.value})} placeholder="e.g. Restorative"/></div>
+            <div className="space-y-1.5"><Label>Default Notes</Label><Textarea rows={3} value={tpl.default_notes} onChange={e=>setTpl({...tpl,default_notes:e.target.value})} placeholder="Standard treatment description…"/></div>
+            <div className="space-y-1.5"><Label>Default Price (₹)</Label><Input type="number" value={tpl.default_price} onChange={e=>setTpl({...tpl,default_price:e.target.value})}/></div>
+            <div className="flex justify-end gap-2"><Button variant="outline" onClick={()=>setTplOpen(false)}>Cancel</Button><Button onClick={saveTpl} className="bg-[#0D9488] hover:bg-[#0B7E73]">Save</Button></div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+
+function TeamTab() {
+  const [team, setTeam] = useState([])
+  const [open, setOpen] = useState(false)
+  const [f, setF] = useState({ full_name:'', email:'', role:'doctor', password:'' })
+  const load = () => fetch('/api/team').then(r=>r.json()).then(d=>setTeam(d.team||[]))
+  useEffect(() => { load() }, [])
+  const invite = async () => {
+    const r = await fetch('/api/team', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(f) })
+    const d = await r.json()
+    if (r.ok) { toast.success('Team member added'); setOpen(false); setF({full_name:'',email:'',role:'doctor',password:''}); load() } else toast.error(d.error||'Failed')
+  }
+  const toggleActive = async (m) => {
+    const r = await fetch(`/api/team/${m.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ is_active: !m.is_active }) })
+    if (r.ok) { toast.success('Updated'); load() }
+  }
+  const updateRole = async (m, role) => {
+    const r = await fetch(`/api/team/${m.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ role }) })
+    if (r.ok) { toast.success('Role updated'); load() }
+  }
+  return (
+    <Card className="p-6 bg-white border-border rounded-lg">
+      <div className="flex items-center justify-between mb-3"><h3 className="font-semibold">Team Members ({team.length})</h3><Button size="sm" onClick={()=>setOpen(true)} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>Invite</Button></div>
+      <table className="w-full text-sm">
+        <thead className="text-xs uppercase text-muted-foreground tracking-wider border-b border-border">
+          <tr><th className="text-left py-2 font-medium">Name</th><th className="text-left font-medium">Email</th><th className="text-left font-medium">Role</th><th className="text-left font-medium">Status</th><th className="text-right font-medium">Actions</th></tr>
+        </thead>
+        <tbody>
+          {team.map(m => (
+            <tr key={m.id} className="border-b border-border last:border-0">
+              <td className="py-3 font-medium">{m.full_name}</td>
+              <td className="py-3 text-muted-foreground">{m.email}</td>
+              <td className="py-3"><Select value={m.role} onValueChange={v=>updateRole(m,v)}><SelectTrigger className="w-32 h-8"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="admin">Admin</SelectItem><SelectItem value="doctor">Doctor</SelectItem><SelectItem value="receptionist">Receptionist</SelectItem></SelectContent></Select></td>
+              <td className="py-3">{m.is_active?<span className="text-xs px-2 py-1 rounded-full bg-green-50 text-green-700">Active</span>:<span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">Inactive</span>}</td>
+              <td className="py-3 text-right"><Button size="sm" variant="outline" onClick={()=>toggleActive(m)} className="h-8">{m.is_active?'Deactivate':'Activate'}</Button></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-md"><DialogHeader><DialogTitle>Invite Team Member</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5"><Label>Full Name</Label><Input value={f.full_name} onChange={e=>setF({...f,full_name:e.target.value})}/></div>
+            <div className="space-y-1.5"><Label>Email</Label><Input type="email" value={f.email} onChange={e=>setF({...f,email:e.target.value})}/></div>
+            <div className="space-y-1.5"><Label>Role</Label><Select value={f.role} onValueChange={v=>setF({...f,role:v})}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="doctor">Doctor</SelectItem><SelectItem value="receptionist">Receptionist</SelectItem></SelectContent></Select></div>
+            <div className="space-y-1.5"><Label>Temporary Password</Label><Input type="password" value={f.password} onChange={e=>setF({...f,password:e.target.value})} placeholder="min 8 characters"/></div>
+            <Button onClick={invite} className="w-full bg-[#0D9488] hover:bg-[#0B7E73]">Add Member</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  )
+}
+
 export default App
