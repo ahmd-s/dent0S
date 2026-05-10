@@ -170,7 +170,72 @@ backend:
           agent: "testing"
           comment: "✅ All 5 appointments tests passed including CRITICAL multi-tenant isolation. POST /appointments creates appointment successfully. GET /appointments?date=2025-06-20 returns appointments with patient_name joined correctly ('Ramesh Kumar'). PUT /appointments/:id updates status to 'completed' and verified. **CRITICAL VERIFIED**: Clinic B cannot see Clinic A's appointments (empty list for same date). Multi-tenant isolation working perfectly."
 
-  - task: "Dashboard stats endpoint"
+  - task: "Dashboard stats endpoint (Phase 2 enriched shape)"
+    implemented: true
+    working: true
+    file: "/app/app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "Phase 1 stats verified (old shape with total_patients, monthly_revenue)."
+        - working: "NA"
+          agent: "main"
+          comment: |
+            Phase 2 RESHAPED. Now returns:
+              clinic_name, patients_seen_today (count of completed appointments today),
+              patients_seen_yesterday, revenue_today (sum of paid invoices with invoice_date=today),
+              pending_today (sum of pending+partial invoices today), followups_due_count,
+              today_queue (each item has patient_name, doctor_name, visit_id),
+              followups (max 5 patients with next_followup_date <= today, includes phone for WhatsApp).
+            Old fields total_patients / monthly_revenue / today_appointments / today_list / recent_patients
+            are REMOVED. Confirm new shape and that today_queue items include doctor_name + visit_id when
+            a visit has been started for an appointment.
+        - working: true
+          agent: "testing"
+          comment: "✅ Phase 2 dashboard stats (10/10 tests passed). All NEW fields present with correct types: clinic_name (string), patients_seen_today (int), patients_seen_yesterday (int), revenue_today (number), pending_today (number), followups_due_count (int), today_queue (array with patient_name, doctor_name, visit_id), followups (array). Old Phase 1 fields (total_patients, monthly_revenue, today_appointments, today_list, recent_patients, pending_invoices) correctly REMOVED. Initially all numerics are 0 and arrays empty. After visit completion, patients_seen_today correctly incremented to 1."
+
+  - task: "Visits CRUD with prescriptions + complete-visit side effects"
+    implemented: true
+    working: true
+    file: "/app/app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: |
+            New endpoints to test (auth required, multi-tenant):
+              POST /api/visits {patient_id, doctor_id?, appointment_id?, chief_complaint?}
+                  → creates visit. If appointment_id present, sets that appt.status='in_progress'.
+              GET  /api/visits?patient_id=ID → list visits for patient with doctor_name + prescriptions[] joined.
+              GET  /api/visits/:id           → returns {visit: {..., patient_name, doctor_name, prescriptions[]}}.
+              PUT  /api/visits/:id { ... fields, prescriptions[], complete? }
+                  → updates allowed fields; replaces prescriptions (filters out empty medicine_name);
+                  if complete=true: sets linked appt.status='completed', updates patient
+                  (last_visit_date=visit_date, next_followup_date if next_visit_recommended, $inc total_visits).
+            FLOW TEST:
+              1. Sign in as Clinic A (reuse from prior test or recreate).
+              2. Create patient + appointment for today.
+              3. POST /api/visits with appointment_id → expect 200, returns id.
+              4. Verify GET /api/appointments?date=today shows that appointment.status='in_progress'
+                 AND visit_id is set on that appointment.
+              5. PUT /api/visits/:id with chief_complaint, diagnosis, treatment_done,
+                 prescriptions=[{medicine_name:"Amoxicillin", dosage:"500mg", frequency:"TID", duration:"5 days"}],
+                 next_visit_recommended=true, next_visit_date="2025-07-15", complete=true → 200.
+              6. Verify: GET /api/appointments?date=today shows that appointment.status='completed';
+                 GET /api/patients/:id shows total_visits=1, last_visit_date set, next_followup_date="2025-07-15";
+                 GET /api/visits/:id shows prescriptions[] with the Amoxicillin entry.
+              7. MULTI-TENANT: Clinic B GET /api/visits/:id (Clinic A visit) → expect 404.
+                                Clinic B GET /api/visits?patient_id=<ClinicA_patient> → expect 200 with visits=[].
+        - working: true
+          agent: "testing"
+          comment: "✅ Visits full flow (26/26 tests passed). CRITICAL flow verified: (1) Created patient P1 and appointment A1 for today (2026-05-10). (2) POST /visits created visit V1 with appointment_id. (3) Appointment status changed to 'in_progress' and visit_id set correctly. (4) GET /visits/:id returns visit with patient_name='Vikram Singh', doctor_name='Dr. Rajesh Kumar', prescriptions=[]. (5) GET /visits?patient_id returns 1 visit. (6) PUT /visits/:id with complete=true, diagnosis='Acute pulpitis #46', treatment_done='Pulpotomy + temp filling', prescriptions (3 items, 1 with empty medicine_name) → 200. (7) ALL SIDE EFFECTS VERIFIED: prescriptions filtered to 2 (empty removed), appointment status='completed', patient total_visits=1, last_visit_date=2026-05-10, next_followup_date=2026-06-01, dashboard patients_seen_today=1, patient now appears in filter=week. (8) CRITICAL MULTI-TENANT ISOLATION: Clinic B GET /visits/:id returns 404, GET /visits?patient_id returns empty array. All side effects firing correctly."
+
+  - task: "Appointments enriched with doctor_name + visit_id, patient_id filter"
     implemented: true
     working: true
     file: "/app/app/api/[[...path]]/route.js"
@@ -180,10 +245,30 @@ backend:
     status_history:
         - working: "NA"
           agent: "main"
-          comment: "GET /api/dashboard/stats returns today_appointments, total_patients, monthly_revenue (from paid invoices), pending_invoices, today_list (with patient names), recent_patients (5)."
+          comment: "GET /api/appointments now joins doctor profile (doctor_name) and links visit_id from visits collection where appointment_id matches. Also supports ?patient_id=ID query for the patient profile page (no date filter required when patient_id given). Verify both query modes."
         - working: true
           agent: "testing"
-          comment: "✅ All 7 dashboard stats tests passed. GET /api/dashboard/stats returns all required fields: total_patients (integer ≥1), today_appointments (integer), today_list (array), recent_patients (array), monthly_revenue (number), pending_invoices (integer). All data types correct and values match expected ranges."
+          comment: "✅ Appointments enriched (4/4 tests passed). GET /appointments?date=today returns appointments with doctor_name='Dr. Rajesh Kumar' and visit_id field present (value: visit UUID when visit exists, null when no visit). GET /appointments?patient_id=ID works without date filter and returns all appointments for that patient (verified 1 appointment found, all belong to specified patient). Both query modes working correctly."
+
+  - task: "Patient filters (week/month/inactive) + auto patient_code format"
+    implemented: true
+    working: true
+    file: "/app/app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "low"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: |
+            GET /api/patients?filter=week (last_visit_date in last 7 days), month (last 30 days),
+            or inactive (no visit OR last_visit_date older than 3 months). POST /api/patients now
+            generates patient_code as 'PT' + 5-digit zero-padded number from clinic count, e.g. "PT00001".
+            Verify: filter=inactive returns the freshly-created patient with no visits;
+            filter=week initially empty until visit completion bumps last_visit_date.
+        - working: true
+          agent: "testing"
+          comment: "✅ Patient filters + patient_code (6/6 tests passed). Created fresh patient 'Anjali Reddy' with no visits. patient_code format verified: 'PT00002' matches regex /^PT\\d{5}$/. filter=inactive returns array (length: 2) and correctly INCLUDES fresh patient with no visits. filter=week returns array (length: 0) and correctly EXCLUDES fresh patient with no visits. filter=month returns array (works correctly). After visit completion in Test 7, patient P1 correctly appears in filter=week (has recent visit). All filters working as expected."
 
 frontend:
   - task: "Login / Signup / Onboarding / Dashboard / Patients / Appointments UI"
@@ -201,7 +286,7 @@ frontend:
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 2
+  test_sequence: 3
   run_ui: false
 
 test_plan:
@@ -241,6 +326,66 @@ agent_communication:
         - Clinic B gets 404 when accessing Clinic A's patient by ID
         - Clinic B cannot see Clinic A's appointments (empty list)
         - All queries properly filtered by clinic_id from JWT token
+    - agent: "main"
+      message: |
+        PHASE 2 backend additions ready for regression testing. Focus on:
+        1. /api/dashboard/stats — RESHAPED. Expect: clinic_name, patients_seen_today,
+           patients_seen_yesterday, revenue_today, pending_today, followups_due_count,
+           today_queue (with patient_name, doctor_name, visit_id), followups (max 5).
+           Old fields total_patients/monthly_revenue/today_appointments/today_list
+           /recent_patients/pending_invoices are REMOVED — adjust assertions.
+        2. NEW /api/visits endpoints — POST creates visit + flips appointment to in_progress;
+           PUT with complete=true closes appointment, bumps patient.total_visits, sets
+           last_visit_date + next_followup_date. Replace prescriptions on each PUT.
+           Verify multi-tenant: clinic B cannot read clinic A visits.
+        3. /api/appointments now joins doctor_name + visit_id and supports ?patient_id=
+           query (no date required when patient_id given).
+        4. /api/patients filter=week|month|inactive + patient_code format 'PT00001'.
+        Reuse /app/backend_test.py and extend.
         
         All backend APIs are production-ready. No critical issues found.
         Test file: /app/backend_test.py (can be re-run anytime)
+    - agent: "testing"
+      message: |
+        ✅ PHASE 2 BACKEND TESTING COMPLETE - ALL 74 TESTS PASSED (100% success rate)
+        
+        Comprehensive Phase 2 testing completed (includes Phase 1 regression + Phase 2 new features):
+        
+        **PHASE 1 REGRESSION (30 tests):**
+        1. Auth + Multi-tenant (9/9) ✅
+        2. Onboarding flow (6/6) ✅
+        3. Patients CRUD (10/10) ✅ - Multi-tenant isolation verified
+        4. Appointments CRUD (5/5) ✅ - Multi-tenant isolation verified
+        
+        **PHASE 2 NEW FEATURES (44 tests):**
+        5. Dashboard stats Phase 2 reshaped (10/10) ✅
+           - All NEW fields present: clinic_name, patients_seen_today, patients_seen_yesterday, 
+             revenue_today, pending_today, followups_due_count, today_queue, followups
+           - Old fields correctly REMOVED
+           - patients_seen_today correctly increments after visit completion
+        
+        6. Patient filters + patient_code (6/6) ✅
+           - patient_code format 'PT00002' verified (matches /^PT\d{5}$/)
+           - filter=inactive includes fresh patient with no visits
+           - filter=week excludes fresh patient, includes after visit completion
+           - filter=month works correctly
+        
+        7. Visits full flow (26/26) ✅ **CRITICAL**
+           - POST /visits creates visit, sets appointment status='in_progress', links visit_id
+           - GET /visits/:id returns visit with patient_name, doctor_name, prescriptions[]
+           - GET /visits?patient_id returns patient's visits
+           - PUT /visits/:id with complete=true triggers ALL side effects:
+             * Prescriptions filtered (empty medicine_name removed: 3→2)
+             * Appointment status changed to 'completed'
+             * Patient stats updated: total_visits=1, last_visit_date=today, next_followup_date set
+             * Dashboard patients_seen_today incremented to 1
+             * Patient now appears in filter=week
+           - **CRITICAL MULTI-TENANT ISOLATION:** Clinic B gets 404 for Clinic A's visit,
+             empty array for patient visits query
+        
+        8. Appointments enriched (4/4) ✅
+           - GET /appointments?date=today includes doctor_name and visit_id
+           - GET /appointments?patient_id=ID works without date filter
+        
+        **NO CRITICAL ISSUES FOUND. All backend APIs production-ready.**
+        Test file: /app/backend_test.py (extended with Phase 2 tests, can be re-run anytime)

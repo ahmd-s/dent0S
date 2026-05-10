@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 const PUBLIC_PATHS = ['/login', '/signup']
-const AUTH_REQUIRED_PREFIXES = ['/dashboard', '/onboarding']
+const PROTECTED_PREFIXES = ['/dashboard', '/onboarding', '/patients', '/appointments', '/billing', '/settings', '/visits']
 
 export function middleware(req) {
   const { pathname } = req.nextUrl
@@ -13,12 +13,13 @@ export function middleware(req) {
     if (token) return NextResponse.redirect(new URL('/dashboard', req.url))
     return NextResponse.next()
   }
-  if (AUTH_REQUIRED_PREFIXES.some(p => pathname.startsWith(p))) {
+  if (PROTECTED_PREFIXES.some(p => pathname === p || pathname.startsWith(p + '/'))) {
     if (!token) return NextResponse.redirect(new URL('/login', req.url))
   }
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/onboarding', '/login', '/signup', '/book/:path*'],
+  matcher: ['/dashboard/:path*', '/onboarding', '/login', '/signup', '/book/:path*',
+    '/patients/:path*', '/appointments/:path*', '/billing/:path*', '/settings/:path*', '/visits/:path*']
 }

@@ -1,10 +1,8 @@
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
-
 function App() {
-  const user = getCurrentUser()
-  if (user) redirect('/dashboard')
+  const u = getCurrentUser()
+  if (u) redirect('/dashboard')
   redirect('/login')
 }
-
 export default App

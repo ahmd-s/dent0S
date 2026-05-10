@@ -1,16 +1,21 @@
 #!/usr/bin/env python3
 """
-DentOS Backend API Test Suite
+DentOS Backend API Test Suite - Phase 2
 Tests multi-tenant SaaS clinic management system with JWT cookie auth
+Includes Phase 2: Visits, enriched appointments, patient filters, reshaped dashboard
 """
 
 import requests
 import json
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 # Base URL from .env
 BASE_URL = "https://dental-os-3.preview.emergentagent.com/api"
+
+# CRITICAL: Use date.today().isoformat() for "today" (env date is 2026-05-10)
+def today_iso():
+    return date.today().isoformat()
 
 # Test data
 CLINIC_A_DATA = {
@@ -554,61 +559,600 @@ def test_appointments_multi_tenant(session_a, session_b, patient_id_a):
         results.add_fail("GET /appointments Clinic B", str(e))
 
 # ============================================================================
-# TEST 5: DASHBOARD STATS
+# TEST 5: DASHBOARD STATS (PHASE 2 RESHAPED)
 # ============================================================================
 
-def test_dashboard_stats(session_a):
-    print_test("5. DASHBOARD STATS")
+def test_dashboard_stats_phase2(session_a):
+    print_test("5. DASHBOARD STATS (PHASE 2 RESHAPED)")
     
-    print_info("5.1 Testing GET /dashboard/stats for Clinic A...")
+    print_info("5.1 Testing GET /dashboard/stats for Clinic A (new shape)...")
     try:
         resp = session_a.get(f"{BASE_URL}/dashboard/stats")
         if resp.status_code == 200:
             data = resp.json()
             
-            # Check all required fields
-            required_fields = ['total_patients', 'today_appointments', 'today_list', 'recent_patients', 'monthly_revenue', 'pending_invoices']
+            # Check NEW required fields (old fields removed)
+            required_fields = ['clinic_name', 'patients_seen_today', 'patients_seen_yesterday', 
+                             'revenue_today', 'pending_today', 'followups_due_count', 
+                             'today_queue', 'followups']
             missing = [f for f in required_fields if f not in data]
             
             if not missing:
-                results.add_pass("Dashboard stats contains all required fields")
+                results.add_pass("Dashboard stats contains all NEW Phase 2 fields")
                 
                 # Verify data types
-                if isinstance(data['total_patients'], int) and data['total_patients'] >= 1:
-                    results.add_pass(f"total_patients is integer >= 1 (value: {data['total_patients']})")
+                if isinstance(data['clinic_name'], str):
+                    results.add_pass(f"clinic_name is string (value: {data['clinic_name']})")
                 else:
-                    results.add_fail("Dashboard stats", f"total_patients should be int >= 1, got {data['total_patients']}")
+                    results.add_fail("Dashboard stats", f"clinic_name should be string, got {type(data['clinic_name'])}")
                 
-                if isinstance(data['today_appointments'], int):
-                    results.add_pass(f"today_appointments is integer (value: {data['today_appointments']})")
+                if isinstance(data['patients_seen_today'], int):
+                    results.add_pass(f"patients_seen_today is int (value: {data['patients_seen_today']})")
                 else:
-                    results.add_fail("Dashboard stats", f"today_appointments should be int, got {data['today_appointments']}")
+                    results.add_fail("Dashboard stats", f"patients_seen_today should be int, got {type(data['patients_seen_today'])}")
                 
-                if isinstance(data['today_list'], list):
-                    results.add_pass(f"today_list is array (length: {len(data['today_list'])})")
+                if isinstance(data['patients_seen_yesterday'], int):
+                    results.add_pass(f"patients_seen_yesterday is int (value: {data['patients_seen_yesterday']})")
                 else:
-                    results.add_fail("Dashboard stats", f"today_list should be array, got {type(data['today_list'])}")
+                    results.add_fail("Dashboard stats", f"patients_seen_yesterday should be int, got {type(data['patients_seen_yesterday'])}")
                 
-                if isinstance(data['recent_patients'], list):
-                    results.add_pass(f"recent_patients is array (length: {len(data['recent_patients'])})")
+                if isinstance(data['revenue_today'], (int, float)):
+                    results.add_pass(f"revenue_today is number (value: {data['revenue_today']})")
                 else:
-                    results.add_fail("Dashboard stats", f"recent_patients should be array, got {type(data['recent_patients'])}")
+                    results.add_fail("Dashboard stats", f"revenue_today should be number, got {type(data['revenue_today'])}")
                 
-                if isinstance(data['monthly_revenue'], (int, float)):
-                    results.add_pass(f"monthly_revenue is number (value: {data['monthly_revenue']})")
+                if isinstance(data['pending_today'], (int, float)):
+                    results.add_pass(f"pending_today is number (value: {data['pending_today']})")
                 else:
-                    results.add_fail("Dashboard stats", f"monthly_revenue should be number, got {type(data['monthly_revenue'])}")
+                    results.add_fail("Dashboard stats", f"pending_today should be number, got {type(data['pending_today'])}")
                 
-                if isinstance(data['pending_invoices'], int):
-                    results.add_pass(f"pending_invoices is integer (value: {data['pending_invoices']})")
+                if isinstance(data['followups_due_count'], int):
+                    results.add_pass(f"followups_due_count is int (value: {data['followups_due_count']})")
                 else:
-                    results.add_fail("Dashboard stats", f"pending_invoices should be int, got {type(data['pending_invoices'])}")
+                    results.add_fail("Dashboard stats", f"followups_due_count should be int, got {type(data['followups_due_count'])}")
+                
+                if isinstance(data['today_queue'], list):
+                    results.add_pass(f"today_queue is array (length: {len(data['today_queue'])})")
+                    # Check if items have required fields
+                    if len(data['today_queue']) > 0:
+                        item = data['today_queue'][0]
+                        if 'patient_name' in item and 'doctor_name' in item and 'visit_id' in item:
+                            results.add_pass("today_queue items have patient_name, doctor_name, visit_id")
+                        else:
+                            results.add_fail("Dashboard stats", f"today_queue items missing required fields: {item.keys()}")
+                else:
+                    results.add_fail("Dashboard stats", f"today_queue should be array, got {type(data['today_queue'])}")
+                
+                if isinstance(data['followups'], list):
+                    results.add_pass(f"followups is array (length: {len(data['followups'])})")
+                else:
+                    results.add_fail("Dashboard stats", f"followups should be array, got {type(data['followups'])}")
+                
+                # Verify OLD fields are REMOVED
+                old_fields = ['total_patients', 'monthly_revenue', 'today_appointments', 'today_list', 'recent_patients', 'pending_invoices']
+                present_old = [f for f in old_fields if f in data]
+                if not present_old:
+                    results.add_pass("Old Phase 1 fields correctly removed from dashboard stats")
+                else:
+                    results.add_fail("Dashboard stats", f"Old fields still present (should be removed): {present_old}")
             else:
-                results.add_fail("Dashboard stats", f"Missing fields: {missing}")
+                results.add_fail("Dashboard stats", f"Missing NEW fields: {missing}")
         else:
             results.add_fail("GET /dashboard/stats", f"Status {resp.status_code}: {resp.text}")
     except Exception as e:
         results.add_fail("GET /dashboard/stats", str(e))
+
+# ============================================================================
+# TEST 6: PATIENT FILTERS + PATIENT_CODE FORMAT (PHASE 2)
+# ============================================================================
+
+def test_patient_filters(session_a):
+    print_test("6. PATIENT FILTERS + PATIENT_CODE FORMAT (PHASE 2)")
+    
+    # Test 6.1: Create a fresh patient (no visits yet)
+    print_info("6.1 Creating fresh patient for filter testing...")
+    fresh_patient_id = None
+    try:
+        patient_data = {
+            "name": "Anjali Reddy",
+            "phone": "9123456789",
+            "age": 28,
+            "gender": "female"
+        }
+        resp = session_a.post(f"{BASE_URL}/patients", json=patient_data)
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get('ok') and data.get('id'):
+                fresh_patient_id = data['id']
+                results.add_pass(f"Fresh patient created (id: {fresh_patient_id})")
+            else:
+                results.add_fail("Create fresh patient", f"Missing ok or id: {data}")
+        else:
+            results.add_fail("Create fresh patient", f"Status {resp.status_code}: {resp.text}")
+    except Exception as e:
+        results.add_fail("Create fresh patient", str(e))
+    
+    # Test 6.2: Verify patient_code format (PT00001)
+    if fresh_patient_id:
+        print_info("6.2 Verifying patient_code format...")
+        try:
+            resp = session_a.get(f"{BASE_URL}/patients/{fresh_patient_id}")
+            if resp.status_code == 200:
+                data = resp.json()
+                patient_code = data.get('patient', {}).get('patient_code', '')
+                import re
+                if re.match(r'^PT\d{5}$', patient_code):
+                    results.add_pass(f"patient_code format correct: {patient_code}")
+                else:
+                    results.add_fail("patient_code format", f"Expected PT##### format, got: {patient_code}")
+            else:
+                results.add_fail("GET patient for code check", f"Status {resp.status_code}: {resp.text}")
+        except Exception as e:
+            results.add_fail("patient_code format check", str(e))
+    
+    # Test 6.3: filter=inactive (should INCLUDE fresh patient with no visits)
+    print_info("6.3 Testing GET /patients?filter=inactive...")
+    try:
+        resp = session_a.get(f"{BASE_URL}/patients?filter=inactive")
+        if resp.status_code == 200:
+            data = resp.json()
+            patients = data.get('patients', [])
+            if isinstance(patients, list):
+                results.add_pass(f"filter=inactive returns array (length: {len(patients)})")
+                # Check if fresh patient is included
+                if fresh_patient_id and any(p.get('id') == fresh_patient_id for p in patients):
+                    results.add_pass("Fresh patient (no visits) included in filter=inactive")
+                elif fresh_patient_id:
+                    results.add_fail("filter=inactive", "Fresh patient should be included but not found")
+            else:
+                results.add_fail("filter=inactive", f"Expected array, got {type(patients)}")
+        else:
+            results.add_fail("GET /patients?filter=inactive", f"Status {resp.status_code}: {resp.text}")
+    except Exception as e:
+        results.add_fail("GET /patients?filter=inactive", str(e))
+    
+    # Test 6.4: filter=week (should EXCLUDE fresh patient with no visits)
+    print_info("6.4 Testing GET /patients?filter=week...")
+    try:
+        resp = session_a.get(f"{BASE_URL}/patients?filter=week")
+        if resp.status_code == 200:
+            data = resp.json()
+            patients = data.get('patients', [])
+            if isinstance(patients, list):
+                results.add_pass(f"filter=week returns array (length: {len(patients)})")
+                # Check if fresh patient is excluded
+                if fresh_patient_id and not any(p.get('id') == fresh_patient_id for p in patients):
+                    results.add_pass("Fresh patient (no visits) correctly excluded from filter=week")
+                elif fresh_patient_id and any(p.get('id') == fresh_patient_id for p in patients):
+                    results.add_fail("filter=week", "Fresh patient should be excluded but found")
+            else:
+                results.add_fail("filter=week", f"Expected array, got {type(patients)}")
+        else:
+            results.add_fail("GET /patients?filter=week", f"Status {resp.status_code}: {resp.text}")
+    except Exception as e:
+        results.add_fail("GET /patients?filter=week", str(e))
+    
+    # Test 6.5: filter=month
+    print_info("6.5 Testing GET /patients?filter=month...")
+    try:
+        resp = session_a.get(f"{BASE_URL}/patients?filter=month")
+        if resp.status_code == 200:
+            data = resp.json()
+            patients = data.get('patients', [])
+            if isinstance(patients, list):
+                results.add_pass(f"filter=month returns array (length: {len(patients)})")
+            else:
+                results.add_fail("filter=month", f"Expected array, got {type(patients)}")
+        else:
+            results.add_fail("GET /patients?filter=month", f"Status {resp.status_code}: {resp.text}")
+    except Exception as e:
+        results.add_fail("GET /patients?filter=month", str(e))
+    
+    return fresh_patient_id
+
+# ============================================================================
+# TEST 7: VISITS FULL FLOW (CRITICAL PHASE 2)
+# ============================================================================
+
+def test_visits_full_flow(session_a, session_b):
+    print_test("7. VISITS FULL FLOW (CRITICAL PHASE 2)")
+    
+    today = today_iso()
+    print_info(f"Using today's date: {today}")
+    
+    # Test 7.1: Create patient P1
+    print_info("7.1 Creating patient P1...")
+    patient_id = None
+    try:
+        patient_data = {
+            "name": "Vikram Singh",
+            "phone": "9876543299",
+            "age": 42,
+            "gender": "male"
+        }
+        resp = session_a.post(f"{BASE_URL}/patients", json=patient_data)
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get('ok') and data.get('id'):
+                patient_id = data['id']
+                results.add_pass(f"Patient P1 created (id: {patient_id})")
+            else:
+                results.add_fail("Create patient P1", f"Missing ok or id: {data}")
+        else:
+            results.add_fail("Create patient P1", f"Status {resp.status_code}: {resp.text}")
+    except Exception as e:
+        results.add_fail("Create patient P1", str(e))
+    
+    if not patient_id:
+        print_fail("Cannot continue visits flow without patient_id")
+        return None
+    
+    # Test 7.2: Create appointment A1 for today
+    print_info("7.2 Creating appointment A1 for today...")
+    appointment_id = None
+    try:
+        appt_data = {
+            "patient_id": patient_id,
+            "appointment_date": today,
+            "appointment_time": "11:00 AM",
+            "appointment_type": "consultation",
+            "chief_complaint": "Toothache"
+        }
+        resp = session_a.post(f"{BASE_URL}/appointments", json=appt_data)
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get('ok') and data.get('id'):
+                appointment_id = data['id']
+                results.add_pass(f"Appointment A1 created for today (id: {appointment_id})")
+            else:
+                results.add_fail("Create appointment A1", f"Missing ok or id: {data}")
+        else:
+            results.add_fail("Create appointment A1", f"Status {resp.status_code}: {resp.text}")
+    except Exception as e:
+        results.add_fail("Create appointment A1", str(e))
+    
+    if not appointment_id:
+        print_fail("Cannot continue visits flow without appointment_id")
+        return None
+    
+    # Test 7.3: POST /api/visits to create visit V1
+    print_info("7.3 Creating visit V1 with appointment_id...")
+    visit_id = None
+    try:
+        visit_data = {
+            "appointment_id": appointment_id,
+            "patient_id": patient_id,
+            "chief_complaint": "Toothache"
+        }
+        resp = session_a.post(f"{BASE_URL}/visits", json=visit_data)
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get('ok') and data.get('id'):
+                visit_id = data['id']
+                results.add_pass(f"Visit V1 created (id: {visit_id})")
+            else:
+                results.add_fail("Create visit V1", f"Missing ok or id: {data}")
+        else:
+            results.add_fail("Create visit V1", f"Status {resp.status_code}: {resp.text}")
+    except Exception as e:
+        results.add_fail("Create visit V1", str(e))
+    
+    if not visit_id:
+        print_fail("Cannot continue visits flow without visit_id")
+        return None
+    
+    # Test 7.4: Verify appointment status changed to 'in_progress' and visit_id is set
+    print_info("7.4 Verifying appointment A1 status='in_progress' and visit_id set...")
+    try:
+        resp = session_a.get(f"{BASE_URL}/appointments?date={today}")
+        if resp.status_code == 200:
+            data = resp.json()
+            appointments = data.get('appointments', [])
+            appt = next((a for a in appointments if a.get('id') == appointment_id), None)
+            if appt:
+                if appt.get('status') == 'in_progress':
+                    results.add_pass("Appointment A1 status changed to 'in_progress'")
+                else:
+                    results.add_fail("Appointment status check", f"Expected 'in_progress', got '{appt.get('status')}'")
+                
+                if appt.get('visit_id') == visit_id:
+                    results.add_pass(f"Appointment A1 visit_id set to {visit_id}")
+                else:
+                    results.add_fail("Appointment visit_id check", f"Expected visit_id={visit_id}, got {appt.get('visit_id')}")
+            else:
+                results.add_fail("Appointment status check", f"Appointment {appointment_id} not found")
+        else:
+            results.add_fail("GET appointments for status check", f"Status {resp.status_code}: {resp.text}")
+    except Exception as e:
+        results.add_fail("Appointment status check", str(e))
+    
+    # Test 7.5: GET /api/visits/:id to verify visit details
+    print_info("7.5 Testing GET /api/visits/:id...")
+    try:
+        resp = session_a.get(f"{BASE_URL}/visits/{visit_id}")
+        if resp.status_code == 200:
+            data = resp.json()
+            visit = data.get('visit', {})
+            if visit.get('id') == visit_id:
+                results.add_pass("GET /visits/:id returns correct visit")
+                
+                # Check for patient_name, doctor_name, prescriptions
+                if 'patient_name' in visit and visit['patient_name']:
+                    results.add_pass(f"Visit has patient_name: {visit['patient_name']}")
+                else:
+                    results.add_fail("Visit patient_name", "patient_name missing or empty")
+                
+                if 'doctor_name' in visit:
+                    results.add_pass(f"Visit has doctor_name: {visit['doctor_name']}")
+                else:
+                    results.add_fail("Visit doctor_name", "doctor_name missing")
+                
+                if isinstance(visit.get('prescriptions'), list):
+                    results.add_pass(f"Visit has prescriptions array (length: {len(visit['prescriptions'])})")
+                else:
+                    results.add_fail("Visit prescriptions", f"Expected array, got {type(visit.get('prescriptions'))}")
+            else:
+                results.add_fail("GET /visits/:id", f"Expected visit id {visit_id}, got {visit.get('id')}")
+        else:
+            results.add_fail("GET /visits/:id", f"Status {resp.status_code}: {resp.text}")
+    except Exception as e:
+        results.add_fail("GET /visits/:id", str(e))
+    
+    # Test 7.6: GET /api/visits?patient_id=P1
+    print_info("7.6 Testing GET /api/visits?patient_id=P1...")
+    try:
+        resp = session_a.get(f"{BASE_URL}/visits?patient_id={patient_id}")
+        if resp.status_code == 200:
+            data = resp.json()
+            visits = data.get('visits', [])
+            if isinstance(visits, list) and len(visits) == 1:
+                results.add_pass(f"GET /visits?patient_id returns 1 visit")
+                if visits[0].get('id') == visit_id:
+                    results.add_pass("Visit V1 found in patient visits list")
+                else:
+                    results.add_fail("Patient visits list", f"Expected visit {visit_id}, got {visits[0].get('id')}")
+            else:
+                results.add_fail("GET /visits?patient_id", f"Expected 1 visit, got {len(visits)}")
+        else:
+            results.add_fail("GET /visits?patient_id", f"Status {resp.status_code}: {resp.text}")
+    except Exception as e:
+        results.add_fail("GET /visits?patient_id", str(e))
+    
+    # Test 7.7: PUT /api/visits/:id with complete=true and prescriptions
+    print_info("7.7 Testing PUT /api/visits/:id with complete=true...")
+    try:
+        update_data = {
+            "chief_complaint": "Toothache, lower-right molar",
+            "diagnosis": "Acute pulpitis #46",
+            "treatment_done": "Pulpotomy + temp filling",
+            "clinical_notes": "Cold test positive...",
+            "treatment_plan": "RCT next visit",
+            "next_visit_recommended": True,
+            "next_visit_date": "2026-06-01",
+            "prescriptions": [
+                {
+                    "medicine_name": "Amoxicillin",
+                    "dosage": "500mg",
+                    "frequency": "TID",
+                    "duration": "5 days",
+                    "instructions": "After food"
+                },
+                {
+                    "medicine_name": "Ibuprofen",
+                    "dosage": "400mg",
+                    "frequency": "BID",
+                    "duration": "3 days"
+                },
+                {
+                    "medicine_name": "",  # Empty medicine_name - should be filtered out
+                    "dosage": "ignore me"
+                }
+            ],
+            "complete": True
+        }
+        resp = session_a.put(f"{BASE_URL}/visits/{visit_id}", json=update_data)
+        if resp.status_code == 200 and resp.json().get('ok'):
+            results.add_pass("PUT /visits/:id with complete=true successful")
+        else:
+            results.add_fail("PUT /visits/:id", f"Status {resp.status_code}: {resp.text}")
+    except Exception as e:
+        results.add_fail("PUT /visits/:id", str(e))
+    
+    # Test 7.8: VERIFY SIDE EFFECTS
+    print_info("7.8 Verifying side effects of complete=true...")
+    
+    # 7.8a: GET /visits/:id - prescriptions should be 2 (empty one filtered)
+    print_info("7.8a Checking prescriptions filtered correctly...")
+    try:
+        resp = session_a.get(f"{BASE_URL}/visits/{visit_id}")
+        if resp.status_code == 200:
+            data = resp.json()
+            visit = data.get('visit', {})
+            prescriptions = visit.get('prescriptions', [])
+            if len(prescriptions) == 2:
+                results.add_pass("Prescriptions filtered correctly (2 valid, 1 empty removed)")
+                # Check if diagnosis and treatment fields are populated
+                if visit.get('diagnosis') == "Acute pulpitis #46":
+                    results.add_pass("Visit diagnosis updated correctly")
+                else:
+                    results.add_fail("Visit diagnosis", f"Expected 'Acute pulpitis #46', got '{visit.get('diagnosis')}'")
+                
+                if visit.get('treatment_done') == "Pulpotomy + temp filling":
+                    results.add_pass("Visit treatment_done updated correctly")
+                else:
+                    results.add_fail("Visit treatment_done", f"Expected 'Pulpotomy + temp filling', got '{visit.get('treatment_done')}'")
+            else:
+                results.add_fail("Prescriptions filtering", f"Expected 2 prescriptions, got {len(prescriptions)}")
+        else:
+            results.add_fail("GET /visits/:id for prescriptions check", f"Status {resp.status_code}: {resp.text}")
+    except Exception as e:
+        results.add_fail("Prescriptions check", str(e))
+    
+    # 7.8b: GET /appointments - status should be 'completed'
+    print_info("7.8b Checking appointment status changed to 'completed'...")
+    try:
+        resp = session_a.get(f"{BASE_URL}/appointments?date={today}")
+        if resp.status_code == 200:
+            data = resp.json()
+            appointments = data.get('appointments', [])
+            appt = next((a for a in appointments if a.get('id') == appointment_id), None)
+            if appt and appt.get('status') == 'completed':
+                results.add_pass("Appointment status changed to 'completed' after visit completion")
+            else:
+                results.add_fail("Appointment completion", f"Expected status='completed', got '{appt.get('status') if appt else 'not found'}'")
+        else:
+            results.add_fail("GET appointments for completion check", f"Status {resp.status_code}: {resp.text}")
+    except Exception as e:
+        results.add_fail("Appointment completion check", str(e))
+    
+    # 7.8c: GET /patients/:id - total_visits=1, last_visit_date=today, next_followup_date set
+    print_info("7.8c Checking patient stats updated...")
+    try:
+        resp = session_a.get(f"{BASE_URL}/patients/{patient_id}")
+        if resp.status_code == 200:
+            data = resp.json()
+            patient = data.get('patient', {})
+            
+            if patient.get('total_visits') == 1:
+                results.add_pass("Patient total_visits incremented to 1")
+            else:
+                results.add_fail("Patient total_visits", f"Expected 1, got {patient.get('total_visits')}")
+            
+            if patient.get('last_visit_date') == today:
+                results.add_pass(f"Patient last_visit_date set to today ({today})")
+            else:
+                results.add_fail("Patient last_visit_date", f"Expected {today}, got {patient.get('last_visit_date')}")
+            
+            if patient.get('next_followup_date') == "2026-06-01":
+                results.add_pass("Patient next_followup_date set to 2026-06-01")
+            else:
+                results.add_fail("Patient next_followup_date", f"Expected 2026-06-01, got {patient.get('next_followup_date')}")
+        else:
+            results.add_fail("GET /patients/:id for stats check", f"Status {resp.status_code}: {resp.text}")
+    except Exception as e:
+        results.add_fail("Patient stats check", str(e))
+    
+    # 7.8d: GET /dashboard/stats - patients_seen_today should be >= 1
+    print_info("7.8d Checking dashboard stats updated...")
+    try:
+        resp = session_a.get(f"{BASE_URL}/dashboard/stats")
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get('patients_seen_today', 0) >= 1:
+                results.add_pass(f"Dashboard patients_seen_today >= 1 (value: {data.get('patients_seen_today')})")
+            else:
+                results.add_fail("Dashboard patients_seen_today", f"Expected >= 1, got {data.get('patients_seen_today')}")
+        else:
+            results.add_fail("GET /dashboard/stats for update check", f"Status {resp.status_code}: {resp.text}")
+    except Exception as e:
+        results.add_fail("Dashboard stats update check", str(e))
+    
+    # 7.8e: GET /patients?filter=week - P1 should now appear
+    print_info("7.8e Checking patient appears in filter=week after visit...")
+    try:
+        resp = session_a.get(f"{BASE_URL}/patients?filter=week")
+        if resp.status_code == 200:
+            data = resp.json()
+            patients = data.get('patients', [])
+            if any(p.get('id') == patient_id for p in patients):
+                results.add_pass("Patient P1 now appears in filter=week (has recent visit)")
+            else:
+                results.add_fail("Patient in filter=week", "Patient P1 should appear after visit completion")
+        else:
+            results.add_fail("GET /patients?filter=week after visit", f"Status {resp.status_code}: {resp.text}")
+    except Exception as e:
+        results.add_fail("Patient filter=week after visit", str(e))
+    
+    # Test 7.9: MULTI-TENANT ISOLATION - Clinic B cannot access Clinic A's visit
+    print_info("7.9 CRITICAL: Testing multi-tenant isolation for visits...")
+    
+    # 7.9a: Clinic B GET /visits/:id (should return 404)
+    print_info("7.9a Clinic B trying to GET /visits/:id from Clinic A...")
+    try:
+        resp = session_b.get(f"{BASE_URL}/visits/{visit_id}")
+        if resp.status_code == 404:
+            results.add_pass("CRITICAL: Clinic B gets 404 for Clinic A's visit (multi-tenant isolation working)")
+        else:
+            results.add_fail("CRITICAL: Visits multi-tenant isolation", f"Expected 404, got {resp.status_code} - SECURITY BREACH!")
+    except Exception as e:
+        results.add_fail("Clinic B GET /visits/:id", str(e))
+    
+    # 7.9b: Clinic B GET /visits?patient_id=P1 (should return empty array)
+    print_info("7.9b Clinic B trying to GET /visits?patient_id=P1 from Clinic A...")
+    try:
+        resp = session_b.get(f"{BASE_URL}/visits?patient_id={patient_id}")
+        if resp.status_code == 200:
+            data = resp.json()
+            visits = data.get('visits', [])
+            if len(visits) == 0:
+                results.add_pass("CRITICAL: Clinic B gets empty visits array for Clinic A's patient (multi-tenant isolation working)")
+            else:
+                results.add_fail("CRITICAL: Visits multi-tenant isolation", f"Expected empty array, got {len(visits)} visits - SECURITY BREACH!")
+        else:
+            results.add_fail("Clinic B GET /visits?patient_id", f"Status {resp.status_code}: {resp.text}")
+    except Exception as e:
+        results.add_fail("Clinic B GET /visits?patient_id", str(e))
+    
+    return visit_id
+
+# ============================================================================
+# TEST 8: APPOINTMENTS ENRICHED (PHASE 2)
+# ============================================================================
+
+def test_appointments_enriched(session_a, patient_id):
+    print_test("8. APPOINTMENTS ENRICHED WITH DOCTOR_NAME + VISIT_ID (PHASE 2)")
+    
+    today = today_iso()
+    
+    # Test 8.1: GET /appointments?date=today - verify doctor_name and visit_id
+    print_info("8.1 Testing GET /appointments?date=today with enriched fields...")
+    try:
+        resp = session_a.get(f"{BASE_URL}/appointments?date={today}")
+        if resp.status_code == 200:
+            data = resp.json()
+            appointments = data.get('appointments', [])
+            if len(appointments) > 0:
+                appt = appointments[0]
+                
+                # Check for doctor_name
+                if 'doctor_name' in appt:
+                    results.add_pass(f"Appointment has doctor_name: {appt['doctor_name']}")
+                else:
+                    results.add_fail("Appointment doctor_name", "doctor_name field missing")
+                
+                # Check for visit_id (can be null if no visit yet)
+                if 'visit_id' in appt:
+                    results.add_pass(f"Appointment has visit_id field: {appt['visit_id']}")
+                else:
+                    results.add_fail("Appointment visit_id", "visit_id field missing")
+            else:
+                results.add_pass("GET /appointments?date=today works (no appointments to check enrichment)")
+        else:
+            results.add_fail("GET /appointments?date=today", f"Status {resp.status_code}: {resp.text}")
+    except Exception as e:
+        results.add_fail("GET /appointments?date=today", str(e))
+    
+    # Test 8.2: GET /appointments?patient_id=ID (no date filter)
+    if patient_id:
+        print_info("8.2 Testing GET /appointments?patient_id=ID (no date filter)...")
+        try:
+            resp = session_a.get(f"{BASE_URL}/appointments?patient_id={patient_id}")
+            if resp.status_code == 200:
+                data = resp.json()
+                appointments = data.get('appointments', [])
+                if isinstance(appointments, list):
+                    results.add_pass(f"GET /appointments?patient_id works without date filter (found {len(appointments)} appointments)")
+                    # Verify all appointments belong to the patient
+                    if all(a.get('patient_id') == patient_id for a in appointments):
+                        results.add_pass("All appointments belong to the specified patient")
+                    else:
+                        results.add_fail("Appointments patient filter", "Some appointments don't belong to the specified patient")
+                else:
+                    results.add_fail("GET /appointments?patient_id", f"Expected array, got {type(appointments)}")
+            else:
+                results.add_fail("GET /appointments?patient_id", f"Status {resp.status_code}: {resp.text}")
+        except Exception as e:
+            results.add_fail("GET /appointments?patient_id", str(e))
 
 # ============================================================================
 # MAIN TEST EXECUTION
@@ -616,13 +1160,17 @@ def test_dashboard_stats(session_a):
 
 def main():
     print("\n" + "="*80)
-    print("DentOS Backend API Test Suite")
+    print("DentOS Backend API Test Suite - Phase 2")
     print("="*80)
     print(f"Base URL: {BASE_URL}")
     print(f"Test started at: {datetime.now().isoformat()}")
+    print(f"Today's date (env): {today_iso()}")
     print("="*80)
     
     try:
+        # PHASE 1 REGRESSION (Quick check - skip if already tested)
+        print_info("Running Phase 1 regression tests...")
+        
         # Test 1: Auth + Multi-tenant
         session_a, session_b = test_auth_and_multi_tenant()
         
@@ -638,8 +1186,23 @@ def main():
         else:
             print_fail("Skipping appointments tests - no patient_id from previous test")
         
-        # Test 5: Dashboard stats
-        test_dashboard_stats(session_a)
+        # PHASE 2 NEW TESTS
+        print_info("\n\nStarting Phase 2 new endpoint tests...")
+        
+        # Test 5: Dashboard stats (Phase 2 reshaped)
+        test_dashboard_stats_phase2(session_a)
+        
+        # Test 6: Patient filters + patient_code format
+        fresh_patient_id = test_patient_filters(session_a)
+        
+        # Test 7: Visits full flow (CRITICAL)
+        visit_id = test_visits_full_flow(session_a, session_b)
+        
+        # Test 8: Appointments enriched
+        if patient_id_a:
+            test_appointments_enriched(session_a, patient_id_a)
+        else:
+            print_fail("Skipping appointments enriched tests - no patient_id")
         
     except Exception as e:
         print(f"\n❌ FATAL ERROR: {e}")

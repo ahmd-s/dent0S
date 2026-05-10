@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card'
 function App() {
   const [me, setMe] = useState(null)
   useEffect(() => { fetch('/api/auth/me').then(r=>r.json()).then(setMe) }, [])
-  return <div className="p-8 max-w-3xl"><h1 className="text-2xl font-bold text-[#0F172A] mb-6">Settings</h1>
+  return <div className="max-w-3xl mx-auto">
     <Card className="p-6 bg-white border-border rounded-lg">
       <h3 className="font-semibold mb-4">Clinic</h3>
       {me?.clinic && <dl className="grid grid-cols-2 gap-y-3 gap-x-6 text-sm">
