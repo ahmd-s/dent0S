@@ -74,7 +74,7 @@ function App() {
           </div>
           <div>
             <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Attending Doctor</div>
-            <div className="font-semibold">Dr. {inv.doctor_name||'—'}</div>
+            <div className="font-semibold">{inv.doctor_name ? (inv.doctor_name.toLowerCase().startsWith('dr.') ? inv.doctor_name : `Dr. ${inv.doctor_name}`) : '—'}</div>
             {inv.visit?.diagnosis && <div className="text-sm text-muted-foreground mt-1">Dx: {inv.visit.diagnosis}</div>}
           </div>
         </div>
