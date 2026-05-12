@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, Save, Check, Loader2, Plus, Trash2, AlertTriangle, ChevronDown, ChevronUp, FileText } from 'lucide-react'
@@ -12,9 +12,26 @@ import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { toast } from 'sonner'
+import { VisitVoiceRecorder } from '@/components/dentos/VisitVoiceRecorder'
 
 const fmtDate = d => d ? `${String(new Date(d).getDate()).padStart(2,'0')}/${String(new Date(d).getMonth()+1).padStart(2,'0')}/${new Date(d).getFullYear()}` : ''
 const FREQS = ['OD','BD','TDS','QID','SOS','1-0-1','1-1-1','1-0-0','0-0-1']
+
+function mergeTextBlock(prev, next) {
+  const n = (next || '').trim()
+  if (!n) return prev || ''
+  const p = (prev || '').trim()
+  if (!p) return n
+  return `${p}\n\n${n}`
+}
+
+function mergeSingleLine(prev, next) {
+  const n = (next || '').trim()
+  if (!n) return prev || ''
+  const p = (prev || '').trim()
+  if (!p) return n
+  return `${p}; ${n}`
+}
 
 function App() {
   const { id } = useParams()
@@ -91,6 +108,32 @@ function App() {
     toast.success(`Applied: ${t.name}`)
   }
 
+  const handleVoiceApply = useCallback(({ fields }) => {
+    if (!fields || typeof fields !== 'object') return
+    setV(prev => ({
+      ...prev,
+      chief_complaint: mergeTextBlock(prev.chief_complaint, fields.chief_complaint),
+      clinical_notes: mergeTextBlock(prev.clinical_notes, fields.clinical_notes),
+      diagnosis: mergeSingleLine(prev.diagnosis, fields.diagnosis),
+      treatment_done: mergeTextBlock(prev.treatment_done, fields.treatment_done),
+    }))
+    const rxList = Array.isArray(fields.prescriptions) ? fields.prescriptions : []
+    const valid = rxList.filter(p => p && String(p.medicine_name || '').trim())
+    if (valid.length) {
+      setRxs(prev => [
+        ...prev,
+        ...valid.map((p, i) => ({
+          id: `tmp_voice_${Date.now()}_${i}`,
+          medicine_name: String(p.medicine_name || '').trim(),
+          dosage: String(p.dosage || '').trim(),
+          frequency: FREQS.includes(p.frequency) ? p.frequency : 'OD',
+          duration: String(p.duration || '').trim(),
+          instructions: String(p.instructions || '').trim(),
+        })),
+      ])
+    }
+  }, [])
+
   const subtotal = items.reduce((s,it) => s + (parseFloat(it.unit_price)||0)*(parseInt(it.quantity)||1), 0)
   const gst = gstOn ? Math.round((subtotal-discount)*0.18*100)/100 : 0
   const total = Math.max(0, subtotal - discount + gst)
@@ -137,6 +180,8 @@ function App() {
           </div>}
         </Card>
       )}
+
+      <VisitVoiceRecorder visitId={id} disabled={saving} onApplyExtraction={handleVoiceApply} />
 
       <Card className="mt-5 p-6 bg-white border-border rounded-lg space-y-5">
         <div className="space-y-1.5"><Label className="text-base">Chief Complaint <span className="text-[#EF4444]">*</span></Label><Textarea rows={2} value={v.chief_complaint||''} onChange={e=>set('chief_complaint',e.target.value)} placeholder="What brings the patient in today?"/></div>

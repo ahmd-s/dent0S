@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
+import { useRole } from '@/components/dentos/RoleContext'
 
 const fmtDate = d => d ? `${String(new Date(d).getDate()).padStart(2,'0')}/${String(new Date(d).getMonth()+1).padStart(2,'0')}/${new Date(d).getFullYear()}` : '—'
 const todayIso = () => new Date().toISOString().slice(0,10)
@@ -20,6 +21,9 @@ const todayIso = () => new Date().toISOString().slice(0,10)
 function App() {
   const { id } = useParams()
   const router = useRouter()
+  const { isReceptionist, canAccessClinical } = useRole()
+  const receptionist = isReceptionist()
+  const clinical = canAccessClinical()
   const [patient, setPatient] = useState(null)
   const [visits, setVisits] = useState([])
   const [appts, setAppts] = useState([])
@@ -59,7 +63,7 @@ function App() {
                 <h1 className="text-2xl font-bold text-[#0F172A] truncate">{patient.name}</h1>
                 <div className="text-xs text-muted-foreground mt-0.5">{patient.patient_code}</div>
               </div>
-              <button onClick={()=>setEditOpen(true)} className="w-8 h-8 rounded-md hover:bg-muted flex items-center justify-center"><Edit2 className="w-4 h-4 text-muted-foreground"/></button>
+              <button type="button" onClick={()=>setEditOpen(true)} className="w-8 h-8 rounded-md hover:bg-muted flex items-center justify-center" aria-label="Edit patient"><Edit2 className="w-4 h-4 text-muted-foreground"/></button>
             </div>
             <a href={`tel:+91${patient.phone}`} className="mt-4 flex items-center gap-2 text-sm text-[#0D9488] hover:underline"><Phone className="w-3.5 h-3.5"/>+91 {patient.phone}</a>
             <div className="mt-3 flex items-center gap-3 text-sm">
@@ -89,7 +93,7 @@ function App() {
             </dl>
             <div className="mt-6 space-y-2">
               <Button onClick={()=>setBookOpen(true)} className="w-full bg-[#0D9488] hover:bg-[#0B7E73]"><CalendarPlus className="w-4 h-4 mr-2"/>Book Appointment</Button>
-              <Button onClick={startWalkin} variant="outline" className="w-full"><FilePlus className="w-4 h-4 mr-2"/>New Walk-in Visit</Button>
+              {!receptionist && <Button onClick={startWalkin} variant="outline" className="w-full"><FilePlus className="w-4 h-4 mr-2"/>New Walk-in Visit</Button>}
             </div>
           </Card>
         </div>
@@ -100,14 +104,14 @@ function App() {
               <TabsTrigger value="visits">Visit History</TabsTrigger>
               <TabsTrigger value="appointments">Appointments</TabsTrigger>
               <TabsTrigger value="documents">Documents</TabsTrigger>
-              <TabsTrigger value="ai">AI Summary</TabsTrigger>
+              {!receptionist && <TabsTrigger value="ai">AI Summary</TabsTrigger>}
             </TabsList>
             <TabsContent value="visits" className="mt-4">
               {visits.length===0 && (
                 <Card className="p-12 text-center bg-white border-border rounded-lg">
                   <FileText className="w-12 h-12 mx-auto text-muted-foreground/40"/>
                   <p className="mt-3 text-muted-foreground">No visits recorded yet</p>
-                  <Button onClick={startWalkin} className="mt-4 bg-[#0D9488] hover:bg-[#0B7E73]"><FilePlus className="w-4 h-4 mr-2"/>Record First Visit</Button>
+                  {!receptionist && <Button onClick={startWalkin} className="mt-4 bg-[#0D9488] hover:bg-[#0B7E73]"><FilePlus className="w-4 h-4 mr-2"/>Record First Visit</Button>}
                 </Card>
               )}
               {visits.length>0 && (
@@ -119,7 +123,11 @@ function App() {
                       <Card className="p-5 bg-white border-border rounded-lg">
                         <div className="flex items-center justify-between">
                           <div><div className="font-semibold text-[#0F172A]">{fmtDate(v.visit_date)}</div><div className="text-xs text-muted-foreground">Dr. {v.doctor_name||'—'}</div></div>
-                          <Link href={`/visits/${v.id}`}><Button size="sm" variant="outline" className="h-8"><ExternalLink className="w-3.5 h-3.5 mr-1"/>Open</Button></Link>
+                          {clinical ? (
+                            <Link href={`/visits/${v.id}`}><Button size="sm" variant="outline" className="h-8"><ExternalLink className="w-3.5 h-3.5 mr-1"/>Open</Button></Link>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Doctor only</span>
+                          )}
                         </div>
                         <div className="mt-3 space-y-2 text-sm">
                           {v.chief_complaint && <div><span className="text-xs text-muted-foreground">Chief Complaint</span><div>{v.chief_complaint}</div></div>}
@@ -171,25 +179,32 @@ function App() {
                 <p className="mt-3 text-muted-foreground">Document upload coming in Phase 3 — needs object storage integration.</p>
               </Card>
             </TabsContent>
+            {!receptionist && (
             <TabsContent value="ai" className="mt-4">
               <AISummaryPanel patient={patient} visits={visits} onUpdated={load}/>
             </TabsContent>
+            )}
           </Tabs>
         </div>
       </div>
-      <EditPatientModal open={editOpen} setOpen={setEditOpen} patient={patient} onSaved={load} />
+      <EditPatientModal open={editOpen} setOpen={setEditOpen} patient={patient} onSaved={load} clinicalLocked={receptionist} />
       <BookForPatient open={bookOpen} setOpen={setBookOpen} patient={patient} onCreated={load} />
     </div>
   )
 }
 
-function EditPatientModal({ open, setOpen, patient, onSaved }) {
+function EditPatientModal({ open, setOpen, patient, onSaved, clinicalLocked }) {
   const [f, setF] = useState(patient)
   useEffect(() => setF(patient), [patient])
   const [loading, setLoading] = useState(false)
   const submit = async e => {
     e.preventDefault(); setLoading(true)
-    const r = await fetch(`/api/patients/${patient.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(f) })
+    const body = { ...f }
+    if (clinicalLocked) {
+      delete body.allergies
+      delete body.medical_history
+    }
+    const r = await fetch(`/api/patients/${patient.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) })
     setLoading(false)
     if (r.ok) { toast.success('Saved'); setOpen(false); onSaved && onSaved() } else toast.error('Failed')
   }
@@ -198,15 +213,23 @@ function EditPatientModal({ open, setOpen, patient, onSaved }) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>Edit Patient</DialogTitle></DialogHeader>
+        {clinicalLocked && (
+          <p className="text-xs text-muted-foreground -mt-1 mb-2">Allergies and medical history can only be updated by a doctor or admin.</p>
+        )}
         <form onSubmit={submit} className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5 col-span-2"><Label>Full Name</Label><Input value={f.name||''} onChange={e=>setF({...f,name:e.target.value})}/></div>
           <div className="space-y-1.5"><Label>Phone</Label><Input value={f.phone||''} onChange={e=>setF({...f,phone:e.target.value.replace(/\D/g,'').slice(0,10)})}/></div>
           <div className="space-y-1.5"><Label>Age</Label><Input type="number" value={f.age||''} onChange={e=>setF({...f,age:e.target.value?parseInt(e.target.value):null})}/></div>
           <div className="space-y-1.5"><Label>Gender</Label><Select value={f.gender||''} onValueChange={v=>setF({...f,gender:v})}><SelectTrigger><SelectValue placeholder="Select"/></SelectTrigger><SelectContent><SelectItem value="male">Male</SelectItem><SelectItem value="female">Female</SelectItem><SelectItem value="other">Other</SelectItem></SelectContent></Select></div>
           <div className="space-y-1.5"><Label>Blood Group</Label><Select value={f.blood_group||''} onValueChange={v=>setF({...f,blood_group:v})}><SelectTrigger><SelectValue placeholder="Select"/></SelectTrigger><SelectContent>{['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(b=><SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent></Select></div>
-          <div className="space-y-1.5 col-span-2"><Label className="text-[#EF4444]">Allergies</Label><Textarea rows={2} value={f.allergies||''} onChange={e=>setF({...f,allergies:e.target.value})}/></div>
-          <div className="space-y-1.5 col-span-2"><Label>Medical History</Label><Textarea rows={2} value={f.medical_history||''} onChange={e=>setF({...f,medical_history:e.target.value})}/></div>
+          {!clinicalLocked && (
+            <>
+              <div className="space-y-1.5 col-span-2"><Label className="text-[#EF4444]">Allergies</Label><Textarea rows={2} value={f.allergies||''} onChange={e=>setF({...f,allergies:e.target.value})}/></div>
+              <div className="space-y-1.5 col-span-2"><Label>Medical History</Label><Textarea rows={2} value={f.medical_history||''} onChange={e=>setF({...f,medical_history:e.target.value})}/></div>
+            </>
+          )}
           <div className="space-y-1.5 col-span-2"><Label>Address</Label><Textarea rows={2} value={f.address||''} onChange={e=>setF({...f,address:e.target.value})}/></div>
+          <div className="space-y-1.5 col-span-2"><Label>Referral Source</Label><Input value={f.referral_source||''} onChange={e=>setF({...f,referral_source:e.target.value})} placeholder="e.g. Google, Friend referral"/></div>
           <div className="col-span-2 flex justify-end gap-2 mt-2"><Button type="button" variant="outline" onClick={()=>setOpen(false)}>Cancel</Button><Button type="submit" disabled={loading} className="bg-[#0D9488] hover:bg-[#0B7E73]">{loading?<Loader2 className="w-4 h-4 animate-spin"/>:'Save Changes'}</Button></div>
         </form>
       </DialogContent>

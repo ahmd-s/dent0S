@@ -1,2 +1,10 @@
 import AppShell from '@/components/dentos/AppShell'
-export default function Layout({ children }) { return <AppShell>{children}</AppShell> }
+import { RoleProvider } from '@/components/dentos/RoleContext'
+
+export default function Layout({ children }) {
+  return (
+    <RoleProvider>
+      <AppShell>{children}</AppShell>
+    </RoleProvider>
+  )
+}

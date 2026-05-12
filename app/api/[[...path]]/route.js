@@ -3,6 +3,8 @@ import { v4 as uuidv4 } from 'uuid'
 import slugify from 'slugify'
 import { getDb } from '@/lib/mongo'
 import { hashPassword, verifyPassword, signToken, setAuthCookie, clearAuthCookie, getCurrentUser } from '@/lib/auth'
+import { sendStaffInviteEmail } from '@/lib/invite-email'
+import { createAnthropicMessage } from '@/lib/anthropic-messages'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -33,6 +35,9 @@ async function requireUser() {
   const clinic = await db.collection('clinics').findOne({ id: profile.clinic_id })
   return { profile, clinic, db }
 }
+
+const clinicalAccess = p => p?.role === 'admin' || p?.role === 'doctor'
+const isReceptionist = p => p?.role === 'receptionist'
 
 export async function OPTIONS() { return cors(new NextResponse(null, { status: 200 })) }
 
@@ -114,6 +119,7 @@ async function handle(request, { params }) {
       if (!profile || !profile.is_active) return err('Invalid credentials', 401)
       if (!await verifyPassword(b.password, profile.password_hash)) return err('Invalid credentials', 401)
       const c = await db.collection('clinics').findOne({ id: profile.clinic_id })
+      await db.collection('profiles').updateOne({ id: profile.id }, { $set: { last_login_at: new Date() } })
       setAuthCookie(signToken({ uid: profile.id, cid: profile.clinic_id, role: profile.role }))
       return json({ ok:true, onboarding_complete: !!c?.onboarding_complete })
     }
@@ -128,23 +134,34 @@ async function handle(request, { params }) {
 
     // ============ ONBOARDING ============
     if (route === '/onboarding/clinic' && m === 'POST') {
+      if (isReceptionist(profile)) return err('Forbidden', 403)
       const b = await request.json()
       await db.collection('clinics').updateOne({ id: cid }, { $set: { name: b.name, address: b.address, city: b.city, phone: b.phone, gstin: b.gstin || '', logo_url: b.logo_url || '' }})
       return json({ ok:true })
     }
     if (route === '/onboarding/hours' && m === 'POST') {
+      if (isReceptionist(profile)) return err('Forbidden', 403)
       const b = await request.json()
       await db.collection('clinics').updateOne({ id: cid }, { $set: { working_hours: b.working_hours }})
       return json({ ok:true })
     }
     if (route === '/onboarding/team' && m === 'POST') {
-      if (profile.role !== 'admin') return err('Only admin', 403)
+      if (!clinicalAccess(profile)) return err('Forbidden', 403)
       const b = await request.json(); const email = (b.email||'').toLowerCase().trim()
       if (!b.full_name || !email || !b.password) return err('Missing fields')
+      if (!b.role || !['doctor', 'receptionist'].includes(b.role)) return err('Role must be doctor or receptionist', 400)
       if (await db.collection('profiles').findOne({ email })) return err('Email already registered')
       const newId = uuidv4()
       await db.collection('profiles').insertOne({ id: newId, clinic_id: cid, email, password_hash: await hashPassword(b.password), full_name: b.full_name, role: b.role, phone:'', is_active:true, created_at:new Date() })
-      return json({ ok:true, id:newId })
+      const origin = new URL(request.url).origin
+      const emailResult = await sendStaffInviteEmail({
+        to: email,
+        staffName: b.full_name,
+        clinicName: clinic?.name,
+        temporaryPassword: b.password,
+        loginUrl: `${origin}/login`,
+      })
+      return json({ ok:true, id:newId, invite_email_sent: !!emailResult?.sent })
     }
     if (route === '/onboarding/complete' && m === 'POST') {
       await db.collection('clinics').updateOne({ id: cid }, { $set: { onboarding_complete: true }})
@@ -153,6 +170,7 @@ async function handle(request, { params }) {
 
     // ============ CLINIC SETTINGS ============
     if (route === '/clinic' && m === 'PUT') {
+      if (isReceptionist(profile)) return err('Forbidden', 403)
       const b = await request.json()
       const allowed = ['name','phone','address','city','gstin','logo_url','working_hours','slug']
       const update = {}
@@ -174,22 +192,35 @@ async function handle(request, { params }) {
       return json({ doctors: docs.map(d => ({ id:d.id, full_name:d.full_name, specialization:d.specialization||'', profile_photo_url:d.profile_photo_url||'' })) })
     }
     if (route === '/team' && m === 'GET') {
+      if (isReceptionist(profile)) return err('Forbidden', 403)
       const team = await db.collection('profiles').find({ clinic_id: cid }).toArray()
       return json({ team: team.map(clean) })
     }
     if (route === '/team' && m === 'POST') {
-      if (profile.role !== 'admin') return err('Only admin', 403)
+      if (!clinicalAccess(profile)) return err('Forbidden', 403)
       const b = await request.json(); const email = (b.email||'').toLowerCase().trim()
       if (!b.full_name || !email || !b.password || !b.role) return err('Missing fields')
+      if (!['doctor', 'receptionist'].includes(b.role)) return err('Role must be doctor or receptionist', 400)
       if (await db.collection('profiles').findOne({ email })) return err('Email already registered')
       const id = uuidv4()
       await db.collection('profiles').insertOne({ id, clinic_id: cid, email, password_hash: await hashPassword(b.password), full_name: b.full_name, role: b.role, phone:'', is_active:true, created_at:new Date() })
-      return json({ ok:true, id })
+      const origin = new URL(request.url).origin
+      const emailResult = await sendStaffInviteEmail({
+        to: email,
+        staffName: b.full_name,
+        clinicName: clinic?.name,
+        temporaryPassword: b.password,
+        loginUrl: `${origin}/login`,
+      })
+      return json({ ok:true, id, invite_email_sent: !!emailResult?.sent })
     }
     if (path[0] === 'team' && path[1] && m === 'PUT') {
-      if (profile.role !== 'admin') return err('Only admin', 403)
+      if (!clinicalAccess(profile)) return err('Forbidden', 403)
       const b = await request.json(); const update = {}
-      if ('role' in b) update.role = b.role
+      if ('role' in b) {
+        if (!['admin', 'doctor', 'receptionist'].includes(b.role)) return err('Invalid role', 400)
+        update.role = b.role
+      }
       if ('is_active' in b) update.is_active = b.is_active
       await db.collection('profiles').updateOne({ id: path[1], clinic_id: cid }, { $set: update })
       return json({ ok:true })
@@ -197,10 +228,12 @@ async function handle(request, { params }) {
 
     // ============ TREATMENT TEMPLATES ============
     if (route === '/treatment_templates' && m === 'GET') {
+      if (isReceptionist(profile)) return err('Forbidden', 403)
       const list = await db.collection('treatment_templates').find({ clinic_id: cid }).sort({ name: 1 }).toArray()
       return json({ templates: list.map(clean) })
     }
     if (route === '/treatment_templates' && m === 'POST') {
+      if (isReceptionist(profile)) return err('Forbidden', 403)
       const b = await request.json()
       if (!b.name) return err('Name required')
       const id = uuidv4()
@@ -208,12 +241,14 @@ async function handle(request, { params }) {
       return json({ ok:true, id })
     }
     if (path[0]==='treatment_templates' && path[1] && m==='PUT') {
+      if (isReceptionist(profile)) return err('Forbidden', 403)
       const b = await request.json(); const u = {}
       for (const k of ['name','default_notes','default_price','category']) if (k in b) u[k] = k==='default_price'?parseFloat(b[k])||0:b[k]
       await db.collection('treatment_templates').updateOne({ id: path[1], clinic_id: cid }, { $set: u })
       return json({ ok:true })
     }
     if (path[0]==='treatment_templates' && path[1] && m==='DELETE') {
+      if (isReceptionist(profile)) return err('Forbidden', 403)
       await db.collection('treatment_templates').deleteOne({ id: path[1], clinic_id: cid })
       return json({ ok:true })
     }
@@ -231,6 +266,7 @@ async function handle(request, { params }) {
       return json({ patients: list.map(clean) })
     }
     if (route === '/patients' && m === 'POST') {
+      if (isReceptionist(profile)) return err('Forbidden', 403)
       const b = await request.json()
       if (!b.name || !b.phone) return err('Name and phone required')
       const id = uuidv4()
@@ -246,6 +282,10 @@ async function handle(request, { params }) {
     }
     if (path[0] === 'patients' && path[1] && m === 'PUT') {
       const b = await request.json(); delete b.id; delete b.clinic_id; delete b.created_at; delete b._id
+      if (isReceptionist(profile)) {
+        delete b.allergies
+        delete b.medical_history
+      }
       await db.collection('patients').updateOne({ id: path[1], clinic_id: cid }, { $set: b })
       return json({ ok:true })
     }
@@ -288,6 +328,7 @@ async function handle(request, { params }) {
 
     // ============ VISITS ============
     if (route === '/visits' && m === 'POST') {
+      if (isReceptionist(profile)) return err('Forbidden', 403)
       const b = await request.json()
       if (!b.patient_id) return err('patient_id required')
       const id = uuidv4()
@@ -320,6 +361,7 @@ async function handle(request, { params }) {
       return json({ visit: { ...clean(v), patient: clean(p), doctor_name: doc?.full_name||'', prescriptions: rxs.map(clean), previous_visit: prevList[0] ? clean(prevList[0]) : null, invoice: inv ? { ...clean(inv), items: items.map(clean) } : null } })
     }
     if (path[0]==='visits' && path[1] && m==='PUT') {
+      if (isReceptionist(profile)) return err('Forbidden', 403)
       const b = await request.json()
       const allowed = ['chief_complaint','clinical_notes','diagnosis','treatment_done','treatment_plan','next_visit_recommended','next_visit_date']
       const update = {}
@@ -411,6 +453,14 @@ async function handle(request, { params }) {
       await db.collection('invoices').updateOne({ id: path[1], clinic_id: cid }, { $set: u })
       return json({ ok:true })
     }
+    if (path[0]==='invoices' && path[1] && m==='DELETE') {
+      if (isReceptionist(profile)) return err('Forbidden', 403)
+      const inv = await db.collection('invoices').findOne({ id: path[1], clinic_id: cid })
+      if (!inv) return err('Not found', 404)
+      await db.collection('invoice_items').deleteMany({ invoice_id: inv.id, clinic_id: cid })
+      await db.collection('invoices').deleteOne({ id: inv.id, clinic_id: cid })
+      return json({ ok:true })
+    }
 
     // ============ DASHBOARD STATS ============
     if (route === '/dashboard/stats' && m === 'GET') {
@@ -448,6 +498,7 @@ async function handle(request, { params }) {
 
     // ============ AI PATIENT SUMMARY ============
     if (route === '/generate-summary' && m === 'POST') {
+      if (isReceptionist(profile)) return err('Forbidden', 403)
       const b = await request.json()
       if (!b.patient_id) return err('patient_id required')
       const p = await db.collection('patients').findOne({ id: b.patient_id, clinic_id: cid })
@@ -457,22 +508,10 @@ async function handle(request, { params }) {
       const visitText = visits.map(v => `Date: ${v.visit_date}\nComplaint: ${v.chief_complaint||'-'}\nDiagnosis: ${v.diagnosis||'-'}\nTreatment: ${v.treatment_done||'-'}\nPlan: ${v.treatment_plan||'-'}\n---`).join('\n')
       const prompt = `You are a clinical documentation assistant for a dental clinic in India. Based on the visit history below, write a concise clinical summary (maximum 200 words).\n\nCover: main dental complaints, treatments completed, current dental status, and recommended follow-up actions already mentioned by the doctor.\n\nDo not diagnose. Do not suggest treatments not already mentioned in the notes. Use professional clinical language.\n\nPatient: ${p.name}, Age: ${p.age||'unknown'}\nBlood Group: ${p.blood_group||'unknown'}\nKnown Allergies: ${p.allergies||'None recorded'}\n\nVisit History (most recent first):\n${visitText}\n\nWrite the clinical summary now:`
       try {
-        const apiKey = process.env.EMERGENT_LLM_KEY || process.env.ANTHROPIC_API_KEY
-        const baseURL = process.env.EMERGENT_LLM_KEY ? 'https://integrations.emergentagent.com/llm/v1' : 'https://api.anthropic.com/v1'
-        const useBearer = !!process.env.EMERGENT_LLM_KEY
-        const r = await fetch(baseURL + '/messages', {
-          method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-            'anthropic-version': '2023-06-01',
-            ...(useBearer ? { 'Authorization': `Bearer ${apiKey}` } : { 'x-api-key': apiKey })
-          },
-          body: JSON.stringify({ model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5', max_tokens: 600, messages: [{ role: 'user', content: prompt }] })
+        const text = await createAnthropicMessage({
+          max_tokens: 600,
+          messages: [{ role: 'user', content: prompt }],
         })
-        if (!r.ok) { const t = await r.text(); console.error('AI gateway:', r.status, t); return err(`AI service error: ${r.status}`, 502) }
-        const msg = await r.json()
-        const block = msg.content?.find(c => c.type === 'text')
-        const text = block?.text || ''
         if (!text) return err('Empty AI response', 500)
         await db.collection('patients').updateOne({ id: b.patient_id, clinic_id: cid }, { $set: { ai_summary: text, ai_summary_generated_at: new Date() } })
         return json({ ok: true, summary: text, generated_at: new Date() })

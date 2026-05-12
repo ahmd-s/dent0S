@@ -15,6 +15,13 @@ import { toast } from 'sonner'
 const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 const TIMES = (() => { const arr = []; for (let h=6; h<=22; h++) for (let m=0;m<60;m+=30) { const hh=h%12===0?12:h%12, ap=h<12?'AM':'PM'; arr.push(`${String(hh).padStart(2,'0')}:${String(m).padStart(2,'0')} ${ap}`) } return arr })()
 
+const fmtLastLogin = t => {
+  if (!t) return '—'
+  const d = new Date(t)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
+}
+
 function App() {
   const [me, setMe] = useState(null)
   useEffect(() => { fetch('/api/auth/me').then(r=>r.json()).then(setMe) }, [])
@@ -145,7 +152,10 @@ function TeamTab() {
   const invite = async () => {
     const r = await fetch('/api/team', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(f) })
     const d = await r.json()
-    if (r.ok) { toast.success('Team member added'); setOpen(false); setF({full_name:'',email:'',role:'doctor',password:''}); load() } else toast.error(d.error||'Failed')
+    if (r.ok) {
+      toast.success(d.invite_email_sent ? 'Invitation email sent with login details.' : 'Team member added. Set RESEND_API_KEY and RESEND_FROM_EMAIL to send invite emails automatically.')
+      setOpen(false); setF({full_name:'',email:'',role:'doctor',password:''}); load()
+    } else toast.error(d.error||'Failed')
   }
   const toggleActive = async (m) => {
     const r = await fetch(`/api/team/${m.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ is_active: !m.is_active }) })
@@ -160,7 +170,7 @@ function TeamTab() {
       <div className="flex items-center justify-between mb-3"><h3 className="font-semibold">Team Members ({team.length})</h3><Button size="sm" onClick={()=>setOpen(true)} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>Invite</Button></div>
       <table className="w-full text-sm">
         <thead className="text-xs uppercase text-muted-foreground tracking-wider border-b border-border">
-          <tr><th className="text-left py-2 font-medium">Name</th><th className="text-left font-medium">Email</th><th className="text-left font-medium">Role</th><th className="text-left font-medium">Status</th><th className="text-right font-medium">Actions</th></tr>
+          <tr><th className="text-left py-2 font-medium">Name</th><th className="text-left font-medium">Email</th><th className="text-left font-medium">Role</th><th className="text-left font-medium">Last login</th><th className="text-left font-medium">Status</th><th className="text-right font-medium">Actions</th></tr>
         </thead>
         <tbody>
           {team.map(m => (
@@ -168,6 +178,7 @@ function TeamTab() {
               <td className="py-3 font-medium">{m.full_name}</td>
               <td className="py-3 text-muted-foreground">{m.email}</td>
               <td className="py-3"><Select value={m.role} onValueChange={v=>updateRole(m,v)}><SelectTrigger className="w-32 h-8"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="admin">Admin</SelectItem><SelectItem value="doctor">Doctor</SelectItem><SelectItem value="receptionist">Receptionist</SelectItem></SelectContent></Select></td>
+              <td className="py-3 text-muted-foreground text-xs whitespace-nowrap">{fmtLastLogin(m.last_login_at)}</td>
               <td className="py-3">{m.is_active?<span className="text-xs px-2 py-1 rounded-full bg-green-50 text-green-700">Active</span>:<span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">Inactive</span>}</td>
               <td className="py-3 text-right"><Button size="sm" variant="outline" onClick={()=>toggleActive(m)} className="h-8">{m.is_active?'Deactivate':'Activate'}</Button></td>
             </tr>
