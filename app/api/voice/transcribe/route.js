@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
-export async function POST(request: NextRequest) {
+export async function POST(request) {
   try {
     const formData = await request.formData();
-    const audioFile = formData.get('audio') as File;
+    const audioFile = formData.get('audio');
     
     if (!audioFile) {
       return NextResponse.json(
@@ -12,12 +12,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Convert file to buffer
     const audioBuffer = Buffer.from(
       await audioFile.arrayBuffer()
     );
 
-    // Send to Groq Whisper for transcription
     const groqFormData = new FormData();
     const audioBlob = new Blob(
       [audioBuffer], 
@@ -51,7 +49,6 @@ export async function POST(request: NextRequest) {
       await transcriptionResponse.json();
     const transcript = transcriptionResult.text;
 
-    // Send transcript to Claude for extraction
     const extractionResponse = await fetch(
       'https://api.anthropic.com/v1/messages',
       {
@@ -67,38 +64,7 @@ export async function POST(request: NextRequest) {
           messages: [
             {
               role: 'user',
-              content: `You are a clinical documentation 
-assistant for a dental clinic in India.
-
-Extract the following from this doctor-patient 
-conversation transcript and return ONLY a JSON 
-object with no other text:
-
-{
-  "chief_complaint": "main reason for visit",
-  "clinical_notes": "examination findings",
-  "diagnosis": "diagnosis text",
-  "treatment_done": "treatment performed today",
-  "treatment_plan": "plan for next visit",
-  "prescriptions": [
-    {
-      "medicine_name": "name",
-      "dosage": "amount",
-      "frequency": "how often",
-      "duration": "how long",
-      "instructions": "special instructions"
-    }
-  ],
-  "next_visit_recommended": true or false,
-  "next_visit_notes": "notes for next visit"
-}
-
-If any field is not mentioned in the transcript, 
-use an empty string "" for text fields, 
-false for boolean, and [] for arrays.
-
-Transcript:
-${transcript}`,
+              content: 'You are a clinical documentation assistant for a dental clinic in India. Extract the following from this doctor-patient conversation transcript and return ONLY a JSON object with no other text: { "chief_complaint": "main reason for visit", "clinical_notes": "examination findings", "diagnosis": "diagnosis text", "treatment_done": "treatment performed today", "treatment_plan": "plan for next visit", "prescriptions": [{ "medicine_name": "name", "dosage": "amount", "frequency": "how often", "duration": "how long", "instructions": "special instructions" }], "next_visit_recommended": false, "next_visit_notes": "" } If any field is not mentioned use empty string, false for boolean, empty array for prescriptions. Transcript: ' + transcript,
             },
           ],
         }),
@@ -106,11 +72,10 @@ ${transcript}`,
     );
 
     if (!extractionResponse.ok) {
-      // Return just transcript if Claude fails
       return NextResponse.json({
         transcript,
         extracted: null,
-        error: 'Extraction failed, transcript only',
+        error: 'Extraction failed',
       });
     }
 
@@ -119,10 +84,8 @@ ${transcript}`,
     const extractedText = 
       extractionResult.content[0].text;
 
-    // Parse the JSON response from Claude
     let extracted = null;
     try {
-      // Remove any markdown code blocks if present
       const cleanJson = extractedText
         .replace(/```json/g, '')
         .replace(/```/g, '')
