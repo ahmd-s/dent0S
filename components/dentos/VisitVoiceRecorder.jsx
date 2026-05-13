@@ -66,7 +66,8 @@ export function VisitVoiceRecorder({ visitId, onApplyExtraction, disabled }) {
           return
         }
         setLastTranscript(data.transcript || '')
-        onApplyExtraction?.({ transcript: data.transcript || '', fields: data.extracted || {} })        toast.success('Voice notes added to the form. Review and edit before saving.')
+        onApplyExtraction?.({ transcript: data.transcript || '', fields: data.extracted || {} })    
+            toast.success('Voice notes added to the form. Review and edit before saving.')
       } catch {
         toast.error('Network error while uploading audio')
       } finally {
