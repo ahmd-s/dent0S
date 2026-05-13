@@ -16,6 +16,7 @@ export async function POST(request) {
       await audioFile.arrayBuffer()
     );
 
+    // STEP 1: Transcribe with Groq Whisper
     const groqFormData = new FormData();
     const audioBlob = new Blob(
       [audioBuffer], 
@@ -38,7 +39,7 @@ export async function POST(request) {
 
     if (!transcriptionResponse.ok) {
       const error = await transcriptionResponse.json();
-      console.error('Groq error:', error);
+      console.error('Groq transcription error:', error);
       return NextResponse.json(
         { error: 'Transcription failed' },
         { status: 500 }
@@ -49,29 +50,64 @@ export async function POST(request) {
       await transcriptionResponse.json();
     const transcript = transcriptionResult.text;
 
+    // STEP 2: Extract with Groq LLM (free)
     const extractionResponse = await fetch(
-      'https://api.anthropic.com/v1/messages',
+      'https://api.groq.com/openai/v1/chat/completions',
       {
         method: 'POST',
         headers: {
+          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
           'Content-Type': 'application/json',
-          'x-api-key': process.env.ANTHROPIC_API_KEY || '',
-          'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model: 'llama-3.3-70b-versatile',
           max_tokens: 1000,
+          temperature: 0,
           messages: [
             {
-              role: 'user',
-              content: 'You are a clinical documentation assistant for a dental clinic in India. Extract the following from this doctor-patient conversation transcript and return ONLY a JSON object with no other text: { "chief_complaint": "main reason for visit", "clinical_notes": "examination findings", "diagnosis": "diagnosis text", "treatment_done": "treatment performed today", "treatment_plan": "plan for next visit", "prescriptions": [{ "medicine_name": "name", "dosage": "amount", "frequency": "how often", "duration": "how long", "instructions": "special instructions" }], "next_visit_recommended": false, "next_visit_notes": "" } If any field is not mentioned use empty string, false for boolean, empty array for prescriptions. Transcript: ' + transcript,
+              role: 'system',
+              content: 'You are a clinical documentation assistant for a dental clinic in India. Extract structured data from doctor-patient conversation transcripts. Always respond with valid JSON only. No explanation, no markdown, no code blocks. Just the raw JSON object.'
             },
-          ],
+            {
+              role: 'user',
+              content: `Extract the following fields from this transcript and return ONLY a JSON object:
+
+{
+  "chief_complaint": "main reason for visit as a short sentence",
+  "clinical_notes": "examination findings mentioned",
+  "diagnosis": "diagnosis mentioned",
+  "treatment_done": "treatment performed today",
+  "treatment_plan": "plan for future visits",
+  "prescriptions": [
+    {
+      "medicine_name": "name of medicine",
+      "dosage": "dose amount like 500mg",
+      "frequency": "how often like TDS or BD or OD",
+      "duration": "how long like 5 days",
+      "instructions": "special instructions like after food"
+    }
+  ],
+  "next_visit_recommended": false,
+  "next_visit_notes": ""
+}
+
+Rules:
+- Use empty string for missing text fields
+- Use false for next_visit_recommended if not mentioned
+- Use empty array for prescriptions if none mentioned
+- Extract ALL medicines mentioned
+- next_visit_recommended should be true if follow up is mentioned
+
+Transcript: ${transcript}`
+            }
+          ]
         }),
       }
     );
 
     if (!extractionResponse.ok) {
+      const error = await extractionResponse.json();
+      console.error('Groq extraction error:', error);
       return NextResponse.json({
         transcript,
         extracted: null,
@@ -82,7 +118,7 @@ export async function POST(request) {
     const extractionResult = 
       await extractionResponse.json();
     const extractedText = 
-      extractionResult.content[0].text;
+      extractionResult.choices[0].message.content;
 
     let extracted = null;
     try {
@@ -93,6 +129,7 @@ export async function POST(request) {
       extracted = JSON.parse(cleanJson);
     } catch (e) {
       console.error('JSON parse error:', e);
+      console.error('Raw response:', extractedText);
     }
 
     return NextResponse.json({
