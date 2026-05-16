@@ -39,8 +39,28 @@ function App() {
 
   const setStatus = async (id, status) => { const r = await fetch(`/api/appointments/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({status}) }); if (r.ok) { toast.success('Updated'); load() } }
   const startVisit = async (a) => {
-    const r = await fetch('/api/visits', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ appointment_id:a.id, patient_id:a.patient_id, doctor_id:a.doctor_id, chief_complaint:a.chief_complaint }) })
-    const d = await r.json(); if (r.ok) router.push(`/visits/${d.id}`); else toast.error(d.error||'Failed')
+    await fetch(`/api/appointments/${a.id}`, {
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ status:'arrived' })
+    })
+    const r = await fetch('/api/visits', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        patient_id: a.patient_id,
+        appointment_id: a.id
+      })
+    })
+    
+    const d = await r.json()
+    
+    if (r.ok) {
+      router.push(`/visits/${d.id}`)
+    } else {
+      toast.error(d.error || 'Failed')
+    }
+  
   }
 
   const summary = { scheduled: list.filter(a=>a.status==='scheduled').length, completed: list.filter(a=>a.status==='completed').length, cancelled: list.filter(a=>a.status==='cancelled').length }
@@ -93,8 +113,16 @@ function App() {
                     <td className="px-5 py-3"><span className={`text-xs px-2 py-1 rounded-full capitalize whitespace-nowrap ${statusColor(a.status)}`}>{a.status?.replace('_',' ')}</span></td>
                     <td className="px-5 py-3">
                       <div className="flex justify-end items-center gap-1">
-                        {a.status==='scheduled' && <Button size="sm" onClick={()=>setStatus(a.id,'arrived')} className="h-7 text-xs bg-blue-600 hover:bg-blue-700">Mark Arrived</Button>}
-                        {a.status==='arrived' && <Button size="sm" onClick={()=>startVisit(a)} className="h-7 text-xs bg-[#0D9488] hover:bg-[#0B7E73]">Start Visit</Button>}
+                      {a.status==='scheduled' && (
+  <Button
+    size="sm"
+    onClick={()=>startVisit(a)}
+    className="h-7 text-xs bg-[#0D9488] hover:bg-[#0B7E73]"
+  >
+    Check In
+  </Button>
+)}
+                        
                         {a.status==='in_progress' && a.visit_id && <Button size="sm" onClick={()=>router.push(`/visits/${a.visit_id}`)} className="h-7 text-xs bg-orange-500 hover:bg-orange-600">Continue</Button>}
                         {a.status==='completed' && a.visit_id && <Button size="sm" variant="outline" onClick={()=>router.push(`/visits/${a.visit_id}`)} className="h-7 text-xs">View</Button>}
                         <DropdownMenu>
