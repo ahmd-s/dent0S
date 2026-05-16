@@ -44,6 +44,10 @@ function App() {
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ status:'arrived' })
     })
+    if (!a.patient_id) {
+      toast.error('Please create patient first')
+      return
+    }
     const r = await fetch('/api/visits', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
