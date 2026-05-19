@@ -83,6 +83,26 @@ function App() {
                       <div className="flex justify-end gap-2">
                         <Link href={`/patients/${p.id}`}><Button size="sm" variant="outline" className="h-8"><Eye className="w-3.5 h-3.5 mr-1"/>View</Button></Link>
                         <Link href={`/appointments?patient=${p.id}`}><Button size="sm" className="h-8 bg-[#0D9488] hover:bg-[#0B7E73]"><CalendarPlus className="w-3.5 h-3.5 mr-1"/>Book</Button></Link>
+                        <Button
+  size="sm"
+  variant="destructive"
+  onClick={async (e) => {
+
+    e.stopPropagation()
+
+    const ok = confirm('Delete this patient permanently?')
+
+    if (!ok) return
+
+    await fetch(`/api/patients/${p.id}`, {
+      method: 'DELETE'
+    })
+
+    window.location.reload()
+  }}
+>
+  Delete
+</Button>
                       </div>
                     </td>
                   </tr>
