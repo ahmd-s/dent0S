@@ -330,7 +330,45 @@ async function handle(request, { params }) {
     if (route === '/visits' && m === 'POST') {
       if (isReceptionist(profile)) return err('Forbidden', 403)
       const b = await request.json()
-      if (!b.patient_id) return err('patient_id required')
+      if (!b.patient_id && b.appointment_id) {
+
+        const appointment = await db.collection('appointments').findOne({
+          id: b.appointment_id,
+          clinic_id: cid
+        })
+      
+        if (appointment) {
+      
+          const newPatientId = uuidv4()
+      
+          const count = await db.collection('patients').countDocuments({
+            clinic_id: cid
+          })
+      
+          const code = 'PT' + String(count + 1).padStart(5,'0')
+      
+          await db.collection('patients').insertOne({
+            id: newPatientId,
+            clinic_id: cid,
+            name: appointment.patient_name_temp || 'Unknown',
+            phone: appointment.patient_phone_temp || '',
+            patient_code: code,
+            total_visits: 0,
+            is_archived: false,
+            created_by: profile.id,
+            created_at: new Date()
+          })
+      
+          await db.collection('appointments').updateOne(
+            { id: appointment.id },
+            { $set: { patient_id: newPatientId } }
+          )
+      
+          b.patient_id = newPatientId
+        }
+      }
+      
+      if (!b.patient_id) return err('patient_id required') 
       const id = uuidv4()
       await db.collection('visits').insertOne({ id, clinic_id: cid, patient_id: b.patient_id, doctor_id: b.doctor_id||profile.id, appointment_id: b.appointment_id||null, visit_date: todayIso(), chief_complaint: b.chief_complaint||'', clinical_notes:'', diagnosis:'', treatment_done:'', treatment_plan:'', next_visit_recommended:false, next_visit_date:null, created_at:new Date() })
       if (b.appointment_id) await db.collection('appointments').updateOne({ id: b.appointment_id, clinic_id: cid }, { $set: { status: 'in_progress' }})
