@@ -175,10 +175,7 @@ function App() {
               </>}
             </TabsContent>
             <TabsContent value="documents" className="mt-4">
-              <Card className="p-12 text-center bg-white border-border rounded-lg">
-                <Upload className="w-10 h-10 mx-auto text-muted-foreground/40"/>
-                <p className="mt-3 text-muted-foreground"><DocumentsTab patientId={v?._id || params?.id} /></p>
-              </Card>
+              {patient && <DocumentsTab patientId={patient._id} />}
             </TabsContent>
             {!receptionist && (
             <TabsContent value="ai" className="mt-4">
