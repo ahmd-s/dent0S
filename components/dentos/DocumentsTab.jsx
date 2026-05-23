@@ -25,7 +25,8 @@ export function DocumentsTab({ patientId }) {
 
   const fetchDocuments = async () => {
     try {
-      const res = await fetch(`/api/documents?patient_id=${patientId}`)
+        const pid = typeof patientId === 'object' ? patientId.toString() : patientId
+        const res = await fetch(`/api/documents?patient_id=${pid}`)
       const data = await res.json()
       if (res.ok) setDocuments(data.documents || [])
     } catch (error) {

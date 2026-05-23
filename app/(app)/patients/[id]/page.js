@@ -175,7 +175,7 @@ function App() {
               </>}
             </TabsContent>
             <TabsContent value="documents" className="mt-4">
-              {patient && <DocumentsTab patientId={patient._id} />}
+              {patient && <DocumentsTab patientId={id} />}
             </TabsContent>
             {!receptionist && (
             <TabsContent value="ai" className="mt-4">
