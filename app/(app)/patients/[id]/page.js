@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { useRole } from '@/components/dentos/RoleContext'
+import { DocumentsTab } from '@/components/dentos/DocumentsTab'
 
 const fmtDate = d => d ? `${String(new Date(d).getDate()).padStart(2,'0')}/${String(new Date(d).getMonth()+1).padStart(2,'0')}/${new Date(d).getFullYear()}` : '—'
 const todayIso = () => new Date().toISOString().slice(0,10)
@@ -176,7 +177,7 @@ function App() {
             <TabsContent value="documents" className="mt-4">
               <Card className="p-12 text-center bg-white border-border rounded-lg">
                 <Upload className="w-10 h-10 mx-auto text-muted-foreground/40"/>
-                <p className="mt-3 text-muted-foreground">Document upload coming in Phase 3 — needs object storage integration.</p>
+                <p className="mt-3 text-muted-foreground"><DocumentsTab patientId={v?._id || params?.id} /></p>
               </Card>
             </TabsContent>
             {!receptionist && (
