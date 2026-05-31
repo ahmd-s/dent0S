@@ -6,6 +6,7 @@ import { hashPassword, verifyPassword, signToken, setAuthCookie, clearAuthCookie
 import { sendStaffInviteEmail } from '@/lib/invite-email'
 import { createAnthropicMessage } from '@/lib/anthropic-messages'
 import { SMART_TYPING_SEED } from '@/lib/smart-typing-seed'
+import { setupIndexes } from '@/lib/setup-indexes'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -306,7 +307,8 @@ async function handle(request, { params }) {
       if (filter === 'week') f.last_visit_date = { $gte: weekStart() }
       else if (filter === 'month') f.last_visit_date = { $gte: monthBack(1) }
       else if (filter === 'inactive') f.$and = [{ $or: [{ last_visit_date: { $lt: monthBack(3) } }, { last_visit_date: null }] }]
-      const list = await db.collection('patients').find(f).sort({ created_at: -1 }).limit(500).toArray()
+      // Use hint to ensure compound index is used for clinic_id + created_at sort
+      const list = await db.collection('patients').find(f).sort({ created_at: -1 }).limit(500).hint({ clinic_id: 1, created_at: -1 }).toArray()
       return json({ patients: list.map(clean) })
     }
     if (route === '/patients' && m === 'POST') {
@@ -352,16 +354,17 @@ async function handle(request, { params }) {
       const f = { clinic_id: cid }
       if (date) f.appointment_date = date
       if (patient_id) f.patient_id = patient_id
-      const apps = await db.collection('appointments').find(f).sort({ appointment_date: -1, appointment_time: 1 }).toArray()
+      // Use hint to ensure compound index is used for clinic_id + appointment_date + appointment_time sort
+      const apps = await db.collection('appointments').find(f).sort({ appointment_date: -1, appointment_time: 1 }).hint({ clinic_id: 1, appointment_date: -1, appointment_time: 1 }).toArray()
       const pids = [...new Set(apps.map(a=>a.patient_id).filter(Boolean))]
       const dids = [...new Set(apps.map(a=>a.doctor_id).filter(Boolean))]
       const [pts, docs] = await Promise.all([
-        pids.length ? db.collection('patients').find({ id: { $in: pids }, clinic_id: cid }).toArray() : [],
-        dids.length ? db.collection('profiles').find({ id: { $in: dids }, clinic_id: cid }).toArray() : []
+        pids.length ? db.collection('patients').find({ id: { $in: pids }, clinic_id: cid }).hint({ clinic_id: 1, id: 1 }).toArray() : [],
+        dids.length ? db.collection('profiles').find({ id: { $in: dids }, clinic_id: cid }).hint({ clinic_id: 1, id: 1 }).toArray() : []
       ])
       const pmap = Object.fromEntries(pts.map(p=>[p.id,{name:p.name,phone:p.phone,total_visits:p.total_visits||0}]))
       const dmap = Object.fromEntries(docs.map(d=>[d.id,d.full_name]))
-      const visits = await db.collection('visits').find({ clinic_id: cid, appointment_id: { $in: apps.map(a=>a.id) } }).toArray()
+      const visits = await db.collection('visits').find({ clinic_id: cid, appointment_id: { $in: apps.map(a=>a.id) } }).hint({ clinic_id: 1, appointment_id: 1 }).toArray()
       const vmap = Object.fromEntries(visits.map(v=>[v.appointment_id, v.id]))
       return json({ appointments: apps.map(a => ({ ...clean(a), patient_name: pmap[a.patient_id]?.name||a.patient_name_temp, patient_phone: pmap[a.patient_id]?.phone||a.patient_phone_temp, patient_total_visits: pmap[a.patient_id]?.total_visits||0, doctor_name: dmap[a.doctor_id]||'', visit_id: vmap[a.id] || null })) })
     }
@@ -490,16 +493,16 @@ async function handle(request, { params }) {
       return json({ visits: list.map(v => ({ ...clean(v), doctor_name: dmap[v.doctor_id]||'', prescriptions: rxmap[v.id]||[] })) })
     }
     if (path[0]==='visits' && path[1] && m==='GET') {
-      const v = await db.collection('visits').findOne({ id: path[1], clinic_id: cid })
+      const v = await db.collection('visits').findOne({ id: path[1], clinic_id: cid }).hint({ clinic_id: 1, id: 1 })
       if (!v) return err('Not found', 404)
       const [p, doc, rxs, prevList, inv] = await Promise.all([
-        db.collection('patients').findOne({ id: v.patient_id, clinic_id: cid }),
-        v.doctor_id ? db.collection('profiles').findOne({ id: v.doctor_id, clinic_id: cid }) : null,
-        db.collection('prescriptions').find({ visit_id: v.id, clinic_id: cid }).toArray(),
-        db.collection('visits').find({ patient_id: v.patient_id, clinic_id: cid, id: { $ne: v.id } }).sort({ visit_date: -1, created_at: -1 }).limit(1).toArray(),
-        db.collection('invoices').findOne({ visit_id: v.id, clinic_id: cid })
+        db.collection('patients').findOne({ id: v.patient_id, clinic_id: cid }).hint({ clinic_id: 1, id: 1 }),
+        v.doctor_id ? db.collection('profiles').findOne({ id: v.doctor_id, clinic_id: cid }).hint({ clinic_id: 1, id: 1 }) : null,
+        db.collection('prescriptions').find({ visit_id: v.id, clinic_id: cid }).hint({ clinic_id: 1, visit_id: 1 }).toArray(),
+        db.collection('visits').find({ patient_id: v.patient_id, clinic_id: cid, id: { $ne: v.id } }).sort({ visit_date: -1, created_at: -1 }).limit(1).hint({ clinic_id: 1, patient_id: 1, visit_date: -1, created_at: -1 }).toArray(),
+        db.collection('invoices').findOne({ visit_id: v.id, clinic_id: cid }).hint({ clinic_id: 1, visit_id: 1 })
       ])
-      const items = inv ? await db.collection('invoice_items').find({ invoice_id: inv.id, clinic_id: cid }).toArray() : []
+      const items = inv ? await db.collection('invoice_items').find({ invoice_id: inv.id, clinic_id: cid }).hint({ clinic_id: 1, invoice_id: 1 }).toArray() : []
       return json({ visit: { ...clean(v), patient: clean(p), doctor_name: doc?.full_name||'', prescriptions: rxs.map(clean), previous_visit: prevList[0] ? clean(prevList[0]) : null, invoice: inv ? { ...clean(inv), items: items.map(clean) } : null } })
     }
     if (path[0]==='visits' && path[1] && m==='PUT') {
@@ -641,6 +644,12 @@ async function handle(request, { params }) {
         SMART_TYPING_SEED.map(t => ({ ...t, clinic_id: null, is_custom: false }))
       )
       return json({ ok: true, seeded: 331 })
+    }
+
+    // ============ SETUP INDEXES ============
+    if (path[0] === 'setup-indexes' && m === 'POST') {
+      await setupIndexes()
+      return json({ ok: true, message: 'Indexes created successfully' })
     }
     if (path[0] === 'smart-typing' && m === 'GET') {
       const url = new URL(request.url)
