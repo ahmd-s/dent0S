@@ -5,6 +5,7 @@ import { getDb } from '@/lib/mongo'
 import { hashPassword, verifyPassword, signToken, setAuthCookie, clearAuthCookie, getCurrentUser } from '@/lib/auth'
 import { sendStaffInviteEmail } from '@/lib/invite-email'
 import { createAnthropicMessage } from '@/lib/anthropic-messages'
+import { SMART_TYPING_SEED } from '@/lib/smart-typing-seed'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -619,6 +620,51 @@ async function handle(request, { params }) {
       await db.collection('invoice_items').deleteMany({ invoice_id: inv.id, clinic_id: cid })
       await db.collection('invoices').deleteOne({ id: inv.id, clinic_id: cid })
       return json({ ok:true })
+    }
+
+    // ============ SMART TYPING ============
+    if (path[0] === 'smart-typing' && path[1] === 'seed' && m === 'POST') {
+      const count = await db.collection('smart_typing_templates').countDocuments()
+      if (count >= 331) return json({ ok: true, message: 'Already seeded' })
+      await db.collection('smart_typing_templates').insertMany(
+        SMART_TYPING_SEED.map(t => ({ ...t, clinic_id: null, is_custom: false }))
+      )
+      return json({ ok: true, seeded: 331 })
+    }
+    if (path[0] === 'smart-typing' && m === 'GET') {
+      const url = new URL(request.url)
+      const q = url.searchParams.get('q') || ''
+      const category = url.searchParams.get('category') || ''
+      const clinicId = url.searchParams.get('clinic_id')
+      
+      if (!q) return json({ templates: [] })
+      
+      const templates = await db.collection('smart_typing_templates').find({
+        $or: [
+          { trigger: { $regex: q, $options: 'i' } },
+          { expansion: { $regex: q, $options: 'i' } }
+        ],
+        ...(category ? { category } : {}),
+        $or: [
+          { clinic_id: null },
+          ...(clinicId ? [{ clinic_id }] : [])
+        ]
+      }).limit(6).toArray()
+      
+      // Sort by exact trigger match first, then partial, then text match
+      const sorted = templates.sort((a, b) => {
+        const aExact = a.trigger.toLowerCase() === q.toLowerCase()
+        const bExact = b.trigger.toLowerCase() === q.toLowerCase()
+        if (aExact && !bExact) return -1
+        if (!aExact && bExact) return 1
+        const aStarts = a.trigger.toLowerCase().startsWith(q.toLowerCase())
+        const bStarts = b.trigger.toLowerCase().startsWith(q.toLowerCase())
+        if (aStarts && !bStarts) return -1
+        if (!aStarts && bStarts) return 1
+        return 0
+      })
+      
+      return json({ templates: sorted })
     }
 
     // ============ DASHBOARD STATS ============

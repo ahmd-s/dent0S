@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { toast } from 'sonner'
 import { VisitVoiceRecorder } from '@/components/dentos/VisitVoiceRecorder'
+import SmartTextarea from '@/components/SmartTextarea'
 
 const fmtDate = d => d ? `${String(new Date(d).getDate()).padStart(2,'0')}/${String(new Date(d).getMonth()+1).padStart(2,'0')}/${new Date(d).getFullYear()}` : ''
 const FREQS = ['OD','BD','TDS','QID','SOS','1-0-1','1-1-1','1-0-0','0-0-1']
@@ -184,8 +185,8 @@ function App() {
       <VisitVoiceRecorder visitId={id} disabled={saving} onApplyExtraction={handleVoiceApply} />
 
       <Card className="mt-5 p-6 bg-white border-border rounded-lg space-y-5">
-        <div className="space-y-1.5"><Label className="text-base">Chief Complaint <span className="text-[#EF4444]">*</span></Label><Textarea rows={2} value={v.chief_complaint||''} onChange={e=>set('chief_complaint',e.target.value)} placeholder="What brings the patient in today?"/></div>
-        <div className="space-y-1.5"><Label className="text-base">Examination Findings</Label><Textarea rows={3} value={v.clinical_notes||''} onChange={e=>set('clinical_notes',e.target.value)} placeholder="Document your examination findings…"/></div>
+        <div className="space-y-1.5"><Label className="text-base">Chief Complaint <span className="text-[#EF4444]">*</span></Label><SmartTextarea value={v.chief_complaint||''} onChange={val=>set('chief_complaint',val)} category="chief_complaints" placeholder="What brings the patient in today?" rows={2}/></div>
+        <div className="space-y-1.5"><Label className="text-base">Examination Findings</Label><SmartTextarea value={v.clinical_notes||''} onChange={val=>set('clinical_notes',val)} category="clinical_findings" placeholder="Document your examination findings…" rows={3}/></div>
         <div className="space-y-1.5"><Label className="text-base">Diagnosis</Label><Input value={v.diagnosis||''} onChange={e=>set('diagnosis',e.target.value)} placeholder="e.g. Deep caries 46, Gingivitis"/></div>
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
@@ -199,9 +200,9 @@ function App() {
               </DropdownMenu>
             )}
           </div>
-          <Textarea rows={3} value={v.treatment_done||''} onChange={e=>set('treatment_done',e.target.value)}/>
+          <SmartTextarea value={v.treatment_done||''} onChange={val=>set('treatment_done',val)} category="procedures" rows={3}/>
         </div>
-        <div className="space-y-1.5"><Label className="text-base">Plan for Next Visit</Label><Textarea rows={2} value={v.treatment_plan||''} onChange={e=>set('treatment_plan',e.target.value)} placeholder="What should be done on the next visit…"/></div>
+        <div className="space-y-1.5"><Label className="text-base">Plan for Next Visit</Label><SmartTextarea value={v.treatment_plan||''} onChange={val=>set('treatment_plan',val)} category="treatment_plans" placeholder="What should be done on the next visit…" rows={2}/></div>
       </Card>
 
       <Card className="mt-5 p-6 bg-white border-border rounded-lg">
