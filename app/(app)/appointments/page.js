@@ -20,6 +20,15 @@ const STATUS = ['scheduled','arrived','in_progress','completed','cancelled','no_
 const TYPES = ['new_patient','follow_up','emergency','consultation','procedure']
 const typeColor = t => ({ new_patient:'bg-purple-100 text-purple-700', follow_up:'bg-blue-100 text-blue-700', emergency:'bg-red-100 text-red-700', consultation:'bg-[#0D9488]/15 text-[#0D9488]', procedure:'bg-orange-100 text-orange-700' }[t] || 'bg-slate-100 text-slate-700')
 const statusColor = s => ({ scheduled:'bg-slate-100 text-slate-700', arrived:'bg-blue-50 text-blue-700', in_progress:'bg-orange-50 text-orange-700', completed:'bg-green-50 text-green-700', cancelled:'bg-red-50 text-red-600', no_show:'bg-slate-200 text-slate-600' }[s] || 'bg-slate-100')
+const patientStatusBadge = (a) => {
+  if (!a.patient_id) {
+    return { text: 'Online Booking — Verify Identity', className: 'bg-slate-100 text-slate-600' }
+  }
+  if (a.patient_total_visits > 0) {
+    return { text: 'Returning Patient', className: 'bg-green-100 text-green-700' }
+  }
+  return { text: 'New Patient', className: 'bg-blue-100 text-blue-700' }
+}
 
 function App() {
   const router = useRouter()
@@ -44,15 +53,11 @@ function App() {
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ status:'arrived' })
     })
-    if (!a.patient_id) {
-      toast.error('Please create patient first')
-      return
-    }
     const r = await fetch('/api/visits', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
-        patient_id: a.patient_id,
+        patient_id: a.patient_id || null,
         appointment_id: a.id
       })
     })
@@ -109,7 +114,12 @@ function App() {
                 {list.map(a => (
                   <tr key={a.id} className="border-t border-border hover:bg-[#F8FAFC]/50">
                     <td className="px-5 py-3 font-semibold text-[#0D9488] whitespace-nowrap">{a.appointment_time}</td>
-                    <td className="px-5 py-3">{a.patient_id ? <Link href={`/patients/${a.patient_id}`} className="font-medium hover:text-[#0D9488]">{a.patient_name}</Link> : <span className="font-medium">{a.patient_name_temp} <span className="text-xs text-orange-600">(walk-in)</span></span>}</td>
+                    <td className="px-5 py-3">
+                      <div className="flex flex-col gap-1">
+                        {a.patient_id ? <Link href={`/patients/${a.patient_id}`} className="font-medium hover:text-[#0D9488]">{a.patient_name}</Link> : <span className="font-medium">{a.patient_name_temp} <span className="text-xs text-orange-600">(walk-in)</span></span>}
+                        <span className={`text-xs px-2 py-0.5 rounded-full w-fit ${patientStatusBadge(a).className}`}>{patientStatusBadge(a).text}</span>
+                      </div>
+                    </td>
                     <td className="px-5 py-3 text-muted-foreground text-xs">+91 {a.patient_phone||a.patient_phone_temp||'—'}</td>
                     <td className="px-5 py-3"><span className={`text-xs px-2 py-1 rounded-full capitalize ${typeColor(a.appointment_type)}`}>{a.appointment_type?.replace('_',' ')}</span></td>
                     <td className="px-5 py-3 text-muted-foreground">{a.doctor_name||'—'}</td>
