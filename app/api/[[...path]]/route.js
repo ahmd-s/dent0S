@@ -86,30 +86,59 @@ async function handle(request, { params }) {
       // re-check slot
       const conflict = await db.collection('appointments').findOne({ clinic_id: c.id, appointment_date: b.appointment_date, appointment_time: b.appointment_time, doctor_id: b.doctor_id||null, status: { $nin:['cancelled','no_show'] } })
       if (conflict) return err('Slot already booked', 409)
-      // Check if patient already exists by phone number
-      const existingPatient = await db.collection('patients').findOne({ phone: b.phone, clinic_id: c.id })
+      
       const id = uuidv4()
-      if (existingPatient) {
-        // Link to existing patient
-        await db.collection('appointments').insertOne({
-          id, clinic_id: c.id, patient_id: existingPatient.id, doctor_id: b.doctor_id || null,
-          patient_name_temp: null, patient_phone_temp: null,
-          appointment_date: b.appointment_date, appointment_time: b.appointment_time, duration_minutes: 30,
-          status: 'scheduled', appointment_type: 'consultation', chief_complaint: b.reason || '', notes: '',
-          booked_via: 'online', created_at: new Date()
-        })
+      let patient_id = null
+      let patient_name_temp = null
+      let patient_phone_temp = null
+      let visitor_type = b.visitor_type || null
+      let unmatched_note = false
+      
+      // Handle based on visitor_type
+      if (visitor_type === 'new') {
+        // CASE A: New patient - do NOT search existing patients
+        patient_id = null
+        patient_name_temp = b.name
+        patient_phone_temp = b.phone
+      } else if (visitor_type === 'returning') {
+        // CASE B: Returning patient - search for existing patient
+        const existingPatient = await db.collection('patients').findOne({ phone: b.phone, clinic_id: c.id })
+        if (existingPatient) {
+          // Step 2a: Patient found - link to existing
+          patient_id = existingPatient.id
+          patient_name_temp = null
+          patient_phone_temp = null
+        } else {
+          // Step 2b: Patient not found - create with returning_unmatched
+          patient_id = null
+          patient_name_temp = b.name
+          patient_phone_temp = b.phone
+          visitor_type = 'returning_unmatched'
+          unmatched_note = true
+        }
       } else {
-        // Create with temp fields for new patient
-        await db.collection('appointments').insertOne({
-          id, clinic_id: c.id, patient_id: null, doctor_id: b.doctor_id || null,
-          patient_name_temp: b.name, patient_phone_temp: b.phone,
-          appointment_date: b.appointment_date, appointment_time: b.appointment_time, duration_minutes: 30,
-          status: 'scheduled', appointment_type: 'consultation', chief_complaint: b.reason || '', notes: '',
-          booked_via: 'online', created_at: new Date()
-        })
+        // No visitor_type specified (old behavior) - check for existing patient
+        const existingPatient = await db.collection('patients').findOne({ phone: b.phone, clinic_id: c.id })
+        if (existingPatient) {
+          patient_id = existingPatient.id
+          patient_name_temp = null
+          patient_phone_temp = null
+        } else {
+          patient_id = null
+          patient_name_temp = b.name
+          patient_phone_temp = b.phone
+        }
       }
+      
+      await db.collection('appointments').insertOne({
+        id, clinic_id: c.id, patient_id, doctor_id: b.doctor_id || null,
+        patient_name_temp, patient_phone_temp,
+        appointment_date: b.appointment_date, appointment_time: b.appointment_time, duration_minutes: 30,
+        status: 'scheduled', appointment_type: 'consultation', chief_complaint: b.reason || '', notes: '',
+        booked_via: 'online', visitor_type, created_at: new Date()
+      })
       const doctor = b.doctor_id ? await db.collection('profiles').findOne({ id: b.doctor_id }) : null
-      return json({ ok:true, id, doctor_name: doctor?.full_name || '', clinic_name: c.name, clinic_phone: c.phone, clinic_city: c.city })
+      return json({ ok:true, id, doctor_name: doctor?.full_name || '', clinic_name: c.name, clinic_phone: c.phone, clinic_city: c.city, unmatched_note })
     }
 
     // ============ AUTH ============
@@ -352,25 +381,11 @@ async function handle(request, { params }) {
         })
       
         if (appointment) {
-          // Check if patient already exists by phone number
           let patientId = null
-          if (appointment.patient_phone_temp) {
-            const existingPatient = await db.collection('patients').findOne({
-              phone: appointment.patient_phone_temp,
-              clinic_id: cid
-            })
-            if (existingPatient) {
-              patientId = existingPatient.id
-              // Update appointment to link to existing patient
-              await db.collection('appointments').updateOne(
-                { id: appointment.id },
-                { $set: { patient_id: patientId } }
-              )
-            }
-          }
           
-          // If no existing patient found, create new one
-          if (!patientId) {
+          // Handle based on visitor_type
+          if (appointment.visitor_type === 'new') {
+            // CASE: visitor_type = "new" - NEVER check phone, always create new patient
             patientId = uuidv4()
             const count = await db.collection('patients').countDocuments({
               clinic_id: cid
@@ -391,6 +406,55 @@ async function handle(request, { params }) {
               { id: appointment.id },
               { $set: { patient_id: patientId } }
             )
+          } else if (appointment.visitor_type === 'returning_unmatched') {
+            // CASE: visitor_type = "returning_unmatched" - return error to show modal
+            return err('returning_unmatched', 400)
+          } else {
+            // CASE: visitor_type = "returning" with patient_id already set, or visitor_type = null (old behavior)
+            if (appointment.patient_id) {
+              // If patient_id is already set, use it
+              patientId = appointment.patient_id
+            } else {
+              // Otherwise check for existing patient by phone
+              if (appointment.patient_phone_temp) {
+                const existingPatient = await db.collection('patients').findOne({
+                  phone: appointment.patient_phone_temp,
+                  clinic_id: cid
+                })
+                if (existingPatient) {
+                  patientId = existingPatient.id
+                  // Update appointment to link to existing patient
+                  await db.collection('appointments').updateOne(
+                    { id: appointment.id },
+                    { $set: { patient_id: patientId } }
+                  )
+                }
+              }
+              
+              // If no existing patient found, create new one
+              if (!patientId) {
+                patientId = uuidv4()
+                const count = await db.collection('patients').countDocuments({
+                  clinic_id: cid
+                })
+                const code = 'PT' + String(count + 1).padStart(5,'0')
+                await db.collection('patients').insertOne({
+                  id: patientId,
+                  clinic_id: cid,
+                  name: appointment.patient_name_temp || 'Unknown',
+                  phone: appointment.patient_phone_temp || '',
+                  patient_code: code,
+                  total_visits: 0,
+                  is_archived: false,
+                  created_by: profile.id,
+                  created_at: new Date()
+                })
+                await db.collection('appointments').updateOne(
+                  { id: appointment.id },
+                  { $set: { patient_id: patientId } }
+                )
+              }
+            }
           }
           b.patient_id = patientId
         }

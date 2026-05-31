@@ -29,6 +29,11 @@ function App() {
               {info.clinic_name && <div className="flex items-center gap-3 text-sm"><MapPin className="w-4 h-4 text-[#0D9488]"/><span>{info.clinic_name}{info.clinic_city?`, ${info.clinic_city}`:''}</span></div>}
             </div>
           )}
+          {info?.unmatched_note && (
+            <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-md text-sm text-orange-800">
+              Your appointment is confirmed. Please mention your previous visit details to our receptionist when you arrive — they will help match your records.
+            </div>
+          )}
           <p className="mt-6 text-sm text-muted-foreground">Our team will confirm your appointment shortly. If you don&apos;t hear from us within 2 hours, please call {info?.clinic_phone ? <a href={`tel:+91${info.clinic_phone}`} className="text-[#0D9488] underline">+91 {info.clinic_phone}</a> : 'the clinic'}.</p>
           <div className="mt-6 space-y-2">
             {info?.clinic_phone && <a href={`https://wa.me/91${info.clinic_phone}?text=Hi, I just booked an appointment via your DentOS booking page.`} target="_blank" rel="noreferrer" className="w-full inline-flex items-center justify-center gap-2 px-4 h-12 rounded-md bg-green-600 text-white hover:bg-green-700 font-medium"><MessageCircle className="w-5 h-5"/>Chat with us on WhatsApp</a>}

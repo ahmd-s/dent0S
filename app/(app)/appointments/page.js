@@ -21,6 +21,17 @@ const TYPES = ['new_patient','follow_up','emergency','consultation','procedure']
 const typeColor = t => ({ new_patient:'bg-purple-100 text-purple-700', follow_up:'bg-blue-100 text-blue-700', emergency:'bg-red-100 text-red-700', consultation:'bg-[#0D9488]/15 text-[#0D9488]', procedure:'bg-orange-100 text-orange-700' }[t] || 'bg-slate-100 text-slate-700')
 const statusColor = s => ({ scheduled:'bg-slate-100 text-slate-700', arrived:'bg-blue-50 text-blue-700', in_progress:'bg-orange-50 text-orange-700', completed:'bg-green-50 text-green-700', cancelled:'bg-red-50 text-red-600', no_show:'bg-slate-200 text-slate-600' }[s] || 'bg-slate-100')
 const patientStatusBadge = (a) => {
+  // Handle visitor_type based badges
+  if (a.visitor_type === 'returning' && a.patient_id) {
+    return { text: 'Returning Patient', className: 'bg-green-100 text-green-700' }
+  }
+  if (a.visitor_type === 'new') {
+    return { text: 'New Patient', className: 'bg-blue-100 text-blue-700' }
+  }
+  if (a.visitor_type === 'returning_unmatched') {
+    return { text: 'Returning — Verify Records', className: 'bg-orange-100 text-orange-700' }
+  }
+  // visitor_type is null (in-clinic or old bookings) - use existing logic
   if (!a.patient_id) {
     return { text: 'Online Booking — Verify Identity', className: 'bg-slate-100 text-slate-600' }
   }
@@ -36,6 +47,8 @@ function App() {
   const [list, setList] = useState([])
   const [view, setView] = useState('list')
   const [open, setOpen] = useState(false)
+  const [verifyModalOpen, setVerifyModalOpen] = useState(false)
+  const [selectedAppointment, setSelectedAppointment] = useState(null)
 
   useEffect(() => {
     const url = new URL(window.location.href)
@@ -66,6 +79,9 @@ function App() {
     
     if (r.ok) {
       router.push(`/visits/${d.id}`)
+    } else if (d.error === 'returning_unmatched') {
+      setSelectedAppointment(a)
+      setVerifyModalOpen(true)
     } else {
       toast.error(d.error || 'Failed')
     }
@@ -177,6 +193,7 @@ function App() {
         </div>
       )}
       <NewAppointmentModal open={open} setOpen={setOpen} initialDate={date} onCreated={load} />
+      <VerifyPatientModal open={verifyModalOpen} setOpen={setVerifyModalOpen} appointment={selectedAppointment} onVerified={load} />
     </div>
   )
 }
@@ -263,6 +280,134 @@ function NewAppointmentModal({ open, setOpen, initialDate, onCreated }) {
           {conflict && <div className="p-2.5 rounded-md bg-orange-50 border border-orange-200 text-sm text-orange-800">⚠️ This doctor already has an appointment at this time. You can still save if intentional.</div>}
           <div className="flex justify-end gap-2 pt-2"><Button type="button" variant="outline" onClick={()=>setOpen(false)}>Cancel</Button><Button type="submit" disabled={busy} className="bg-[#0D9488] hover:bg-[#0B7E73]">{busy?<Loader2 className="w-4 h-4 animate-spin"/>:'Book Appointment'}</Button></div>
         </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function VerifyPatientModal({ open, setOpen, appointment, onVerified }) {
+  const [pq, setPq] = useState('')
+  const [pResults, setPresults] = useState([])
+  const [picked, setPicked] = useState(null)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (!open) { setPq(''); setPresults([]); setPicked(null) }
+  }, [open])
+
+  useEffect(() => {
+    if (!pq) { setPresults([]); return }
+    const t = setTimeout(async () => { const r = await fetch(`/api/patients?q=${encodeURIComponent(pq)}`); const d = await r.json(); setPresults((d.patients||[]).slice(0,5)) }, 250)
+    return () => clearTimeout(t)
+  }, [pq])
+
+  const handleLinkExisting = async () => {
+    if (!picked) { toast.error('Please select a patient'); return }
+    setBusy(true)
+    // Link appointment to selected patient
+    await fetch(`/api/appointments/${appointment.id}`, {
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ patient_id: picked.id })
+    })
+    // Create visit
+    const r = await fetch('/api/visits', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        patient_id: picked.id,
+        appointment_id: appointment.id
+      })
+    })
+    setBusy(false)
+    if (r.ok) {
+      const d = await r.json()
+      setOpen(false)
+      onVerified()
+      window.location.href = `/visits/${d.id}`
+    } else {
+      toast.error('Failed to create visit')
+    }
+  }
+
+  const handleCreateNew = async () => {
+    setBusy(true)
+    // Create new patient
+    const r = await fetch('/api/patients', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        name: appointment.patient_name_temp,
+        phone: appointment.patient_phone_temp
+      })
+    })
+    const d = await r.json()
+    if (!r.ok) { toast.error('Failed to create patient'); setBusy(false); return }
+    // Link appointment to new patient
+    await fetch(`/api/appointments/${appointment.id}`, {
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ patient_id: d.id })
+    })
+    // Create visit
+    const vr = await fetch('/api/visits', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        patient_id: d.id,
+        appointment_id: appointment.id
+      })
+    })
+    setBusy(false)
+    if (vr.ok) {
+      const vd = await vr.json()
+      setOpen(false)
+      onVerified()
+      window.location.href = `/visits/${vd.id}`
+    } else {
+      toast.error('Failed to create visit')
+    }
+  }
+
+  if (!appointment) return null
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Verify Patient Records</DialogTitle></DialogHeader>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            This patient said they visited before but we couldn't find their records with phone <span className="font-medium">+91 {appointment.patient_phone_temp}</span>. What would you like to do?
+          </p>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Search for existing patient</Label>
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"/>
+                <Input value={pq} onChange={e=>setPq(e.target.value)} placeholder="Type name or phone…" className="pl-9"/>
+                {pq && <div className="absolute top-11 left-0 right-0 bg-white border border-border rounded-md shadow z-10 max-h-60 overflow-y-auto">
+                  {pResults.map(p => (
+                    <button key={p.id} type="button" onClick={()=>{setPicked(p); setPq('')}} className="w-full text-left px-3 py-2 hover:bg-[#F8FAFC] border-b border-border"><div className="font-medium text-sm">{p.name}</div><div className="text-xs text-muted-foreground">+91 {p.phone}</div></button>
+                  ))}
+                </div>}
+              </div>
+            </div>
+            {picked && (
+              <div className="p-3 bg-[#F8FAFC] border border-border rounded-md">
+                <div className="font-medium text-sm">Selected: {picked.name}</div>
+                <div className="text-xs text-muted-foreground">+91 {picked.phone}</div>
+              </div>
+            )}
+          </div>
+          <div className="flex gap-2 pt-2">
+            <Button onClick={handleLinkExisting} disabled={!picked || busy} className="flex-1 bg-[#0D9488] hover:bg-[#0B7E73]">
+              {busy ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Find & Link Existing Patient'}
+            </Button>
+            <Button onClick={handleCreateNew} variant="outline" disabled={busy} className="flex-1">
+              {busy ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Create as New Patient'}
+            </Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   )

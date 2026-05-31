@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { MapPin, Phone, Loader2, Calendar, Clock, User, ChevronRight } from 'lucide-react'
+import { MapPin, Phone, Loader2, Calendar, Clock, User, ChevronRight, RefreshCw, UserPlus, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -22,6 +22,7 @@ function App() {
   const [slots, setSlots] = useState([])
   const [time, setTime] = useState('')
   const [f, setF] = useState({ name:'', phone:'', reason:'' })
+  const [visitorType, setVisitorType] = useState('')
   const [busy, setBusy] = useState(false)
   const [notFound, setNotFound] = useState(false)
 
@@ -42,18 +43,19 @@ function App() {
 
   const submit = async e => {
     e.preventDefault()
+    if (!visitorType) { toast.error('Please select whether you are a new or returning patient'); return }
     if (!f.name || !f.phone || !time) { toast.error('Please fill all required fields'); return }
     if (!/^\d{10}$/.test(f.phone)) { toast.error('Phone must be 10 digits'); return }
     if (!doctor && doctors.length>0) { toast.error('Select a doctor'); return }
     setBusy(true)
     const r = await fetch(`/api/public/clinic/${slug}/book`, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ name: f.name, phone: f.phone, reason: f.reason, doctor_id: doctor || null, appointment_date: date, appointment_time: time })
+      body: JSON.stringify({ name: f.name, phone: f.phone, reason: f.reason, doctor_id: doctor || null, appointment_date: date, appointment_time: time, visitor_type: visitorType })
     })
     const d = await r.json()
     setBusy(false)
     if (!r.ok) { toast.error(d.error || 'Could not book'); return }
-    sessionStorage.setItem('dentos_booking', JSON.stringify({ ...d, date, time, doctor_name: d.doctor_name, name: f.name }))
+    sessionStorage.setItem('dentos_booking', JSON.stringify({ ...d, date, time, doctor_name: d.doctor_name, name: f.name, visitor_type: visitorType }))
     router.push(`/book/${slug}/confirm`)
   }
 
@@ -86,6 +88,31 @@ function App() {
 
         <form onSubmit={submit} className="mt-8 bg-white rounded-lg border border-border p-6 space-y-5">
           <h2 className="text-xl font-bold text-[#0F172A] flex items-center gap-2"><Calendar className="w-5 h-5 text-[#0D9488]"/>Book an Appointment</h2>
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">Are you a new or returning patient?</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setVisitorType('returning')}
+                className={`relative p-4 rounded-lg border text-left transition ${visitorType === 'returning' ? 'border-[#0D9488] bg-[#0D9488]/5' : 'bg-white border-border hover:border-[#0D9488]/50'}`}
+              >
+                {visitorType === 'returning' && <Check className="absolute top-2 right-2 w-4 h-4 text-[#0D9488]" />}
+                <RefreshCw className={`w-6 h-6 mb-2 ${visitorType === 'returning' ? 'text-[#0D9488]' : 'text-slate-400'}`} />
+                <div className="font-medium text-sm">I've visited before</div>
+                <div className="text-xs text-muted-foreground mt-1">We'll find your existing records</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setVisitorType('new')}
+                className={`relative p-4 rounded-lg border text-left transition ${visitorType === 'new' ? 'border-[#0D9488] bg-[#0D9488]/5' : 'bg-white border-border hover:border-[#0D9488]/50'}`}
+              >
+                {visitorType === 'new' && <Check className="absolute top-2 right-2 w-4 h-4 text-[#0D9488]" />}
+                <UserPlus className={`w-6 h-6 mb-2 ${visitorType === 'new' ? 'text-[#0D9488]' : 'text-slate-400'}`} />
+                <div className="font-medium text-sm">First visit</div>
+                <div className="text-xs text-muted-foreground mt-1">We'll create your profile</div>
+              </button>
+            </div>
+          </div>
           <div>
             <Label className="text-sm font-medium">Select Date</Label>
             <Input type="date" min={todayIso()} value={date} onChange={e=>setDate(e.target.value)} className="mt-1.5"/>
