@@ -524,7 +524,8 @@ async function handle(request, { params }) {
           invoiceId = uuidv4()
           const count = await db.collection('invoices').countDocuments({ clinic_id: cid })
           const invoice_number = `INV-${initials(clinic.name)}-${String(count+1).padStart(5,'0')}`
-          await db.collection('invoices').insertOne({ id: invoiceId, clinic_id: cid, patient_id: visit.patient_id, visit_id: visit.id, invoice_number, invoice_date: todayIso(), ...invoiceData, created_at: new Date() })
+          const share_token = uuidv4()
+          await db.collection('invoices').insertOne({ id: invoiceId, clinic_id: cid, patient_id: visit.patient_id, visit_id: visit.id, invoice_number, invoice_date: todayIso(), share_token, ...invoiceData, created_at: new Date() })
         }
         if (items.length) {
           await db.collection('invoice_items').insertMany(items.map(it => ({ id: uuidv4(), clinic_id: cid, invoice_id: invoiceId, description: it.description, quantity: parseInt(it.quantity)||1, unit_price: parseFloat(it.unit_price)||0, total: (parseFloat(it.unit_price)||0)*(parseInt(it.quantity)||1) })))
@@ -537,6 +538,21 @@ async function handle(request, { params }) {
         await db.collection('patients').updateOne({ id: visit.patient_id, clinic_id: cid }, { $set: { last_visit_date: visit.visit_date, next_followup_date: b.next_visit_recommended ? b.next_visit_date : null }, $inc: { total_visits: 1 } })
       }
       return json({ ok:true, invoice_id: invoiceId })
+    }
+
+    // ============ PUBLIC INVOICE ============
+    if (path[0] === 'public' && path[1] === 'invoice' && path[2] && m === 'GET') {
+      const inv = await db.collection('invoices').findOne({ share_token: path[2] })
+      if (!inv) return err('Not found', 404)
+      const clinic = await db.collection('clinics').findOne({ id: inv.clinic_id })
+      if (!clinic) return err('Clinic not found', 404)
+      const [p, items, visit] = await Promise.all([
+        db.collection('patients').findOne({ id: inv.patient_id }),
+        db.collection('invoice_items').find({ invoice_id: inv.id }).toArray(),
+        db.collection('visits').findOne({ id: inv.visit_id })
+      ])
+      const doctor = visit?.doctor_id ? await db.collection('profiles').findOne({ id: visit.doctor_id }) : null
+      return json({ invoice: { ...clean(inv), patient: clean(p), items: items.map(clean), visit: visit ? clean(visit) : null, doctor_name: doctor?.full_name || '', clinic: clean(clinic) } })
     }
 
     // ============ INVOICES ============
@@ -582,6 +598,19 @@ async function handle(request, { params }) {
       if ('notes' in b) u.notes = b.notes
       await db.collection('invoices').updateOne({ id: path[1], clinic_id: cid }, { $set: u })
       return json({ ok:true })
+    }
+    if (path[0]==='invoices' && path[1] && m==='PATCH') {
+      const b = await request.json()
+      if (b.generate_share_token) {
+        const inv = await db.collection('invoices').findOne({ id: path[1], clinic_id: cid })
+        if (!inv) return err('Not found', 404)
+        if (!inv.share_token) {
+          const share_token = uuidv4()
+          await db.collection('invoices').updateOne({ id: path[1], clinic_id: cid }, { $set: { share_token } })
+        }
+        return json({ ok:true })
+      }
+      return err('Invalid request')
     }
     if (path[0]==='invoices' && path[1] && m==='DELETE') {
       if (isReceptionist(profile)) return err('Forbidden', 403)

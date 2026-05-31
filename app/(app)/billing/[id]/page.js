@@ -24,7 +24,24 @@ function App() {
   const [inv, setInv] = useState(null)
   const [payOpen, setPayOpen] = useState(false)
 
-  const load = async () => { const r = await fetch(`/api/invoices/${id}`); if (r.ok) setInv((await r.json()).invoice) }
+  const load = async () => {
+    const r = await fetch(`/api/invoices/${id}`)
+    if (r.ok) {
+      const data = await r.json()
+      setInv(data.invoice)
+      // Auto-generate share_token if missing
+      if (!data.invoice.share_token) {
+        await fetch(`/api/invoices/${id}`, {
+          method:'PATCH',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ generate_share_token: true })
+        })
+        // Reload to get the share_token
+        const r2 = await fetch(`/api/invoices/${id}`)
+        if (r2.ok) setInv((await r2.json()).invoice)
+      }
+    }
+  }
   useEffect(() => { if (id) load() }, [id])
 
   if (!inv) return <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]"/></div>
@@ -32,7 +49,10 @@ function App() {
   const wa = () => {
     const phone = inv.patient?.phone
     if (!phone) { toast.error('No phone number'); return }
-    const text = `Hi ${inv.patient?.name},\n\nYour invoice ${inv.invoice_number} for ${inr(inv.total_amount)} is ${inv.payment_status}.\n\nThank you for visiting ${inv.clinic?.name}.`
+    if (!inv.share_token) { toast.error('Share token not generated'); return }
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || window.location.origin
+    const publicUrl = `${baseUrl}/invoice/${inv.share_token}`
+    const text = `Hello ${inv.patient?.name},\n\nYour invoice from ${inv.clinic?.name} is ready.\n\nInvoice No: ${inv.invoice_number}\nDate: ${fmtDate(inv.invoice_date)}\nAmount: ${inr(inv.total_amount)}\nStatus: ${inv.payment_status}\n\nView your invoice here:\n${publicUrl}\n\nThank you for visiting us!\n${inv.clinic?.phone ? '+91 ' + inv.clinic.phone : ''}`
     window.open(`https://wa.me/91${phone}?text=${encodeURIComponent(text)}`, '_blank')
   }
 
