@@ -333,6 +333,17 @@ async function handle(request, { params }) {
       await db.collection('patients').updateOne({ id: path[1], clinic_id: cid }, { $set: b })
       return json({ ok:true })
     }
+    if (path[0] === 'patients' && path[1] && m === 'DELETE') {
+      if (isReceptionist(profile)) return err('Forbidden', 403)
+      const p = await db.collection('patients').findOne({ id: path[1], clinic_id: cid })
+      if (!p) return err('Not found', 404)
+      // Delete related records
+      await db.collection('visits').deleteMany({ patient_id: path[1], clinic_id: cid })
+      await db.collection('appointments').deleteMany({ patient_id: path[1], clinic_id: cid })
+      await db.collection('prescriptions').deleteMany({ patient_id: path[1], clinic_id: cid })
+      await db.collection('patients').deleteOne({ id: path[1], clinic_id: cid })
+      return json({ ok:true })
+    }
 
     // ============ APPOINTMENTS ============
     if (route === '/appointments' && m === 'GET') {

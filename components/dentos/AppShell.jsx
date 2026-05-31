@@ -2,10 +2,12 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { LayoutDashboard, Users, Calendar, Receipt, Settings, LogOut, Bell, Search, Plus, Menu, X } from 'lucide-react'
+import { LayoutDashboard, Users, Calendar, Receipt, Settings, LogOut, Bell, Search, Plus, Menu, X, Moon, Sun } from 'lucide-react'
 import { ToothIcon } from './Logo'
 import { useRole } from './RoleContext'
 import { Badge } from '@/components/ui/badge'
+import { useTheme } from 'next-themes'
+import { Button } from '@/components/ui/button'
 
 const NAV_ALL = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -42,6 +44,7 @@ export default function AppShell({ children }) {
   const pathname = usePathname()
   const router = useRouter()
   const { me, isReceptionist } = useRole()
+  const { theme, setTheme } = useTheme()
   const navItems = useMemo(() => {
     if (isReceptionist()) return NAV_ALL.filter(n => !n.receptionistHidden)
     return NAV_ALL
@@ -67,7 +70,7 @@ export default function AppShell({ children }) {
   const title = Object.entries(PAGE_TITLES).find(([k]) => pathname === k || pathname.startsWith(k+'/'))?.[1] || 'DentOS'
 
   return (
-    <div className="min-h-screen flex bg-white">
+    <div className="min-h-screen flex bg-background">
       {mobileOpen && <div onClick={()=>setMobileOpen(false)} className="md:hidden fixed inset-0 bg-black/40 z-40"/>}
       <aside className={`w-60 sidebar-bg sidebar-fg fixed inset-y-0 left-0 flex flex-col z-50 transition-transform md:translate-x-0 ${mobileOpen?'translate-x-0':'-translate-x-full md:translate-x-0'}`}>
         <div className="p-5 border-b border-white/10 flex items-center justify-between">
@@ -106,17 +109,17 @@ export default function AppShell({ children }) {
         </div>
       </aside>
       <div className="flex-1 md:ml-60">
-        <header className="h-16 border-b border-border bg-white flex items-center px-4 md:px-6 sticky top-0 z-30 gap-3">
-          <button onClick={()=>setMobileOpen(true)} className="md:hidden w-9 h-9 rounded-md hover:bg-[#F8FAFC] flex items-center justify-center"><Menu className="w-5 h-5"/></button>
-          <h1 className="text-lg font-bold text-[#0F172A] hidden md:block w-48">{title}</h1>
+        <header className="h-16 border-b border-border bg-background flex items-center px-4 md:px-6 sticky top-0 z-30 gap-3">
+          <button onClick={()=>setMobileOpen(true)} className="md:hidden w-9 h-9 rounded-md hover:bg-muted flex items-center justify-center"><Menu className="w-5 h-5"/></button>
+          <h1 className="text-lg font-bold text-foreground hidden md:block w-48">{title}</h1>
           <div className="flex-1 max-w-xl mx-auto relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"/>
             <input value={q} onChange={e=>{setQ(e.target.value); setShowResults(true)}}
               onFocus={()=>setShowResults(true)} onBlur={()=>setTimeout(()=>setShowResults(false), 200)}
               placeholder="Search patients by name or phone…"
-              className="w-full h-10 pl-9 pr-3 rounded-md border border-input bg-[#F8FAFC] text-sm focus:outline-none focus:ring-2 focus:ring-[#0D9488] focus:bg-white"/>
+              className="w-full h-10 pl-9 pr-3 rounded-md border border-input bg-muted text-sm focus:outline-none focus:ring-2 focus:ring-[#0D9488] focus:bg-background"/>
             {showResults && q && (
-              <div className="absolute top-12 left-0 right-0 bg-white border border-border rounded-md shadow-lg overflow-hidden">
+              <div className="absolute top-12 left-0 right-0 bg-background border border-border rounded-md shadow-lg overflow-hidden">
                 {results.length === 0 ? (
                   <div className="p-4 text-sm text-muted-foreground flex items-center justify-between">
                     <span>No patient found</span>
@@ -124,7 +127,7 @@ export default function AppShell({ children }) {
                   </div>
                 ) : results.map(p => (
                   <button key={p.id} onClick={()=>{router.push(`/patients/${p.id}`); setQ(''); setShowResults(false)}}
-                    className="w-full text-left px-4 py-2.5 hover:bg-[#F8FAFC] border-b border-border last:border-0 flex items-center justify-between">
+                    className="w-full text-left px-4 py-2.5 hover:bg-muted border-b border-border last:border-0 flex items-center justify-between">
                     <div><div className="font-medium text-sm">{p.name}</div><div className="text-xs text-muted-foreground">+91 {p.phone}</div></div>
                     <div className="text-xs text-muted-foreground">{p.last_visit_date ? `Last: ${fmtDate(p.last_visit_date)}` : 'No visits'}</div>
                   </button>
@@ -132,11 +135,16 @@ export default function AppShell({ children }) {
               </div>
             )}
           </div>
-          <div className="w-48 flex justify-end">
-            <button className="w-9 h-9 rounded-md hover:bg-[#F8FAFC] flex items-center justify-center text-muted-foreground"><Bell className="w-4 h-4"/></button>
+          <div className="w-48 flex justify-end gap-2">
+            <Button variant="ghost" size="icon" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="w-9 h-9">
+              <Sun className="w-4 h-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+              <Moon className="absolute w-4 h-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+              <span className="sr-only">Toggle theme</span>
+            </Button>
+            <button className="w-9 h-9 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground"><Bell className="w-4 h-4"/></button>
           </div>
         </header>
-        <main className="p-6 bg-white min-h-[calc(100vh-4rem)]">{children}</main>
+        <main className="p-6 bg-background min-h-[calc(100vh-4rem)]">{children}</main>
       </div>
     </div>
   )
