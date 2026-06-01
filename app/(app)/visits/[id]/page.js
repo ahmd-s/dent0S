@@ -48,6 +48,7 @@ function App() {
   const [showPrev, setShowPrev] = useState(false)
   const [saving, setSaving] = useState(false)
   const [autosaveAt, setAutosaveAt] = useState(null)
+  const [loading, setLoading] = useState(true)
 
   const stateRef = useRef({})
   stateRef.current = { v, rxs, items, discount, gstOn, paymentMode, paymentStatus }
@@ -55,9 +56,10 @@ function App() {
   const set = (k, val) => setV(p => ({...p, [k]: val}))
 
   const load = async () => {
+    setLoading(true)
     const r = await fetch(`/api/visits/${id}`)
     const d = await r.json()
-    if (!r.ok) { toast.error('Visit not found'); return }
+    if (!r.ok) { toast.error('Visit not found'); setLoading(false); return }
     setV(d.visit); setRxs(d.visit.prescriptions || [])
     if (d.visit.invoice) {
       setItems(d.visit.invoice.items || [])
@@ -66,6 +68,7 @@ function App() {
       setPaymentMode(d.visit.invoice.payment_mode || 'cash')
       setPaymentStatus(d.visit.invoice.payment_status || 'pending')
     }
+    setLoading(false)
   }
   useEffect(() => { if (id) load() }, [id])
   useEffect(() => { fetch('/api/treatment_templates').then(r=>r.json()).then(d=>setTemplates(d.templates||[])) }, [])
@@ -138,6 +141,42 @@ function App() {
   const subtotal = items.reduce((s,it) => s + (parseFloat(it.unit_price)||0)*(parseInt(it.quantity)||1), 0)
   const gst = gstOn ? Math.round((subtotal-discount)*0.18*100)/100 : 0
   const total = Math.max(0, subtotal - discount + gst)
+
+  if (loading) return (
+    <div className="max-w-5xl mx-auto pb-12 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="h-6 bg-muted rounded w-32 animate-pulse"/>
+        <div className="flex gap-2">
+          <div className="h-10 bg-muted rounded w-24 animate-pulse"/>
+          <div className="h-10 bg-muted rounded w-32 animate-pulse"/>
+        </div>
+      </div>
+      <div className="flex items-end justify-between">
+        <div className="space-y-2">
+          <div className="h-8 bg-muted rounded w-48 animate-pulse"/>
+          <div className="h-4 bg-muted rounded w-32 animate-pulse"/>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="space-y-3">
+          <div className="h-4 bg-muted rounded w-24 animate-pulse"/>
+          <div className="h-24 bg-muted rounded animate-pulse"/>
+        </div>
+        <div className="space-y-3">
+          <div className="h-4 bg-muted rounded w-24 animate-pulse"/>
+          <div className="h-24 bg-muted rounded animate-pulse"/>
+        </div>
+      </div>
+      <div className="space-y-3">
+        <div className="h-4 bg-muted rounded w-32 animate-pulse"/>
+        <div className="h-32 bg-muted rounded animate-pulse"/>
+      </div>
+      <div className="space-y-3">
+        <div className="h-4 bg-muted rounded w-32 animate-pulse"/>
+        <div className="h-32 bg-muted rounded animate-pulse"/>
+      </div>
+    </div>
+  )
 
   if (!v) return <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]"/></div>
 

@@ -21,16 +21,19 @@ function App() {
   const [filter, setFilter] = useState('all')
   const [page, setPage] = useState(1)
   const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
   const { isReceptionist } = useRole()
   const receptionist = isReceptionist()
 
   const load = async () => {
+    setLoading(true)
     const params = new URLSearchParams()
     if (q) params.set('q', q)
     if (filter !== 'all') params.set('filter', filter)
     const r = await fetch('/api/patients?' + params)
     const d = await r.json()
     setList(d.patients || [])
+    setLoading(false)
   }
   useEffect(() => { load() }, [q, filter])
 
@@ -61,8 +64,26 @@ function App() {
         <span className="text-sm text-muted-foreground whitespace-nowrap">{list.length} patients</span>
       </Card>
       <Card className="mt-4 bg-white border-border rounded-lg overflow-hidden">
-        {visible.length===0 && <div className="py-16 text-center text-muted-foreground text-sm">No patients match your search</div>}
-        {visible.length>0 && (
+        {loading && (
+          <div className="p-5 space-y-3">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="flex items-center gap-3 py-2">
+                <div className="w-9 h-9 rounded-full bg-muted animate-pulse"/>
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-muted rounded w-1/3 animate-pulse"/>
+                  <div className="h-3 bg-muted rounded w-1/4 animate-pulse"/>
+                </div>
+                <div className="h-4 bg-muted rounded w-16 animate-pulse"/>
+                <div className="h-4 bg-muted rounded w-12 animate-pulse"/>
+                <div className="h-4 bg-muted rounded w-20 animate-pulse"/>
+                <div className="h-4 bg-muted rounded w-24 animate-pulse"/>
+                <div className="h-8 bg-muted rounded w-20 animate-pulse"/>
+              </div>
+            ))}
+          </div>
+        )}
+        {!loading && visible.length===0 && <div className="py-16 text-center text-muted-foreground text-sm">No patients match your search</div>}
+        {!loading && visible.length>0 && (
           <table className="w-full text-sm">
             <thead className="bg-[#F8FAFC] text-left text-xs uppercase text-muted-foreground tracking-wider">
               <tr><th className="px-5 py-3 font-medium">Name</th><th className="px-5 py-3 font-medium">Phone</th><th className="px-5 py-3 font-medium">Age</th><th className="px-5 py-3 font-medium">Gender</th><th className="px-5 py-3 font-medium">Last Visit</th><th className="px-5 py-3 font-medium">Follow-up Due</th><th className="px-5 py-3 text-right font-medium">Actions</th></tr>
@@ -94,11 +115,16 @@ function App() {
 
     if (!ok) return
 
-    await fetch(`/api/patients/${p.id}`, {
+    const r = await fetch(`/api/patients/${p.id}`, {
       method: 'DELETE'
     })
 
-    window.location.reload()
+    if (r.ok) {
+      toast.success('Patient deleted')
+      load()
+    } else {
+      toast.error('Failed to delete patient')
+    }
   }}
 >
   Delete
