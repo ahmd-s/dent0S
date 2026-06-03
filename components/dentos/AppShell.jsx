@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { LayoutDashboard, Users, Calendar, Receipt, Settings, LogOut, Bell, Search, Plus, Menu, X, Moon, Sun } from 'lucide-react'
+import { LayoutDashboard, Users, Calendar, Receipt, Settings, LogOut, Bell, Search, Plus, Menu, X, Moon, Sun, FlaskConical, Building2 } from 'lucide-react'
 import { ToothIcon } from './Logo'
 import { useRole } from './RoleContext'
 import { Badge } from '@/components/ui/badge'
@@ -13,6 +13,8 @@ const NAV_ALL = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/patients', label: 'Patients', icon: Users },
   { href: '/appointments', label: 'Appointments', icon: Calendar },
+  { href: '/lab-cases', label: 'Lab Cases', icon: FlaskConical },
+  { href: '/vendors', label: 'Vendors', icon: Building2 },
   { href: '/billing', label: 'Billing', icon: Receipt },
   { href: '/settings', label: 'Settings', icon: Settings, receptionistHidden: true },
 ]
@@ -21,6 +23,8 @@ const PAGE_TITLES = {
   '/dashboard': 'Dashboard',
   '/patients': 'Patients',
   '/appointments': 'Appointments',
+  '/lab-cases': 'Lab Cases',
+  '/vendors': 'Vendors',
   '/billing': 'Billing',
   '/settings': 'Settings',
 }
