@@ -53,7 +53,7 @@ export default function LabPortalPage() {
     try {
       const r = await fetch(`/api/lab-portal/${token}/status`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status, note }) })
       const d = await r.json()
-      if (r.ok) { toast.success('Status updated — the clinic has been notified'); setLc(d.lab_case); setNote('') }
+      if (r.ok) { toast.success('Status updated — the clinic will see this in DentOS'); setLc(d.lab_case); setNote('') }
       else toast.error(d.error || 'Could not update status')
     } catch { toast.error('Could not update status') }
     finally { setUpdating('') }

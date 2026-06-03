@@ -3,6 +3,7 @@ import { getDb } from '@/lib/mongo'
 import { cors } from '@/lib/api-helpers'
 import { LAB_PORTAL_STATUSES, sanitizeForPortal, statusLabel } from '@/lib/lab-case-helpers'
 import { logAudit, AUDIT_ACTIONS, AUDIT_SOURCE } from '@/lib/audit'
+import { createLabStatusNotification } from '@/lib/notifications'
 
 const json = (d, s = 200) => cors(NextResponse.json(d, { status: s }))
 const err = (msg, s = 400) => json({ error: msg }, s)
@@ -28,8 +29,9 @@ export async function POST(request, { params }) {
     const labName = vendor?.name || 'Lab'
     const now = new Date()
     const note = (body?.note || '').toString().slice(0, 500)
+    const changed = status !== lc.status
 
-    if (status !== lc.status) {
+    if (changed) {
       await db.collection('lab_cases').updateOne(
         { public_token: token },
         {
@@ -42,6 +44,16 @@ export async function POST(request, { params }) {
 
     const fresh = await db.collection('lab_cases').findOne({ public_token: token })
     const patient = await db.collection('patients').findOne({ id: fresh.patient_id, clinic_id: fresh.clinic_id })
+
+    if (changed) {
+      await createLabStatusNotification(db, {
+        clinicId: lc.clinic_id,
+        labCase: { id: fresh.id, case_number: fresh.case_number, patient_name: patient?.name || 'Patient' },
+        status,
+        labName,
+        note,
+      })
+    }
     const view = sanitizeForPortal({ ...fresh, patient_name: patient?.name || 'Patient' }, { labName })
     return json({ ok: true, lab_case: view })
   } catch (e) {
