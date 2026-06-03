@@ -1,7 +1,8 @@
 import { v4 as uuidv4 } from 'uuid'
 import { NextResponse } from 'next/server'
 import { requireUser, json, err, clean, cors } from '@/lib/api-helpers'
-import { LAB_CASE_STATUSES, safeIsoDate, populateNames } from '@/lib/lab-case-helpers'
+import { LAB_CASE_STATUSES, safeIsoDate, populateNames, secureToken } from '@/lib/lab-case-helpers'
+import { logAudit, AUDIT_ACTIONS, AUDIT_SOURCE } from '@/lib/audit'
 
 export async function OPTIONS() { return cors(new NextResponse(null, { status: 200 })) }
 
@@ -14,7 +15,10 @@ export async function GET(request) {
     const patient_id = url.searchParams.get('patient_id')
     const vendor_id = url.searchParams.get('vendor_id')
     const f = { clinic_id: cid }
-    if (status && status !== 'all') f.status = status
+    if (status && status !== 'all') {
+      const parts = status.split(',').map(s => s.trim()).filter(Boolean)
+      f.status = parts.length > 1 ? { $in: parts } : parts[0]
+    }
     if (patient_id) f.patient_id = patient_id
     if (vendor_id) f.vendor_id = vendor_id
     const list = await db.collection('lab_cases').find(f).sort({ created_at: -1 }).limit(500).toArray()
@@ -45,6 +49,7 @@ export async function POST(request) {
     const count = await db.collection('lab_cases').countDocuments({ clinic_id: cid })
     const case_number = 'LC' + String(count + 1).padStart(5, '0')
     const now = new Date()
+    const public_token = secureToken()
     await db.collection('lab_cases').insertOne({
       id,
       clinic_id: cid,
@@ -59,12 +64,16 @@ export async function POST(request) {
       urgency: b.urgency || 'routine',
       expected_delivery_date: expected,
       status: 'pending',
-      timeline: [{ status: 'pending', note: 'Lab case created', by: profile.id, by_name: profile.full_name || '', at: now }],
+      public_token,
+      attachments: [],
+      timeline: [{ status: 'pending', note: 'Lab case created', by: profile.id, by_name: profile.full_name || '', source: AUDIT_SOURCE.CLINIC, at: now }],
       created_by: profile.id,
       created_at: now,
       updated_at: now,
     })
-    return json({ ok: true, id, case_number })
+    await logAudit(db, { clinicId: cid, labCaseId: id, caseNumber: case_number, action: AUDIT_ACTIONS.CASE_CREATED, source: AUDIT_SOURCE.CLINIC, actorId: profile.id, actorName: profile.full_name || '' })
+    await logAudit(db, { clinicId: cid, labCaseId: id, caseNumber: case_number, action: AUDIT_ACTIONS.LINK_GENERATED, source: AUDIT_SOURCE.SYSTEM, actorId: profile.id, actorName: profile.full_name || '' })
+    return json({ ok: true, id, case_number, public_token })
   } catch (e) {
     console.error('Lab cases POST error:', e)
     return err('Internal server error', 500)

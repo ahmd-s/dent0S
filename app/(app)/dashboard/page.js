@@ -55,13 +55,15 @@ function App() {
     { label:'Revenue Collected', val: stats ? inr(stats.revenue_today) : '—', sub:'Across paid invoices today', icon: IndianRupee, color:'#22C55E' },
     { label:'Pending Payments', val: stats ? inr(stats.pending_today) : '—', sub:'Pending & partial today', icon: AlertCircle, color: stats?.pending_today>0?'#F59E0B':'#94A3B8' },
     { label:'Follow-ups Due', val: stats?.followups_due_count ?? '—', sub:'Patients due for return visit', icon: Calendar, color: stats?.followups_due_count>0?'#EF4444':'#94A3B8' },
-    { label:'Active Lab Cases', val: stats?.active_lab_cases ?? '—', sub:'Cases in progress at labs', icon: FlaskConical, color:'#0D9488', href:'/lab-cases' },
-    { label:'Overdue Lab Cases', val: stats?.overdue_lab_cases ?? '—', sub:'Past expected delivery', icon: AlertTriangle, color: stats?.overdue_lab_cases>0?'#EF4444':'#94A3B8', href:'/lab-cases' },
+    { label:'Awaiting Lab Acceptance', val: stats?.awaiting_lab_acceptance ?? '—', sub:'Sent, not yet received by lab', icon: FlaskConical, color:'#6366F1', href:'/lab-cases?status=sent' },
+    { label:'Cases In Production', val: stats?.in_production_lab_cases ?? '—', sub:'Being made at the lab', icon: FlaskConical, color:'#0D9488', href:'/lab-cases?status=lab_received,in_production,in_progress' },
+    { label:'Cases Ready', val: stats?.ready_lab_cases ?? '—', sub:'Ready / awaiting delivery', icon: FlaskConical, color:'#22C55E', href:'/lab-cases?status=ready' },
+    { label:'Overdue Cases', val: stats?.overdue_lab_cases ?? '—', sub:'Past expected delivery', icon: AlertTriangle, color: stats?.overdue_lab_cases>0?'#EF4444':'#94A3B8', href:'/lab-cases?status=overdue' },
   ]
 
   return (
     <div className="max-w-7xl mx-auto space-y-5">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {cards.map(c => {
           const Icon = c.icon
           const inner = (
