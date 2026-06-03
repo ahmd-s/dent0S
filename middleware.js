@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 const PUBLIC_PATHS = ['/login', '/signup']
-const PROTECTED_PREFIXES = ['/dashboard', '/onboarding', '/patients', '/appointments', '/billing', '/settings', '/visits']
+const PROTECTED_PREFIXES = ['/dashboard', '/onboarding', '/patients', '/appointments', '/lab-cases', '/vendors', '/billing', '/settings', '/visits']
 
 function jwtPayload(token) {
   try {
@@ -43,5 +43,5 @@ export function middleware(req) {
 
 export const config = {
   matcher: ['/dashboard/:path*', '/onboarding', '/login', '/signup', '/book/:path*',
-    '/patients/:path*', '/appointments/:path*', '/billing/:path*', '/settings/:path*', '/visits/:path*']
+    '/patients/:path*', '/appointments/:path*', '/lab-cases/:path*', '/vendors/:path*', '/billing/:path*', '/settings/:path*', '/visits/:path*']
 }

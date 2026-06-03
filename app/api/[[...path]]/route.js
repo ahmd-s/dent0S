@@ -709,11 +709,16 @@ async function handle(request, { params }) {
       ])
       const followups = await db.collection('patients').find({ clinic_id: cid, is_archived: { $ne: true }, next_followup_date: { $ne: null, $lte: today } }).limit(5).toArray()
       const fcount = await db.collection('patients').countDocuments({ clinic_id: cid, is_archived: { $ne: true }, next_followup_date: { $ne: null, $lte: today } })
+      const [activeLabCases, overdueLabCases] = await Promise.all([
+        db.collection('lab_cases').countDocuments({ clinic_id: cid, status: { $in: ['pending','sent','in_progress'] } }),
+        db.collection('lab_cases').countDocuments({ clinic_id: cid, status: { $in: ['pending','sent','in_progress'] }, expected_delivery_date: { $ne: null, $lt: today } }),
+      ])
       return json({
         clinic_name: clinic?.name,
         patients_seen_today: doneToday, patients_seen_yesterday: doneYest,
         revenue_today: revAgg[0]?.sum || 0, pending_today: pendAgg[0]?.sum || 0,
         followups_due_count: fcount,
+        active_lab_cases: activeLabCases, overdue_lab_cases: overdueLabCases,
         today_queue: todayAppts.map(a => ({ ...clean(a), patient_name: pmap[a.patient_id]?.name||a.patient_name_temp, patient_phone: pmap[a.patient_id]?.phone||a.patient_phone_temp, doctor_name: dmap[a.doctor_id]||'', visit_id: vmap[a.id]||null })),
         followups: followups.map(p => ({ ...clean(p), last_visit_reason: '' })),
       })
