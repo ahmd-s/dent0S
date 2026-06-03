@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireUser, json, err, clean, cors, isReceptionist } from '@/lib/api-helpers'
-import { LAB_CASE_STATUSES, safeIsoDate, populateNames } from '@/lib/lab-case-helpers'
+import { LAB_CASE_STATUSES, safeIsoDate, populateNames, secureToken } from '@/lib/lab-case-helpers'
+import { logAudit, AUDIT_ACTIONS, AUDIT_SOURCE } from '@/lib/audit'
 
 export async function OPTIONS() { return cors(new NextResponse(null, { status: 200 })) }
 
@@ -10,6 +11,12 @@ export async function GET(request, { params }) {
     const { profile, db } = ctx; const cid = profile.clinic_id
     const lc = await db.collection('lab_cases').findOne({ id: params.id, clinic_id: cid })
     if (!lc) return err('Lab case not found', 404)
+    // Backfill a secure token for cases created before the lab-portal workflow.
+    if (!lc.public_token) {
+      lc.public_token = secureToken()
+      await db.collection('lab_cases').updateOne({ id: params.id, clinic_id: cid }, { $set: { public_token: lc.public_token } })
+      await logAudit(db, { clinicId: cid, labCaseId: lc.id, caseNumber: lc.case_number, action: AUDIT_ACTIONS.LINK_GENERATED, source: AUDIT_SOURCE.SYSTEM, actorId: profile.id, actorName: profile.full_name || '' })
+    }
     const enriched = await populateNames(db, cid, clean(lc))
     return json({ lab_case: enriched })
   } catch (e) {
@@ -30,15 +37,18 @@ export async function PUT(request, { params }) {
     const ops = { $set: update }
 
     // Status workflow + timeline tracking
+    let statusChanged = null
     if ('status' in b && b.status !== lc.status) {
       if (!LAB_CASE_STATUSES.includes(b.status)) return err('Invalid status')
       update.status = b.status
+      statusChanged = b.status
       ops.$push = {
         timeline: {
           status: b.status,
           note: b.status_note || '',
           by: profile.id,
           by_name: profile.full_name || '',
+          source: AUDIT_SOURCE.CLINIC,
           at: new Date(),
         },
       }
@@ -56,6 +66,9 @@ export async function PUT(request, { params }) {
     if ('expected_delivery_date' in b) update.expected_delivery_date = safeIsoDate(b.expected_delivery_date)
 
     await db.collection('lab_cases').updateOne({ id: params.id, clinic_id: cid }, ops)
+    if (statusChanged) {
+      await logAudit(db, { clinicId: cid, labCaseId: lc.id, caseNumber: lc.case_number, action: AUDIT_ACTIONS.STATUS_UPDATED, source: AUDIT_SOURCE.CLINIC, actorId: profile.id, actorName: profile.full_name || '', meta: { status: statusChanged, note: b.status_note || '' } })
+    }
     const fresh = await db.collection('lab_cases').findOne({ id: params.id, clinic_id: cid })
     const enriched = await populateNames(db, cid, clean(fresh))
     return json({ ok: true, lab_case: enriched })

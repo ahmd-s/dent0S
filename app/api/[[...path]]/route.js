@@ -7,6 +7,7 @@ import { sendStaffInviteEmail } from '@/lib/invite-email'
 import { createAnthropicMessage } from '@/lib/anthropic-messages'
 import { SMART_TYPING_SEED } from '@/lib/smart-typing-seed'
 import { setupIndexes } from '@/lib/setup-indexes'
+import { AWAITING_ACCEPTANCE_STATUSES, IN_PRODUCTION_STATUSES, READY_STATUSES, CLOSED_STATUSES } from '@/lib/lab-case-helpers'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -709,9 +710,12 @@ async function handle(request, { params }) {
       ])
       const followups = await db.collection('patients').find({ clinic_id: cid, is_archived: { $ne: true }, next_followup_date: { $ne: null, $lte: today } }).limit(5).toArray()
       const fcount = await db.collection('patients').countDocuments({ clinic_id: cid, is_archived: { $ne: true }, next_followup_date: { $ne: null, $lte: today } })
-      const [activeLabCases, overdueLabCases] = await Promise.all([
-        db.collection('lab_cases').countDocuments({ clinic_id: cid, status: { $in: ['pending','sent','in_progress'] } }),
-        db.collection('lab_cases').countDocuments({ clinic_id: cid, status: { $in: ['pending','sent','in_progress'] }, expected_delivery_date: { $ne: null, $lt: today } }),
+      const [activeLabCases, overdueLabCases, awaitingLabAcceptance, inProductionLabCases, readyLabCases] = await Promise.all([
+        db.collection('lab_cases').countDocuments({ clinic_id: cid, status: { $nin: CLOSED_STATUSES } }),
+        db.collection('lab_cases').countDocuments({ clinic_id: cid, status: { $nin: CLOSED_STATUSES }, expected_delivery_date: { $ne: null, $lt: today } }),
+        db.collection('lab_cases').countDocuments({ clinic_id: cid, status: { $in: AWAITING_ACCEPTANCE_STATUSES } }),
+        db.collection('lab_cases').countDocuments({ clinic_id: cid, status: { $in: IN_PRODUCTION_STATUSES } }),
+        db.collection('lab_cases').countDocuments({ clinic_id: cid, status: { $in: READY_STATUSES } }),
       ])
       return json({
         clinic_name: clinic?.name,
@@ -719,6 +723,7 @@ async function handle(request, { params }) {
         revenue_today: revAgg[0]?.sum || 0, pending_today: pendAgg[0]?.sum || 0,
         followups_due_count: fcount,
         active_lab_cases: activeLabCases, overdue_lab_cases: overdueLabCases,
+        awaiting_lab_acceptance: awaitingLabAcceptance, in_production_lab_cases: inProductionLabCases, ready_lab_cases: readyLabCases,
         today_queue: todayAppts.map(a => ({ ...clean(a), patient_name: pmap[a.patient_id]?.name||a.patient_name_temp, patient_phone: pmap[a.patient_id]?.phone||a.patient_phone_temp, doctor_name: dmap[a.doctor_id]||'', visit_id: vmap[a.id]||null })),
         followups: followups.map(p => ({ ...clean(p), last_visit_reason: '' })),
       })

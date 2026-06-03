@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Sparkles, RefreshCw } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Phone, Edit2, AlertTriangle, ChevronDown, ChevronUp, CalendarPlus, FilePlus, FileText, Upload, ExternalLink, Loader2 } from 'lucide-react'
+import { ArrowLeft, Phone, Edit2, AlertTriangle, ChevronDown, ChevronUp, CalendarPlus, FilePlus, FileText, Upload, ExternalLink, Loader2, FlaskConical, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -15,6 +15,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner'
 import { useRole } from '@/components/dentos/RoleContext'
 import { DocumentsTab } from '@/components/dentos/DocumentsTab'
+import { NewLabCaseDialog } from '@/components/dentos/NewLabCaseDialog'
+import { LAB_CASE_STATUS_META, statusLabel } from '@/lib/lab-case-helpers'
+
+const labStatusBadge = (s) => {
+  const cls = LAB_CASE_STATUS_META[s]?.badge || 'bg-slate-100 text-slate-700'
+  return <span className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${cls}`}>{statusLabel(s)}</span>
+}
 
 const fmtDate = d => d ? `${String(new Date(d).getDate()).padStart(2,'0')}/${String(new Date(d).getMonth()+1).padStart(2,'0')}/${new Date(d).getFullYear()}` : '—'
 const todayIso = () => new Date().toISOString().slice(0,10)
@@ -32,12 +39,19 @@ function App() {
   const [bookOpen, setBookOpen] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [expanded, setExpanded] = useState({})
+  const [labCases, setLabCases] = useState([])
+  const [newLabOpen, setNewLabOpen] = useState(false)
 
+  const loadLabCases = async () => {
+    const r = await fetch(`/api/lab-cases?patient_id=${id}`)
+    if (r.ok) setLabCases((await r.json()).lab_cases || [])
+  }
   const load = async () => {
     const r = await fetch(`/api/patients/${id}`)
     if (r.ok) setPatient((await r.json()).patient)
     const v = await fetch(`/api/visits?patient_id=${id}`); if (v.ok) setVisits((await v.json()).visits||[])
     const a = await fetch(`/api/appointments?patient_id=${id}`); if (a.ok) setAppts((await a.json()).appointments||[])
+    loadLabCases()
   }
   useEffect(() => { if (id) load() }, [id])
 
@@ -105,6 +119,7 @@ function App() {
               <TabsTrigger value="visits">Visit History</TabsTrigger>
               <TabsTrigger value="appointments">Appointments</TabsTrigger>
               <TabsTrigger value="documents">Documents</TabsTrigger>
+              <TabsTrigger value="lab-cases">Lab Cases</TabsTrigger>
               {!receptionist && <TabsTrigger value="ai">AI Summary</TabsTrigger>}
             </TabsList>
             <TabsContent value="visits" className="mt-4">
@@ -177,6 +192,52 @@ function App() {
             <TabsContent value="documents" className="mt-4">
               {patient && <DocumentsTab patientId={id} />}
             </TabsContent>
+            <TabsContent value="lab-cases" className="mt-4">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-sm font-semibold text-[#0F172A] flex items-center gap-2"><FlaskConical className="w-4 h-4 text-[#0D9488]"/>Lab Cases</h4>
+                <Button size="sm" onClick={()=>setNewLabOpen(true)} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>New Lab Case</Button>
+              </div>
+              {labCases.length === 0 ? (
+                <Card className="p-10 text-center bg-white border-border rounded-lg">
+                  <FlaskConical className="w-10 h-10 mx-auto text-muted-foreground/40"/>
+                  <p className="mt-3 text-muted-foreground text-sm">No lab cases for this patient yet</p>
+                  <Button size="sm" onClick={()=>setNewLabOpen(true)} className="mt-4 bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>Create Lab Case</Button>
+                </Card>
+              ) : (
+                <Card className="bg-white border-border rounded-lg overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-[#F8FAFC] text-left text-xs uppercase text-muted-foreground tracking-wider">
+                        <tr>
+                          <th className="px-4 py-3 font-medium">Case #</th>
+                          <th className="px-4 py-3 font-medium">Type</th>
+                          <th className="px-4 py-3 font-medium">Vendor</th>
+                          <th className="px-4 py-3 font-medium">Status</th>
+                          <th className="px-4 py-3 font-medium">Expected</th>
+                          <th className="px-4 py-3 font-medium">Created</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {labCases.map(c => (
+                          <tr key={c.id} className="border-t border-border hover:bg-[#F8FAFC]/50 cursor-pointer" onClick={()=>router.push(`/lab-cases/${c.id}`)}>
+                            <td className="px-4 py-3 font-medium text-[#0F172A]">{c.case_number}</td>
+                            <td className="px-4 py-3 text-muted-foreground">{c.case_type}</td>
+                            <td className="px-4 py-3">{c.vendor_name}</td>
+                            <td className="px-4 py-3">{labStatusBadge(c.status)}</td>
+                            <td className="px-4 py-3">
+                              {c.expected_delivery_date
+                                ? <span className={c.overdue ? 'text-[#EF4444] font-medium flex items-center gap-1' : 'text-muted-foreground'}>{c.overdue && <AlertTriangle className="w-3.5 h-3.5"/>}{fmtDate(c.expected_delivery_date)}</span>
+                                : <span className="text-muted-foreground">—</span>}
+                            </td>
+                            <td className="px-4 py-3 text-muted-foreground">{fmtDate(c.created_at)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              )}
+            </TabsContent>
             {!receptionist && (
             <TabsContent value="ai" className="mt-4">
               <AISummaryPanel patient={patient} visits={visits} onUpdated={load}/>
@@ -187,6 +248,7 @@ function App() {
       </div>
       <EditPatientModal open={editOpen} setOpen={setEditOpen} patient={patient} onSaved={load} clinicalLocked={receptionist} />
       <BookForPatient open={bookOpen} setOpen={setBookOpen} patient={patient} onCreated={load} />
+      <NewLabCaseDialog open={newLabOpen} setOpen={setNewLabOpen} lockedPatient={patient} navigateOnCreate={false} onCreated={loadLabCases} />
     </div>
   )
 }
