@@ -2,7 +2,8 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { LayoutDashboard, Users, Calendar, Receipt, Settings, LogOut, Bell, Search, Plus, Menu, X, Moon, Sun, FlaskConical, Building2 } from 'lucide-react'
+import { LayoutDashboard, Users, Calendar, Receipt, Settings, LogOut, Search, Plus, Menu, X, Moon, Sun, FlaskConical, Building2 } from 'lucide-react'
+import NotificationBell from './NotificationBell'
 import { ToothIcon } from './Logo'
 import { useRole } from './RoleContext'
 import { Badge } from '@/components/ui/badge'
@@ -145,7 +146,7 @@ export default function AppShell({ children }) {
               <Moon className="absolute w-4 h-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
               <span className="sr-only">Toggle theme</span>
             </Button>
-            <button className="w-9 h-9 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground"><Bell className="w-4 h-4"/></button>
+            <NotificationBell />
           </div>
         </header>
         <main className="p-6 bg-background min-h-[calc(100vh-4rem)]">{children}</main>

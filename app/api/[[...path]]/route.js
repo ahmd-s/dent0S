@@ -729,6 +729,21 @@ async function handle(request, { params }) {
       })
     }
 
+    // ============ NOTIFICATIONS (clinic-facing lab updates) ============
+    if (route === '/notifications' && m === 'GET') {
+      const items = await db.collection('notifications').find({ clinic_id: cid }).sort({ created_at: -1 }).limit(30).toArray()
+      const unread = await db.collection('notifications').countDocuments({ clinic_id: cid, read: { $ne: true } })
+      return json({ notifications: items.map(clean), unread_count: unread })
+    }
+    if (route === '/notifications/read' && m === 'POST') {
+      const b = await request.json().catch(() => ({}))
+      const filter = { clinic_id: cid, read: { $ne: true } }
+      if (Array.isArray(b?.ids) && b.ids.length) filter.id = { $in: b.ids }
+      await db.collection('notifications').updateMany(filter, { $set: { read: true, read_at: new Date() } })
+      const unread = await db.collection('notifications').countDocuments({ clinic_id: cid, read: { $ne: true } })
+      return json({ ok: true, unread_count: unread })
+    }
+
     // ============ AI PATIENT SUMMARY ============
     if (route === '/generate-summary' && m === 'POST') {
       if (isReceptionist(profile)) return err('Forbidden', 403)
