@@ -56,7 +56,7 @@ export default function ConsentSigningPage() {
       const r = await fetch(`/api/consent-requests/${token}/sign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ signature_image: signature, patient_name, agreed })
+        body: JSON.stringify({ signature_image: signature, patient_name: patientName, agreed })
       })
       const d = await r.json()
       if (r.ok) {
