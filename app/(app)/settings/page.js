@@ -238,6 +238,13 @@ function ConsentFormsTab() {
     else toast.error('Failed')
   }
 
+  const seedDefaults = async () => {
+    const r = await fetch('/api/seed-consent-templates', { method: 'POST' })
+    const d = await r.json()
+    if (r.ok) { toast.success(d.message || 'Default templates loaded'); load() }
+    else toast.error(d.error || 'Failed to load templates')
+  }
+
   return (
     <Card className="p-6 bg-white border-border rounded-lg">
       <div className="flex items-center justify-between mb-4">
@@ -249,6 +256,9 @@ function ConsentFormsTab() {
         <div className="py-12 text-center">
           <FileText className="w-12 h-12 mx-auto text-muted-foreground/40"/>
           <p className="mt-3 text-muted-foreground text-sm">No consent templates yet. Create reusable consent forms for your clinic.</p>
+          <Button onClick={seedDefaults} variant="outline" className="mt-4">
+            <FileText className="w-4 h-4 mr-2"/>Load Default Templates
+          </Button>
         </div>
       )}
       {!loading && templates.length > 0 && (
