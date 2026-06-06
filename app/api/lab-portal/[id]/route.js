@@ -14,10 +14,10 @@ export async function OPTIONS() { return cors(new NextResponse(null, { status: 2
 // other patients/vendors, internal ids or staff identities.
 export async function GET(request, { params }) {
   try {
-    const token = params.token
-    if (!token || token.length < 16) return err('Invalid link', 404)
+    const id = params.id
+    if (!id || id.length < 16) return err('Invalid link', 404)
     const db = await getDb()
-    const lc = await db.collection('lab_cases').findOne({ public_token: token })
+    const lc = await db.collection('lab_cases').findOne({ public_token: id })
     if (!lc) return err('Lab case not found', 404)
 
     const [patient, vendor] = await Promise.all([

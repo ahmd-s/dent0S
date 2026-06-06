@@ -16,7 +16,7 @@ const err = (msg, s=400) => json({ error: msg }, s)
 export async function POST(request, { params }) {
   try {
     const db = await getDb()
-    const { token } = params
+    const { id } = params
     const headersList = headers()
     const ip = headersList.get('x-forwarded-for') || headersList.get('x-real-ip') || 'unknown'
     
@@ -26,7 +26,7 @@ export async function POST(request, { params }) {
     if (!b.patient_name) return err('Patient name required')
     if (!b.agreed) return err('You must agree to the consent terms')
     
-    const consentRequest = await db.collection('consent_requests').findOne({ unique_token: token })
+    const consentRequest = await db.collection('consent_requests').findOne({ unique_token: id })
     if (!consentRequest) return err('Consent request not found', 404)
     
     // Check if expired
@@ -41,7 +41,7 @@ export async function POST(request, { params }) {
     
     // Update consent request with signature
     await db.collection('consent_requests').updateOne(
-      { unique_token: token },
+      { unique_token: id },
       {
         $set: {
           status: 'Signed',

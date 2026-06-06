@@ -20,14 +20,17 @@ async function requireUser() {
   return { profile, clinic, db }
 }
 
-export async function GET(request, { params }) {
+export async function GET(request) {
   try {
     const user = await requireUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     
     const { profile, db } = user
     const cid = profile.clinic_id
-    const { id } = params
+    const url = new URL(request.url)
+    const id = url.searchParams.get('id')
+    
+    if (!id) return NextResponse.json({ error: 'ID parameter required' }, { status: 400 })
     
     const consentRequest = await db.collection('consent_requests').findOne({ id, clinic_id: cid })
     if (!consentRequest) return NextResponse.json({ error: 'Consent request not found' }, { status: 404 })

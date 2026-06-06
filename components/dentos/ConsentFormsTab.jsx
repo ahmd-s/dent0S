@@ -58,11 +58,11 @@ export function ConsentFormsTab({ patientId, patientName }) {
   }
 
   const viewPdf = async (id) => {
-    window.open(`/api/consent-requests/${id}/pdf`, '_blank')
+    window.open(`/api/consent-requests/pdf?id=${id}`, '_blank')
   }
 
   const downloadPdf = async (id) => {
-    window.open(`/api/consent-requests/${id}/pdf`, '_blank')
+    window.open(`/api/consent-requests/pdf?id=${id}`, '_blank')
   }
 
   const getStatusBadge = (status, sentAt) => {

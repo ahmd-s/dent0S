@@ -16,9 +16,9 @@ const clean = o => { if (!o) return o; const { _id, ...rest } = o; return rest }
 export async function GET(request, { params }) {
   try {
     const db = await getDb()
-    const { token } = params
+    const { id } = params
     
-    const consentRequest = await db.collection('consent_requests').findOne({ unique_token: token })
+    const consentRequest = await db.collection('consent_requests').findOne({ unique_token: id })
     if (!consentRequest) return err('Consent request not found', 404)
     
     // Check if expired

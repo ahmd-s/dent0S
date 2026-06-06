@@ -15,14 +15,14 @@ export async function OPTIONS() { return cors(new NextResponse(null, { status: 2
 // its secure token and updates are attributed to the Lab Portal source.
 export async function POST(request, { params }) {
   try {
-    const token = params.token
-    if (!token || token.length < 16) return err('Invalid link', 404)
+    const id = params.id
+    if (!id || id.length < 16) return err('Invalid link', 404)
     const body = await request.json().catch(() => ({}))
     const status = body?.status
     if (!LAB_PORTAL_STATUSES.includes(status)) return err('Invalid status')
 
     const db = await getDb()
-    const lc = await db.collection('lab_cases').findOne({ public_token: token })
+    const lc = await db.collection('lab_cases').findOne({ public_token: id })
     if (!lc) return err('Lab case not found', 404)
 
     const vendor = await db.collection('vendors').findOne({ id: lc.vendor_id, clinic_id: lc.clinic_id })
@@ -33,7 +33,7 @@ export async function POST(request, { params }) {
 
     if (changed) {
       await db.collection('lab_cases').updateOne(
-        { public_token: token },
+        { public_token: id },
         {
           $set: { status, updated_at: now },
           $push: { timeline: { status, note, by_name: labName, source: AUDIT_SOURCE.LAB_PORTAL, at: now } },
@@ -42,7 +42,7 @@ export async function POST(request, { params }) {
       await logAudit(db, { clinicId: lc.clinic_id, labCaseId: lc.id, caseNumber: lc.case_number, action: AUDIT_ACTIONS.LAB_UPDATED_STATUS, source: AUDIT_SOURCE.LAB_PORTAL, actorName: labName, meta: { status, label: statusLabel(status), note } })
     }
 
-    const fresh = await db.collection('lab_cases').findOne({ public_token: token })
+    const fresh = await db.collection('lab_cases').findOne({ public_token: id })
     const patient = await db.collection('patients').findOne({ id: fresh.patient_id, clinic_id: fresh.clinic_id })
 
     if (changed) {
