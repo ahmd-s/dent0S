@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Sparkles, RefreshCw } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Phone, Edit2, AlertTriangle, ChevronDown, ChevronUp, CalendarPlus, FilePlus, FileText, Upload, ExternalLink, Loader2, FlaskConical, Plus } from 'lucide-react'
+import { ArrowLeft, Phone, Edit2, AlertTriangle, ChevronDown, ChevronUp, CalendarPlus, FilePlus, FileText, Upload, ExternalLink, Loader2, Send, Download, Copy, FlaskConical, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -15,9 +15,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner'
 import { useRole } from '@/components/dentos/RoleContext'
 import { DocumentsTab } from '@/components/dentos/DocumentsTab'
+import { ConsentFormsTab } from '@/components/dentos/ConsentFormsTab'
 import { NewLabCaseDialog } from '@/components/dentos/NewLabCaseDialog'
 import { LAB_CASE_STATUS_META, statusLabel } from '@/lib/lab-case-helpers'
-
 const labStatusBadge = (s) => {
   const cls = LAB_CASE_STATUS_META[s]?.badge || 'bg-slate-100 text-slate-700'
   return <span className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${cls}`}>{statusLabel(s)}</span>
@@ -39,19 +39,19 @@ function App() {
   const [bookOpen, setBookOpen] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [expanded, setExpanded] = useState({})
-  const [labCases, setLabCases] = useState([])
+const [labCases, setLabCases] = useState([])
   const [newLabOpen, setNewLabOpen] = useState(false)
-
-  const loadLabCases = async () => {
+const loadLabCases = async () => {
     const r = await fetch(`/api/lab-cases?patient_id=${id}`)
     if (r.ok) setLabCases((await r.json()).lab_cases || [])
   }
+
   const load = async () => {
     const r = await fetch(`/api/patients/${id}`)
     if (r.ok) setPatient((await r.json()).patient)
     const v = await fetch(`/api/visits?patient_id=${id}`); if (v.ok) setVisits((await v.json()).visits||[])
     const a = await fetch(`/api/appointments?patient_id=${id}`); if (a.ok) setAppts((await a.json()).appointments||[])
-    loadLabCases()
+loadLabCases()
   }
   useEffect(() => { if (id) load() }, [id])
 
@@ -120,6 +120,7 @@ function App() {
               <TabsTrigger value="appointments">Appointments</TabsTrigger>
               <TabsTrigger value="documents">Documents</TabsTrigger>
               <TabsTrigger value="lab-cases">Lab Cases</TabsTrigger>
+              <TabsTrigger value="consents">Consent Forms</TabsTrigger>
               {!receptionist && <TabsTrigger value="ai">AI Summary</TabsTrigger>}
             </TabsList>
             <TabsContent value="visits" className="mt-4">
@@ -191,7 +192,6 @@ function App() {
             </TabsContent>
             <TabsContent value="documents" className="mt-4">
               {patient && <DocumentsTab patientId={id} />}
-            </TabsContent>
             <TabsContent value="lab-cases" className="mt-4">
               <div className="flex items-center justify-between mb-3">
                 <h4 className="text-sm font-semibold text-[#0F172A] flex items-center gap-2"><FlaskConical className="w-4 h-4 text-[#0D9488]"/>Lab Cases</h4>
@@ -238,6 +238,10 @@ function App() {
                 </Card>
               )}
             </TabsContent>
+            </TabsContent>
+            <TabsContent value="consents" className="mt-4">
+              {patient && <ConsentFormsTab patientId={id} patientName={patient.name} />}
+            </TabsContent>
             {!receptionist && (
             <TabsContent value="ai" className="mt-4">
               <AISummaryPanel patient={patient} visits={visits} onUpdated={load}/>
@@ -248,7 +252,7 @@ function App() {
       </div>
       <EditPatientModal open={editOpen} setOpen={setEditOpen} patient={patient} onSaved={load} clinicalLocked={receptionist} />
       <BookForPatient open={bookOpen} setOpen={setBookOpen} patient={patient} onCreated={load} />
-      <NewLabCaseDialog open={newLabOpen} setOpen={setNewLabOpen} lockedPatient={patient} navigateOnCreate={false} onCreated={loadLabCases} />
+<NewLabCaseDialog open={newLabOpen} setOpen={setNewLabOpen} lockedPatient={patient} navigateOnCreate={false} onCreated={loadLabCases} />
     </div>
   )
 }

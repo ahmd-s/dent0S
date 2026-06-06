@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Loader2, Plus, Copy, ExternalLink, Trash2, Edit2 } from 'lucide-react'
+import { Loader2, Plus, Copy, ExternalLink, Trash2, Edit2, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -28,9 +28,10 @@ function App() {
   return (
     <div className="max-w-4xl mx-auto">
       <Tabs defaultValue="clinic">
-        <TabsList className="bg-[#F8FAFC]"><TabsTrigger value="clinic">Clinic Profile</TabsTrigger><TabsTrigger value="team">Team</TabsTrigger></TabsList>
+        <TabsList className="bg-[#F8FAFC]"><TabsTrigger value="clinic">Clinic Profile</TabsTrigger><TabsTrigger value="team">Team</TabsTrigger><TabsTrigger value="consent">Consent Forms</TabsTrigger></TabsList>
         <TabsContent value="clinic" className="mt-4 space-y-5"><ClinicTab me={me} reload={()=>fetch('/api/auth/me').then(r=>r.json()).then(setMe)}/></TabsContent>
         <TabsContent value="team" className="mt-4"><TeamTab/></TabsContent>
+        <TabsContent value="consent" className="mt-4"><ConsentFormsTab/></TabsContent>
       </Tabs>
     </div>
   )
@@ -193,6 +194,100 @@ function TeamTab() {
             <div className="space-y-1.5"><Label>Role</Label><Select value={f.role} onValueChange={v=>setF({...f,role:v})}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="doctor">Doctor</SelectItem><SelectItem value="receptionist">Receptionist</SelectItem></SelectContent></Select></div>
             <div className="space-y-1.5"><Label>Temporary Password</Label><Input type="password" value={f.password} onChange={e=>setF({...f,password:e.target.value})} placeholder="min 8 characters"/></div>
             <Button onClick={invite} className="w-full bg-[#0D9488] hover:bg-[#0B7E73]">Add Member</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  )
+}
+
+function ConsentFormsTab() {
+  const [templates, setTemplates] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [open, setOpen] = useState(false)
+  const [template, setTemplate] = useState({ id: null, name: '', category: 'General', content: '', active: true })
+
+  const load = async () => {
+    setLoading(true)
+    const r = await fetch('/api/consent-templates')
+    const d = await r.json()
+    setTemplates(d.templates || [])
+    setLoading(false)
+  }
+
+  useEffect(() => { load() }, [])
+
+  const save = async () => {
+    if (!template.name || !template.content) { toast.error('Name and content required'); return }
+    const url = template.id ? `/api/consent-templates/${template.id}` : '/api/consent-templates'
+    const r = await fetch(url, { method: template.id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(template) })
+    if (r.ok) { toast.success('Saved'); setOpen(false); setTemplate({ id: null, name: '', category: 'General', content: '', active: true }); load() }
+    else toast.error('Failed')
+  }
+
+  const deleteTemplate = async (id) => {
+    if (!confirm('Delete this template?')) return
+    const r = await fetch(`/api/consent-templates/${id}`, { method: 'DELETE' })
+    if (r.ok) { toast.success('Deleted'); setTemplates(p => p.filter(t => t.id !== id)) }
+    else toast.error('Failed')
+  }
+
+  const toggleActive = async (t) => {
+    const r = await fetch(`/api/consent-templates/${t.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ active: !t.active }) })
+    if (r.ok) { toast.success('Updated'); load() }
+    else toast.error('Failed')
+  }
+
+  return (
+    <Card className="p-6 bg-white border-border rounded-lg">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-semibold">Consent Form Templates</h3>
+        <Button size="sm" onClick={() => { setTemplate({ id: null, name: '', category: 'General', content: '', active: true }); setOpen(true) }} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>Add Template</Button>
+      </div>
+      {loading && <div className="py-8 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-[#0D9488]"/></div>}
+      {!loading && templates.length === 0 && (
+        <div className="py-12 text-center">
+          <FileText className="w-12 h-12 mx-auto text-muted-foreground/40"/>
+          <p className="mt-3 text-muted-foreground text-sm">No consent templates yet. Create reusable consent forms for your clinic.</p>
+        </div>
+      )}
+      {!loading && templates.length > 0 && (
+        <div className="space-y-3">
+          {templates.map(t => (
+            <div key={t.id} className="flex items-center gap-3 p-4 border border-border rounded-lg hover:bg-[#F8FAFC]/50">
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <div className="font-medium">{t.name}</div>
+                  {!t.active && <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">Inactive</span>}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">{t.category} · {t.content?.slice(0, 100)}...</div>
+              </div>
+              <Switch checked={t.active} onCheckedChange={() => toggleActive(t)}/>
+              <button onClick={() => { setTemplate({ ...t }); setOpen(true) }} className="p-1.5 hover:bg-muted rounded"><Edit2 className="w-4 h-4 text-muted-foreground"/></button>
+              <button onClick={() => deleteTemplate(t.id)} className="p-1.5 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4 text-red-500"/></button>
+            </div>
+          ))}
+        </div>
+      )}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{template.id ? 'Edit Template' : 'Add Template'}</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5"><Label>Template Name</Label><Input value={template.name} onChange={e => setTemplate({ ...template, name: e.target.value })} placeholder="e.g. Root Canal Consent"/></div>
+            <div className="space-y-1.5"><Label>Category</Label>
+              <Select value={template.category} onValueChange={v => setTemplate({ ...template, category: v })}>
+                <SelectTrigger><SelectValue/></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Treatment">Treatment</SelectItem>
+                  <SelectItem value="Photography">Photography</SelectItem>
+                  <SelectItem value="Data Privacy">Data Privacy</SelectItem>
+                  <SelectItem value="General">General</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5"><Label>Consent Content (Rich Text)</Label><Textarea rows={10} value={template.content} onChange={e => setTemplate({ ...template, content: e.target.value })} placeholder="Enter the consent form text here..."/></div>
+            <div className="flex items-center gap-2"><Switch checked={template.active} onCheckedChange={v => setTemplate({ ...template, active: v })}/><Label className="text-sm">Active</Label></div>
+            <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button onClick={save} className="bg-[#0D9488] hover:bg-[#0B7E73]">Save Template</Button></div>
           </div>
         </DialogContent>
       </Dialog>
