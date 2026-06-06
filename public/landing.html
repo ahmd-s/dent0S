@@ -1084,7 +1084,7 @@ footer{background:var(--bg1);border-top:1px solid var(--b1);padding:32px 40px;di
     <h1 class="hero-h1">The Operating System<br>For <span class="accent">Modern Dental</span><br>Clinics</h1>
     <p class="hero-sub">Appointments, patients, consultations, billing, lab workflows and AI-powered documentation — unified in one place. Replace the notebooks, the WhatsApp groups, the scattered files.</p>
     <div class="hero-ctas">
-      <a class="btn btn-primary btn-lg" href="tel:+919623626993">Book a Free Demo</a>
+      <button onclick="openCallbackModal()" class="btn btn-primary btn-lg">Request a Callback</button>
       <a class="btn btn-secondary btn-lg" href="#video">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         Watch Demo
@@ -2409,6 +2409,59 @@ window.addEventListener('scroll', () => {
   if (heroContent) heroContent.style.transform = `translateY(${y * .04}px)`;
   if (dbWrap) dbWrap.style.transform = `translateY(${y * .08}px)`;
 }, { passive: true });
+</script>
+
+<!-- Callback Modal -->
+<div id="callbackModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
+  <div style="background:white; border-radius:12px; padding:2rem; width:90%; max-width:400px; margin:auto;">
+    <h3 style="margin:0 0 0.5rem; font-size:1.25rem; font-weight:700;">Request a Callback</h3>
+    <p style="margin:0 0 1.5rem; color:#666; font-size:0.9rem;">Enter your details and we'll call you back shortly.</p>
+    
+    <div style="margin-bottom:1rem;">
+      <label style="display:block; margin-bottom:0.4rem; font-size:0.85rem; font-weight:600;">Your Name *</label>
+      <input id="cbName" type="text" placeholder="Rajesh Kumar" style="width:100%; padding:0.6rem 0.8rem; border:1px solid #ddd; border-radius:6px; font-size:0.95rem; box-sizing:border-box;"/>
+    </div>
+    
+    <div style="margin-bottom:1.5rem;">
+      <label style="display:block; margin-bottom:0.4rem; font-size:0.85rem; font-weight:600;">Phone Number *</label>
+      <input id="cbPhone" type="tel" placeholder="+91 98765 43210" style="width:100%; padding:0.6rem 0.8rem; border:1px solid #ddd; border-radius:6px; font-size:0.95rem; box-sizing:border-box;"/>
+    </div>
+    
+    <div style="display:flex; gap:0.75rem;">
+      <button onclick="closeCallbackModal()" style="flex:1; padding:0.7rem; border:1px solid #ddd; background:white; border-radius:6px; cursor:pointer; font-size:0.9rem;">Cancel</button>
+      <button onclick="submitCallback()" style="flex:1; padding:0.7rem; background:#0D9488; color:white; border:none; border-radius:6px; cursor:pointer; font-size:0.9rem; font-weight:600;">Send Request</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openCallbackModal() {
+    document.getElementById('callbackModal').style.display = 'flex';
+  }
+
+  function closeCallbackModal() {
+    document.getElementById('callbackModal').style.display = 'none';
+    document.getElementById('cbName').value = '';
+    document.getElementById('cbPhone').value = '';
+  }
+
+  function submitCallback() {
+    const name = document.getElementById('cbName').value.trim();
+    const phone = document.getElementById('cbPhone').value.trim();
+
+    if (!name) { alert('Please enter your name'); return; }
+    if (!phone) { alert('Please enter your phone number'); return; }
+
+    const message = `Hello! I received a callback request from your DentOS landing page.%0A%0A*Name:* ${encodeURIComponent(name)}%0A*Phone:* ${encodeURIComponent(phone)}%0A%0APlease call them back at your earliest convenience.`;
+
+    window.open(`https://wa.me/919623626993?text=${message}`, '_blank');
+    closeCallbackModal();
+  }
+
+  // Close modal if clicked outside
+  document.getElementById('callbackModal').addEventListener('click', function(e) {
+    if (e.target === this) closeCallbackModal();
+  });
 </script>
 </body>
 </html>
