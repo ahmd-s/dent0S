@@ -2412,55 +2412,107 @@ window.addEventListener('scroll', () => {
 </script>
 
 <!-- Callback Modal -->
-<div id="callbackModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
-  <div style="background:white; border-radius:12px; padding:2rem; width:90%; max-width:400px; margin:auto;">
-    <h3 style="margin:0 0 0.5rem; font-size:1.25rem; font-weight:700;">Request a Callback</h3>
-    <p style="margin:0 0 1.5rem; color:#666; font-size:0.9rem;">Enter your details and we'll call you back shortly.</p>
+<div id="callbackModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:9999; align-items:center; justify-content:center; backdrop-filter:blur(4px);">
+  <div style="background:white; border-radius:16px; padding:2rem; width:90%; max-width:420px; margin:auto; box-shadow:0 20px 60px rgba(0,0,0,0.3);">
     
+    <div style="text-align:center; margin-bottom:1.5rem;">
+      <div style="width:56px; height:56px; background:#f0fdf4; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 1rem;">
+        <svg width="24" height="24" fill="none" stroke="#0D9488" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.22 1.18 2 2 0 012.18 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 7.91a16 16 0 006.72 6.72l1.08-.54a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+      </div>
+      <h3 style="margin:0 0 0.4rem; font-size:1.3rem; font-weight:700; color:#111;">Request a Callback</h3>
+      <p style="margin:0; color:#666; font-size:0.9rem;">Leave your details and we'll call you back within 30 minutes.</p>
+    </div>
+
     <div style="margin-bottom:1rem;">
-      <label style="display:block; margin-bottom:0.4rem; font-size:0.85rem; font-weight:600;">Your Name *</label>
-      <input id="cbName" type="text" placeholder="Rajesh Kumar" style="width:100%; padding:0.6rem 0.8rem; border:1px solid #ddd; border-radius:6px; font-size:0.95rem; box-sizing:border-box;"/>
+      <label style="display:block; margin-bottom:0.4rem; font-size:0.82rem; font-weight:600; color:#374151;">Your Name *</label>
+      <input id="cbName" type="text" placeholder="Rajesh Kumar" style="width:100%; padding:0.75rem 1rem; border:1.5px solid #e5e7eb; border-radius:8px; font-size:0.95rem; box-sizing:border-box; outline:none; transition:border-color 0.2s;" onfocus="this.style.borderColor='#0D9488'" onblur="this.style.borderColor='#e5e7eb'"/>
     </div>
-    
+
     <div style="margin-bottom:1.5rem;">
-      <label style="display:block; margin-bottom:0.4rem; font-size:0.85rem; font-weight:600;">Phone Number *</label>
-      <input id="cbPhone" type="tel" placeholder="+91 98765 43210" style="width:100%; padding:0.6rem 0.8rem; border:1px solid #ddd; border-radius:6px; font-size:0.95rem; box-sizing:border-box;"/>
+      <label style="display:block; margin-bottom:0.4rem; font-size:0.82rem; font-weight:600; color:#374151;">Phone Number *</label>
+      <input id="cbPhone" type="tel" placeholder="+91 98765 43210" style="width:100%; padding:0.75rem 1rem; border:1.5px solid #e5e7eb; border-radius:8px; font-size:0.95rem; box-sizing:border-box; outline:none; transition:border-color 0.2s;" onfocus="this.style.borderColor='#0D9488'" onblur="this.style.borderColor='#e5e7eb'"/>
     </div>
-    
+
+    <div id="cbError" style="display:none; color:#ef4444; font-size:0.82rem; margin-bottom:1rem; text-align:center;"></div>
+
     <div style="display:flex; gap:0.75rem;">
-      <button onclick="closeCallbackModal()" style="flex:1; padding:0.7rem; border:1px solid #ddd; background:white; border-radius:6px; cursor:pointer; font-size:0.9rem;">Cancel</button>
-      <button onclick="submitCallback()" style="flex:1; padding:0.7rem; background:#0D9488; color:white; border:none; border-radius:6px; cursor:pointer; font-size:0.9rem; font-weight:600;">Send Request</button>
+      <button onclick="closeCallbackModal()" style="flex:1; padding:0.75rem; border:1.5px solid #e5e7eb; background:white; border-radius:8px; cursor:pointer; font-size:0.9rem; font-weight:600; color:#374151;">Cancel</button>
+      <button id="cbSubmitBtn" onclick="submitCallback()" style="flex:1; padding:0.75rem; background:#0D9488; color:white; border:none; border-radius:8px; cursor:pointer; font-size:0.9rem; font-weight:600;">Request Call</button>
     </div>
+  </div>
+</div>
+
+<!-- Success Modal -->
+<div id="successModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:9999; align-items:center; justify-content:center; backdrop-filter:blur(4px);">
+  <div style="background:white; border-radius:16px; padding:2.5rem 2rem; width:90%; max-width:380px; margin:auto; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+    <div style="width:64px; height:64px; background:#f0fdf4; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 1.2rem;">
+      <svg width="28" height="28" fill="none" stroke="#0D9488" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <h3 style="margin:0 0 0.5rem; font-size:1.3rem; font-weight:700; color:#111;">We'll Call You Back!</h3>
+    <p style="margin:0 0 1.5rem; color:#666; font-size:0.9rem; line-height:1.6;">Thank you! Our team will contact you within 30 minutes during clinic hours.</p>
+    <button onclick="closeSuccessModal()" style="padding:0.75rem 2rem; background:#0D9488; color:white; border:none; border-radius:8px; cursor:pointer; font-size:0.9rem; font-weight:600;">Done</button>
   </div>
 </div>
 
 <script>
   function openCallbackModal() {
     document.getElementById('callbackModal').style.display = 'flex';
+    document.getElementById('cbName').value = '';
+    document.getElementById('cbPhone').value = '';
+    document.getElementById('cbError').style.display = 'none';
   }
 
   function closeCallbackModal() {
     document.getElementById('callbackModal').style.display = 'none';
-    document.getElementById('cbName').value = '';
-    document.getElementById('cbPhone').value = '';
   }
 
-  function submitCallback() {
+  function closeSuccessModal() {
+    document.getElementById('successModal').style.display = 'none';
+  }
+
+  async function submitCallback() {
     const name = document.getElementById('cbName').value.trim();
     const phone = document.getElementById('cbPhone').value.trim();
+    const errEl = document.getElementById('cbError');
+    const btn = document.getElementById('cbSubmitBtn');
 
-    if (!name) { alert('Please enter your name'); return; }
-    if (!phone) { alert('Please enter your phone number'); return; }
+    errEl.style.display = 'none';
 
-    const message = `Hello! I received a callback request from your DentOS landing page.%0A%0A*Name:* ${encodeURIComponent(name)}%0A*Phone:* ${encodeURIComponent(phone)}%0A%0APlease call them back at your earliest convenience.`;
+    if (!name) { errEl.textContent = 'Please enter your name'; errEl.style.display = 'block'; return; }
+    if (!phone) { errEl.textContent = 'Please enter your phone number'; errEl.style.display = 'block'; return; }
 
-    window.open(`https://wa.me/919623626993?text=${message}`, '_blank');
-    closeCallbackModal();
+    btn.textContent = 'Sending...';
+    btn.disabled = true;
+
+    try {
+      const res = await fetch('/api/callback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, phone })
+      });
+
+      if (res.ok) {
+        closeCallbackModal();
+        document.getElementById('successModal').style.display = 'flex';
+      } else {
+        errEl.textContent = 'Something went wrong. Please try again.';
+        errEl.style.display = 'block';
+      }
+    } catch (e) {
+      errEl.textContent = 'Network error. Please try again.';
+      errEl.style.display = 'block';
+    }
+
+    btn.textContent = 'Request Call';
+    btn.disabled = false;
   }
 
-  // Close modal if clicked outside
   document.getElementById('callbackModal').addEventListener('click', function(e) {
     if (e.target === this) closeCallbackModal();
+  });
+
+  document.getElementById('successModal').addEventListener('click', function(e) {
+    if (e.target === this) closeSuccessModal();
   });
 </script>
 </body>
