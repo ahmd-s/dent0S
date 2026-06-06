@@ -111,7 +111,7 @@ export async function POST(request) {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000')
     const consentLink = `${baseUrl}/consent/${unique_token}`
     
-    return json({ ok: true, id, consent_link, unique_token })
+    return json({ ok: true, id, consent_link: consentLink, unique_token })
   } catch (error) {
     console.error('Consent request creation error:', error)
     return err('Internal server error', 500)
