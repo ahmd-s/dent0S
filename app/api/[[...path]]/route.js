@@ -484,12 +484,13 @@ async function handle(request, { params }) {
       const url = new URL(request.url); const patient_id = url.searchParams.get('patient_id')
       const f = { clinic_id: cid }; if (patient_id) f.patient_id = patient_id
       const list = await db.collection('visits').find(f).sort({ visit_date: -1, created_at: -1 }).toArray()
-      const dids = [...new Set(list.map(v=>v.doctor_id).filter(Boolean))]
+      const uniqueList = Array.from(new Map(list.map(v => [v.id, v])).values())
+      const dids = [...new Set(uniqueList.map(v=>v.doctor_id).filter(Boolean))]
       const docs = dids.length ? await db.collection('profiles').find({ id: { $in: dids }, clinic_id: cid }).toArray() : []
       const dmap = Object.fromEntries(docs.map(d=>[d.id,d.full_name]))
-      const rxs = await db.collection('prescriptions').find({ clinic_id: cid, visit_id: { $in: list.map(v=>v.id) } }).toArray()
+      const rxs = await db.collection('prescriptions').find({ clinic_id: cid, visit_id: { $in: uniqueList.map(v=>v.id) } }).toArray()
       const rxmap = {}; for (const r of rxs) (rxmap[r.visit_id] = rxmap[r.visit_id]||[]).push(clean(r))
-      return json({ visits: list.map(v => ({ ...clean(v), doctor_name: dmap[v.doctor_id]||'', prescriptions: rxmap[v.id]||[] })) })
+      return json({ visits: uniqueList.map(v => { const { prescriptions: _vRx, ...cleanV } = clean(v); return { ...cleanV, doctor_name: dmap[v.doctor_id]||'', prescriptions: rxmap[v.id]||[] } }) })
     }
     if (path[0]==='visits' && path[1] && m==='GET') {
       const v = await db.collection('visits').findOne({ id: path[1], clinic_id: cid })
@@ -502,7 +503,9 @@ async function handle(request, { params }) {
         db.collection('invoices').findOne({ visit_id: v.id, clinic_id: cid })
       ])
       const items = inv ? await db.collection('invoice_items').find({ invoice_id: inv.id, clinic_id: cid }).toArray() : []
-      return json({ visit: { ...clean(v), patient: clean(p), doctor_name: doc?.full_name||'', prescriptions: rxs.map(clean), previous_visit: prevList[0] ? clean(prevList[0]) : null, invoice: inv ? { ...clean(inv), items: items.map(clean) } : null } })
+      const { items: _invItems, ...cleanInv } = inv ? clean(inv) : {}
+      const { prescriptions: _vRx, ...cleanV } = clean(v)
+      return json({ visit: { ...cleanV, patient: clean(p), doctor_name: doc?.full_name||'', prescriptions: rxs.map(clean), previous_visit: prevList[0] ? clean(prevList[0]) : null, invoice: inv ? { ...cleanInv, items: items.map(clean) } : null } })
     }
     if (path[0]==='visits' && path[1] && m==='PUT') {
       if (isReceptionist(profile)) return err('Forbidden', 403)
@@ -566,7 +569,8 @@ async function handle(request, { params }) {
         db.collection('visits').findOne({ id: inv.visit_id })
       ])
       const doctor = visit?.doctor_id ? await db.collection('profiles').findOne({ id: visit.doctor_id }) : null
-      return json({ invoice: { ...clean(inv), patient: clean(p), items: items.map(clean), visit: visit ? clean(visit) : null, doctor_name: doctor?.full_name || '', clinic: clean(clinic) } })
+      const { items: _invItems, ...cleanInv } = clean(inv)
+      return json({ invoice: { ...cleanInv, patient: clean(p), items: items.map(clean), visit: visit ? clean(visit) : null, doctor_name: doctor?.full_name || '', clinic: clean(clinic) } })
     }
 
     // ============ INVOICES ============
@@ -603,7 +607,8 @@ async function handle(request, { params }) {
         inv.visit_id ? db.collection('visits').findOne({ id: inv.visit_id, clinic_id: cid }) : null,
       ])
       const doctor = visit?.doctor_id ? await db.collection('profiles').findOne({ id: visit.doctor_id, clinic_id: cid }) : null
-      return json({ invoice: { ...clean(inv), patient: clean(p), items: items.map(clean), visit: visit ? clean(visit) : null, doctor_name: doctor?.full_name || '', clinic: clean(clinic) } })
+      const { items: _invItems, ...cleanInv } = clean(inv)
+      return json({ invoice: { ...cleanInv, patient: clean(p), items: items.map(clean), visit: visit ? clean(visit) : null, doctor_name: doctor?.full_name || '', clinic: clean(clinic) } })
     }
     if (path[0]==='invoices' && path[1] && m==='PUT') {
       const b = await request.json(); const u = {}

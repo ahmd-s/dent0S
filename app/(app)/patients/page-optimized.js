@@ -1,0 +1,190 @@
+'use client'
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { Plus, Phone, Search, Eye, CalendarPlus, X, Loader2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { toast } from 'sonner'
+import { useRole } from '@/components/dentos/RoleContext'
+
+const fmtDate = d => d ? `${String(new Date(d).getDate()).padStart(2,'0')}/${String(new Date(d).getMonth()+1).padStart(2,'0')}/${new Date(d).getFullYear()}` : '—'
+const PAGE_SIZE = 20
+
+function App() {
+  const [list, setList] = useState([])
+  const [q, setQ] = useState('')
+  const [filter, setFilter] = useState('all')
+  const [page, setPage] = useState(1)
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
+  // OPTIMIZATION: Added pagination state
+  const [pagination, setPagination] = useState({ total_count: 0, total_pages: 1, has_next: false, has_prev: false })
+  const { isReceptionist } = useRole()
+  const receptionist = isReceptionist()
+
+  const load = async () => {
+    setLoading(true)
+    const params = new URLSearchParams()
+    if (q) params.set('q', q)
+    if (filter !== 'all') params.set('filter', filter)
+    // OPTIMIZATION: Added server-side pagination parameters
+    params.set('page', page)
+    params.set('page_size', PAGE_SIZE.toString())
+    const r = await fetch('/api/patients?' + params)
+    const d = await r.json()
+    setList(d.patients || [])
+    setPagination(d.pagination || { total_count: 0, total_pages: 1, has_next: false, has_prev: false })
+    setLoading(false)
+  }
+  // OPTIMIZATION: Added page to dependency array to fetch new page on pagination
+  useEffect(() => { load() }, [q, filter, page])
+
+  // OPTIMIZATION: Use server-side pagination data
+  const totalPages = pagination.total_pages || 1
+  const visible = list // No longer doing client-side slicing
+
+  return (
+    <div className="max-w-7xl mx-auto">
+      <div className="flex items-center justify-between">
+        <div><p className="text-muted-foreground text-sm">Manage all patients in your clinic</p></div>
+        {!receptionist && <AddPatientButton onCreated={load} open={open} setOpen={setOpen} />}
+      </div>
+      <Card className="mt-5 p-4 bg-white border-border rounded-lg flex items-center gap-3">
+        <div className="flex-1 relative">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"/>
+          <Input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search by name or phone…" className="pl-9"/>
+          {q && <button onClick={()=>setQ('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X className="w-4 h-4 text-muted-foreground"/></button>}
+        </div>
+        <Select value={filter} onValueChange={setFilter}>
+          <SelectTrigger className="w-56"><SelectValue/></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Patients</SelectItem>
+            <SelectItem value="week">Visited This Week</SelectItem>
+            <SelectItem value="month">Visited This Month</SelectItem>
+            <SelectItem value="inactive">Not Visited in 3 Months</SelectItem>
+          </SelectContent>
+        </Select>
+        {/* OPTIMIZATION: Show total count from pagination */}
+        <span className="text-sm text-muted-foreground whitespace-nowrap">{pagination.total_count} patients</span>
+      </Card>
+      <Card className="mt-4 bg-white border-border rounded-lg overflow-hidden">
+        {loading && (
+          <div className="p-5 space-y-3">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="flex items-center gap-3 py-2">
+                <div className="w-9 h-9 rounded-full bg-muted animate-pulse"/>
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-muted rounded w-1/3 animate-pulse"/>
+                  <div className="h-3 bg-muted rounded w-1/4 animate-pulse"/>
+                </div>
+                <div className="h-4 bg-muted rounded w-16 animate-pulse"/>
+                <div className="h-4 bg-muted rounded w-12 animate-pulse"/>
+                <div className="h-4 bg-muted rounded w-20 animate-pulse"/>
+                <div className="h-4 bg-muted rounded w-24 animate-pulse"/>
+                <div className="h-8 bg-muted rounded w-20 animate-pulse"/>
+              </div>
+            ))}
+          </div>
+        )}
+        {!loading && visible.length===0 && <div className="py-16 text-center text-muted-foreground text-sm">No patients match your search</div>}
+        {!loading && visible.length>0 && (
+          <table className="w-full text-sm">
+            <thead className="bg-[#F8FAFC] text-left text-xs uppercase text-muted-foreground tracking-wider">
+              <tr><th className="px-5 py-3 font-medium">Name</th><th className="px-5 py-3 font-medium">Phone</th><th className="px-5 py-3 font-medium">Age</th><th className="px-5 py-3 font-medium">Gender</th><th className="px-5 py-3 font-medium">Last Visit</th><th className="px-5 py-3 font-medium">Follow-up Due</th><th className="px-5 py-3 text-right font-medium">Actions</th></tr>
+            </thead>
+            <tbody>
+              {visible.map(p => {
+                const fudate = p.next_followup_date ? new Date(p.next_followup_date) : null
+                const overdue = fudate && fudate < new Date()
+                return (
+                  <tr key={p.id} className="border-t border-border hover:bg-[#F8FAFC]/50 cursor-pointer" onClick={()=>window.location.href=`/patients/${p.id}`}>
+                    <td className="px-5 py-3"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-full bg-[#0D9488]/10 flex items-center justify-center text-sm font-semibold text-[#0D9488]">{p.name?.[0]?.toUpperCase()}</div><div><div className="font-medium text-[#0F172A]">{p.name}</div><div className="text-xs text-muted-foreground">{p.patient_code}</div></div></div></td>
+                    <td className="px-5 py-3 text-muted-foreground"><div className="flex items-center gap-1.5"><Phone className="w-3 h-3"/>+91 {p.phone}</div></td>
+                    <td className="px-5 py-3 text-muted-foreground">{p.age||'—'}</td>
+                    <td className="px-5 py-3 text-muted-foreground capitalize">{p.gender||'—'}</td>
+                    <td className="px-5 py-3 text-muted-foreground">{fmtDate(p.last_visit_date)}</td>
+                    <td className="px-5 py-3">{fudate ? <span className={overdue?'text-[#EF4444] font-medium':'text-success font-medium'}>{fmtDate(p.next_followup_date)}</span> : <span className="text-muted-foreground">—</span>}</td>
+                    <td className="px-5 py-3" onClick={e=>e.stopPropagation()}>
+                      <div className="flex justify-end gap-2">
+                        <Link href={`/patients/${p.id}`}><Button size="sm" variant="outline" className="h-8"><Eye className="w-3.5 h-3.5 mr-1"/>View</Button></Link>
+                        <Link href={`/appointments?patient=${p.id}`}><Button size="sm" className="h-8 bg-[#0D9488] hover:bg-[#0B7E73]"><CalendarPlus className="w-3.5 h-3.5 mr-1"/>Book</Button></Link>
+                        <Button
+  size="sm"
+  variant="destructive"
+  onClick={async (e) => {
+
+    e.stopPropagation()
+
+    const ok = confirm('Delete this patient permanently?')
+
+    if (!ok) return
+
+    const r = await fetch(`/api/patients/${p.id}`, {
+      method: 'DELETE'
+    })
+
+    if (r.ok) {
+      toast.success('Patient deleted')
+      load()
+    } else {
+      toast.error('Failed to delete patient')
+    }
+  }}
+>
+  Delete
+</Button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
+      </Card>
+      {totalPages>1 && (
+        <div className="mt-4 flex items-center justify-end gap-2 text-sm">
+          <Button size="sm" variant="outline" disabled={page===1} onClick={()=>setPage(p=>p-1)}>Previous</Button>
+          <span className="text-muted-foreground">Page {page} / {totalPages}</span>
+          <Button size="sm" variant="outline" disabled={page===totalPages} onClick={()=>setPage(p=>p+1)}>Next</Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AddPatientButton({ onCreated, open, setOpen }) {
+  const [f, setF] = useState({ name:'', phone:'', dob:'', age:'', gender:'', blood_group:'', allergies:'', medical_history:'', address:'', referral_source:'' })
+  const [loading, setLoading] = useState(false)
+  const reset = () => setF({ name:'', phone:'', dob:'', age:'', gender:'', blood_group:'', allergies:'', medical_history:'', address:'', referral_source:'' })
+
+  const onDob = v => {
+    let age = f.age
+    if (v) { const dob = new Date(v); const t = new Date(); age = String(t.getFullYear() - dob.getFullYear() - (t < new Date(t.getFullYear(), dob.getMonth(), dob.getDate())?1:0)) }
+    setF({...f, dob: v, age })
+  }
+
+  const submit = async e => {
+    e.preventDefault()
+    setLoading(true)
+    try {
+      const r = await fetch('/api/patients', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(f) })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error||'Failed')
+      toast.success('Patient added')
+      reset()
+      setOpen(false)
+      onCreated()
+    } catch (err) { toast.error(err.message) }
+    finally { setLoading(false) }
+  }
+
+  return <Dialog open={open} onOpenChange={setOpen}><DialogTrigger asChild><Button className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>Add Patient</Button></DialogTrigger><DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>Add New Patient</DialogTitle></DialogHeader><form onSubmit={submit} className="space-y-4"><div className="grid grid-cols-2 gap-4"><div><Label>Full Name *</Label><Input required value={f.name} onChange={e=>setF({...f, name:e.target.value})} placeholder="Enter patient name"/></div><div><Label>Phone *</Label><Input required type="tel" pattern="[0-9]{10}" value={f.phone} onChange={e=>setF({...f, phone:e.target.value})} placeholder="10-digit number"/></div></div><div className="grid grid-cols-2 gap-4"><div><Label>Date of Birth</Label><Input type="date" value={f.dob} onChange={e=>onDob(e.target.value)}/></div><div><Label>Age</Label><Input type="number" value={f.age} onChange={e=>setF({...f, age:e.target.value})} placeholder="Auto-calculated"/></div></div><div className="grid grid-cols-2 gap-4"><div><Label>Gender</Label><Select value={f.gender} onValueChange={v=>setF({...f, gender:v})}><SelectTrigger><SelectValue placeholder="Select"/></SelectTrigger><SelectContent><SelectItem value="male">Male</SelectItem><SelectItem value="female">Female</SelectItem><SelectItem value="other">Other</SelectItem></SelectContent></Select></div><div><Label>Blood Group</Label><Select value={f.blood_group} onValueChange={v=>setF({...f, blood_group:v})}><SelectTrigger><SelectValue placeholder="Select"/></SelectTrigger><SelectContent><SelectItem value="A+">A+</SelectItem><SelectItem value="A-">A-</SelectItem><SelectItem value="B+">B+</SelectItem><SelectItem value="B-">B-</SelectItem><SelectItem value="AB+">AB+</SelectItem><SelectItem value="AB-">AB-</SelectItem><SelectItem value="O+">O+</SelectItem><SelectItem value="O-">O-</SelectItem></SelectContent></Select></div></div><div><Label>Allergies</Label><Textarea value={f.allergies} onChange={e=>setF({...f, allergies:e.target.value})} placeholder="Known allergies (if any)"/></div><div><Label>Medical History</Label><Textarea value={f.medical_history} onChange={e=>setF({...f, medical_history:e.target.value})} placeholder="Relevant medical conditions"/></div><div><Label>Address</Label><Textarea value={f.address} onChange={e=>setF({...f, address:e.target.value})} placeholder="Full address"/></div><div><Label>Referral Source</Label><Input value={f.referral_source} onChange={e=>setF({...f, referral_source:e.target.value})} placeholder="How did they hear about you?"/></div><div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={()=>{reset();setOpen(false)}}>Cancel</Button><Button type="submit" disabled={loading}>{loading?<Loader2 className="w-4 h-4 animate-spin"/>:'Add Patient'}</Button></div></form></DialogContent></Dialog>
+}
+
+export default App
