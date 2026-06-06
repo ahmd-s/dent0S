@@ -4,18 +4,22 @@ import { FileText, Send, Download, Copy, Eye, Loader2, AlertCircle, CheckCircle2
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
 
 const fmtDate = d => d ? `${String(new Date(d).getDate()).padStart(2,'0')}/${String(new Date(d).getMonth()+1).padStart(2,'0')}/${new Date(d).getFullYear()}` : '—'
 
-export function ConsentFormsTab({ patientId, patientName }) {
+export function ConsentFormsTab({ patientId, patientName, patientPhone }) {
   const [consents, setConsents] = useState([])
   const [templates, setTemplates] = useState([])
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState('')
   const [sending, setSending] = useState(false)
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false)
+  const [consentLink, setConsentLink] = useState('')
+  const [copyButtonText, setCopyButtonText] = useState('Copy Link')
 
   const load = async () => {
     setLoading(true)
@@ -43,9 +47,10 @@ export function ConsentFormsTab({ patientId, patientName }) {
     const d = await r.json()
     setSending(false)
     if (r.ok) {
-      toast.success('Consent request sent')
+      setConsentLink(d.consent_link)
       setOpen(false)
       setSelectedTemplate('')
+      setLinkDialogOpen(true)
       load()
     } else {
       toast.error(d.error || 'Failed to send consent')
@@ -54,7 +59,8 @@ export function ConsentFormsTab({ patientId, patientName }) {
 
   const copyLink = async (link) => {
     await navigator.clipboard.writeText(link)
-    toast.success('Link copied to clipboard')
+    setCopyButtonText('Copied!')
+    setTimeout(() => setCopyButtonText('Copy Link'), 2000)
   }
 
   const viewPdf = async (id) => {
@@ -158,6 +164,34 @@ export function ConsentFormsTab({ patientId, patientName }) {
               <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
               <Button onClick={sendConsent} disabled={sending || !selectedTemplate} className="bg-[#0D9488] hover:bg-[#0B7E73]">
                 {sending ? <><Loader2 className="w-4 h-4 animate-spin mr-1"/>Sending...</> : <><Send className="w-4 h-4 mr-1"/>Send Request</>}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Consent Request Created</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">Share this link with the patient via WhatsApp or SMS</p>
+            <div className="space-y-1.5">
+              <Input value={consentLink} readOnly className="font-mono text-sm"/>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Button onClick={() => copyLink(consentLink)} variant="outline" className="w-full">
+                <Copy className="w-4 h-4 mr-2"/>{copyButtonText}
+              </Button>
+              {patientPhone && (
+                <Button
+                  onClick={() => window.open(`https://wa.me/${patientPhone.replace(/\D/g, '')}?text=Please sign your consent form: ${encodeURIComponent(consentLink)}`, '_blank')}
+                  className="w-full bg-green-600 hover:bg-green-700"
+                >
+                  <Send className="w-4 h-4 mr-2"/>WhatsApp
+                </Button>
+              )}
+              <Button onClick={() => setLinkDialogOpen(false)} variant="outline" className="w-full">
+                Done
               </Button>
             </div>
           </div>

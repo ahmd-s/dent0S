@@ -240,7 +240,7 @@ loadLabCases()
             </TabsContent>
             </TabsContent>
             <TabsContent value="consents" className="mt-4">
-              {patient && <ConsentFormsTab patientId={id} patientName={patient.name} />}
+              {patient && <ConsentFormsTab patientId={id} patientName={patient.name} patientPhone={patient.phone} />}
             </TabsContent>
             {!receptionist && (
             <TabsContent value="ai" className="mt-4">
