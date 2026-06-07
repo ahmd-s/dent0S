@@ -155,6 +155,27 @@ async function handle(request, { params }) {
       const slug = slugify(b.clinic_name, { lower: true, strict: true }) + '-' + Math.floor(1000+Math.random()*9000)
       await db.collection('clinics').insertOne({ id: clinicId, name: b.clinic_name, slug, owner_id: userId, phone: b.phone, address:'', city:'', gstin:'', logo_url:'', working_hours:null, subscription_plan:'free', is_active:true, onboarding_complete:false, created_at:new Date() })
       await db.collection('profiles').insertOne({ id: userId, clinic_id: clinicId, email, password_hash: await hashPassword(b.password), full_name: b.full_name, role:'admin', phone: b.phone, is_active:true, created_at:new Date() })
+      const now = new Date()
+      const trialEnd = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)
+      await db.collection('subscriptions').insertOne({
+        clinic_id: clinicId,
+        subscription_status: 'trial',
+        plan_type: null,
+        trial_start: now,
+        trial_end: trialEnd,
+        razorpay_subscription_id: null,
+        razorpay_plan_id: null,
+        razorpay_customer_id: null,
+        current_period_start: null,
+        current_period_end: null,
+        cancel_at_period_end: false,
+        cancelled_at: null,
+        grace_period_end: null,
+        last_payment_date: null,
+        last_payment_amount: null,
+        created_at: now,
+        updated_at: now
+      })
       setAuthCookie(signToken({ uid: userId, cid: clinicId, role:'admin' }))
       return json({ ok:true })
     }
