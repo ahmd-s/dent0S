@@ -122,7 +122,7 @@ export default function AppShell({ children }) {
                 <div className="text-xs text-white/50 truncate">{me.profile?.email}</div>
               </div>
               <Link
-                href="/settings?tab=subscription"
+                href="/subscription"
                 onClick={() => { setProfileOpen(false); setMobileOpen(false) }}
                 className="flex items-center gap-3 px-3 py-2.5 text-sm text-white/70 hover:bg-white/5 hover:text-white transition"
               >
