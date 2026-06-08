@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { LayoutDashboard, Users, Calendar, Receipt, Settings, LogOut, Search, Plus, Menu, X, Moon, Sun, FlaskConical, Building2 } from 'lucide-react'
+import { LayoutDashboard, Users, Calendar, Receipt, Settings, LogOut, Search, Plus, Menu, X, Moon, Sun, FlaskConical, Building2, ChevronUp, CreditCard } from 'lucide-react'
 import NotificationBell from './NotificationBell'
 import { ToothIcon } from './Logo'
 import { useRole } from './RoleContext'
@@ -58,6 +58,7 @@ export default function AppShell({ children }) {
   const [results, setResults] = useState([])
   const [showResults, setShowResults] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
   const debounceRef = useRef(null)
 
   useEffect(() => {
@@ -100,17 +101,51 @@ export default function AppShell({ children }) {
             )
           })}
         </nav>
-        <div className="p-3 border-t border-white/10">
-          <div className="flex items-center gap-3 px-2 py-2 mb-1">
-            <div className="w-9 h-9 rounded-full bg-[#0D9488] flex items-center justify-center text-white font-semibold text-sm">{me.profile?.full_name?.split(' ').map(s=>s[0]).join('').slice(0,2).toUpperCase()}</div>
-            <div className="min-w-0 flex-1">
+        <div className="p-3 border-t border-white/10 relative">
+          <button
+            onClick={() => setProfileOpen(prev => !prev)}
+            className="flex items-center gap-3 px-2 py-2 w-full hover:bg-white/5 rounded-md transition"
+          >
+            <div className="w-9 h-9 rounded-full bg-[#0D9488] flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">{me.profile?.full_name?.split(' ').map(s=>s[0]).join('').slice(0,2).toUpperCase()}</div>
+            <div className="min-w-0 flex-1 text-left">
               <div className="text-sm font-medium truncate">{me.profile?.full_name}</div>
               <Badge className={`mt-1 text-[10px] px-1.5 py-0 h-5 font-semibold border capitalize ${roleBadgeVariant(me.profile?.role)}`}>
                 {roleBadgeLabel(me.profile?.role)}
               </Badge>
             </div>
-          </div>
-          <button onClick={logout} className="flex items-center gap-3 px-3 py-2 w-full text-sm text-white/70 hover:bg-white/5 hover:text-white rounded-md"><LogOut className="w-4 h-4"/>Sign out</button>
+            <ChevronUp className={`w-4 h-4 text-white/50 transition-transform ${profileOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {profileOpen && (
+            <div className="absolute bottom-full left-3 right-3 mb-1 bg-[#1a2332] border border-white/10 rounded-lg overflow-hidden shadow-xl">
+              <div className="px-3 py-2.5 border-b border-white/10">
+                <div className="text-xs text-white/50 truncate">{me.profile?.email}</div>
+              </div>
+              <Link
+                href="/settings?tab=subscription"
+                onClick={() => { setProfileOpen(false); setMobileOpen(false) }}
+                className="flex items-center gap-3 px-3 py-2.5 text-sm text-white/70 hover:bg-white/5 hover:text-white transition"
+              >
+                <CreditCard className="w-4 h-4" />
+                Subscription & Plan
+              </Link>
+              <Link
+                href="/settings"
+                onClick={() => { setProfileOpen(false); setMobileOpen(false) }}
+                className="flex items-center gap-3 px-3 py-2.5 text-sm text-white/70 hover:bg-white/5 hover:text-white transition"
+              >
+                <Settings className="w-4 h-4" />
+                Settings
+              </Link>
+              <button
+                onClick={logout}
+                className="flex items-center gap-3 px-3 py-2.5 w-full text-sm text-white/70 hover:bg-white/5 hover:text-red-400 transition"
+              >
+                <LogOut className="w-4 h-4" />
+                Sign out
+              </button>
+            </div>
+          )}
         </div>
       </aside>
       <div className="flex-1 md:ml-60">
