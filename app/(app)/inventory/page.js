@@ -11,7 +11,16 @@ import { toast } from 'sonner'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 function App() {
-  const [analytics, setAnalytics] = useState(null)
+  const [analytics, setAnalytics] = useState({ 
+    total_items: 0, 
+    total_value: 0, 
+    low_stock_count: 0, 
+    expiring_soon_count: 0, 
+    total_consumed_this_month: 0,
+    cost_consumed_this_month: 0, 
+    most_consumed: [], 
+    monthly_consumption: [] 
+  })
   const [lowStock, setLowStock] = useState([])
   const [expiringSoon, setExpiringSoon] = useState([])
   const [loading, setLoading] = useState(true)
@@ -21,16 +30,21 @@ function App() {
 
   const load = async () => {
     setLoading(true)
-    const [analyticsRes, alertsRes] = await Promise.all([
-      fetch('/api/inventory/analytics'),
-      fetch('/api/inventory/alerts')
-    ])
-    const analyticsData = await analyticsRes.json()
-    const alertsData = await alertsRes.json()
-    setAnalytics(analyticsData)
-    setLowStock(alertsData.low_stock?.slice(0, 5) || [])
-    setExpiringSoon(alertsData.expiring_soon?.slice(0, 5) || [])
-    setLoading(false)
+    try {
+      const [analyticsRes, alertsRes] = await Promise.all([
+        fetch('/api/inventory/analytics'),
+        fetch('/api/inventory/alerts')
+      ])
+      const analyticsData = await analyticsRes.json()
+      const alertsData = await alertsRes.json()
+      setAnalytics(analyticsData)
+      setLowStock(alertsData.low_stock?.slice(0, 5) || [])
+      setExpiringSoon(alertsData.expiring_soon?.slice(0, 5) || [])
+    } catch (e) {
+      console.error('Error loading dashboard data:', e)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const loadVendors = async () => {
@@ -59,7 +73,7 @@ function App() {
       {loading && <div className="mt-6 flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]"/></div>}
       {!loading && analytics && (
         <div className="mt-6 space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-col(s-4 gap-4?"> ?? 0)
             <Card className="p-5 bg-white border-border rounded-lg">
               <div className="flex items-center justify-between">
                 <div>
