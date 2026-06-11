@@ -11,7 +11,7 @@ import { Card } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { toast } from 'sonner'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { VisitVoiceRecorder } from '@/components/dentos/VisitVoiceRecorder'
 import SmartTextarea from '@/components/SmartTextarea'
 
@@ -49,6 +49,9 @@ function App() {
   const [saving, setSaving] = useState(false)
   const [autosaveAt, setAutosaveAt] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [consumeModalOpen, setConsumeModalOpen] = useState(false)
+  const [consumeItems, setConsumeItems] = useState([])
+  const [inventoryItems, setInventoryItems] = useState([])
 
   const stateRef = useRef({})
   stateRef.current = { v, rxs, items, discount, gstOn, paymentMode, paymentStatus }
@@ -72,6 +75,7 @@ function App() {
   }
   useEffect(() => { if (id) load() }, [id])
   useEffect(() => { fetch('/api/treatment_templates').then(r=>r.json()).then(d=>setTemplates(d.templates||[])) }, [])
+  useEffect(() => { fetch('/api/inventory').then(r=>r.json()).then(d=>setInventoryItems(d.items||[])) }, [])
 
   const saveDraft = async (silent=false) => {
     if (!stateRef.current.v) return
@@ -85,8 +89,57 @@ function App() {
   }
   const completeVisit = async () => {
     if (!stateRef.current.v?.chief_complaint?.trim()) { toast.error('Chief complaint is required'); return }
+    
+    // Fetch inventory templates and show consumption modal
+    const templatesRes = await fetch('/api/inventory/templates')
+    const templatesData = await templatesRes.json()
+    const inventoryTemplates = templatesData.templates || []
+    
+    // Find matching template based on treatment done
+    const treatment = stateRef.current.v?.treatment_done?.toLowerCase() || ''
+    const matchedTemplate = inventoryTemplates.find(t => treatment.includes(t.treatment_name.toLowerCase()))
+    
+    if (matchedTemplate) {
+      const suggestedItems = matchedTemplate.items.map(item => ({
+        item_id: item.item_id,
+        item_name: item.item_name,
+        suggested_quantity: item.suggested_quantity,
+        actual_quantity: item.suggested_quantity,
+        unit: item.unit
+      }))
+      setConsumeItems(suggestedItems)
+      setConsumeModalOpen(true)
+    } else {
+      // No template match, show modal with empty list for manual addition
+      setConsumeItems([])
+      setConsumeModalOpen(true)
+    }
+  }
+  
+  const confirmCompleteVisit = async (skipConsumption = false) => {
     setSaving(true)
     const cur = stateRef.current
+    
+    // If not skipping and has items, consume inventory
+    if (!skipConsumption && consumeItems.length > 0) {
+      const itemsToConsume = consumeItems.filter(i => i.actual_quantity > 0).map(i => ({
+        item_id: i.item_id,
+        quantity: i.actual_quantity
+      }))
+      
+      if (itemsToConsume.length > 0) {
+        await fetch('/api/inventory/consume', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            visit_id: id,
+            patient_name: cur.v.patient?.name || 'Unknown',
+            items: itemsToConsume
+          })
+        })
+      }
+    }
+    
     const r = await fetch(`/api/visits/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ ...cur.v, prescriptions: cur.rxs, invoice_items: cur.items, discount: cur.discount, gst_enabled: cur.gstOn, payment_mode: cur.paymentMode, payment_status: cur.paymentStatus, complete: true }) })
     setSaving(false)
@@ -303,7 +356,112 @@ function App() {
           <div className="space-y-1.5"><Label>Payment Status</Label><Select value={paymentStatus} onValueChange={setPaymentStatus}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="pending">Pending</SelectItem><SelectItem value="paid">Paid</SelectItem><SelectItem value="partial">Partial</SelectItem><SelectItem value="waived">Waived</SelectItem></SelectContent></Select></div>
         </div>
       </Card>
+
+      <ConsumptionModal 
+        open={consumeModalOpen} 
+        setOpen={setConsumeModalOpen} 
+        items={consumeItems} 
+        setItems={setConsumeItems}
+        inventoryItems={inventoryItems}
+        onConfirm={() => confirmCompleteVisit(false)}
+        onSkip={() => confirmCompleteVisit(true)}
+      />
     </div>
   )
 }
+
+function ConsumptionModal({ open, setOpen, items, setItems, inventoryItems, onConfirm, onSkip }) {
+  const [loading, setLoading] = useState(false)
+
+  const addUnlistedItem = () => {
+    setItems([...items, { item_id: '', item_name: '', suggested_quantity: 1, actual_quantity: 1, unit: '' }])
+  }
+
+  const removeItem = (idx) => {
+    setItems(items.filter((_, i) => i !== idx))
+  }
+
+  const updateItem = (idx, field, value) => {
+    const newItems = [...items]
+    newItems[idx][field] = value
+    if (field === 'item_id') {
+      const item = inventoryItems.find(i => i.id === value)
+      newItems[idx].item_name = item?.item_name || ''
+      newItems[idx].unit = item?.unit || ''
+    }
+    setItems(newItems)
+  }
+
+  const handleConfirm = async () => {
+    setLoading(true)
+    await onConfirm()
+    setLoading(false)
+  }
+
+  const handleSkip = async () => {
+    setLoading(true)
+    await onSkip()
+    setLoading(false)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Log Material Consumption</DialogTitle>
+          <p className="text-sm text-muted-foreground">Review materials used for this visit. All quantities can be adjusted.</p>
+        </DialogHeader>
+        
+        <div className="space-y-3">
+          {items.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">No materials suggested. Add manually if needed.</p>
+          ) : (
+            <div className="space-y-2">
+              {items.map((item, idx) => (
+                <div key={idx} className="flex items-center gap-2 p-3 border border-border rounded-lg">
+                  <div className="flex-1">
+                    <select 
+                      value={item.item_id} 
+                      onChange={e => updateItem(idx, 'item_id', e.target.value)}
+                      className="w-full border border-input rounded-md px-3 py-2 text-sm"
+                    >
+                      <option value="">Select material</option>
+                      {inventoryItems.map(i => <option key={i.id} value={i.id}>{i.item_name}</option>)}
+                    </select>
+                  </div>
+                  <div className="w-24">
+                    <Input 
+                      type="number" 
+                      value={item.actual_quantity} 
+                      onChange={e => updateItem(idx, 'actual_quantity', parseInt(e.target.value) || 0)}
+                      min="0"
+                      className="text-sm"
+                    />
+                  </div>
+                  <span className="text-sm text-muted-foreground w-12">{item.unit}</span>
+                  <button 
+                    type="button" 
+                    onClick={() => removeItem(idx)}
+                    className="w-7 h-7 rounded hover:bg-red-50 flex items-center justify-center"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-red-500"/>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <Button type="button" variant="outline" size="sm" onClick={addUnlistedItem} className="w-full">+ Add Unlisted Material</Button>
+        </div>
+
+        <div className="flex justify-end gap-2 mt-4">
+          <Button type="button" variant="ghost" onClick={handleSkip} disabled={loading}>Skip — Don't Log</Button>
+          <Button type="button" onClick={handleConfirm} disabled={loading} className="bg-[#0D9488] hover:bg-[#0B7E73]">
+            {loading ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Confirm & Deduct Stock'}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export default App

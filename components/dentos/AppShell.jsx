@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { LayoutDashboard, Users, Calendar, Receipt, Settings, LogOut, Search, Plus, Menu, X, Moon, Sun, FlaskConical, Building2, ChevronUp, CreditCard } from 'lucide-react'
+import { LayoutDashboard, Users, Calendar, Receipt, Settings, LogOut, Search, Plus, Menu, X, Moon, Sun, FlaskConical, Building2, ChevronUp, CreditCard, Package } from 'lucide-react'
 import NotificationBell from './NotificationBell'
 import { ToothIcon } from './Logo'
 import { useRole } from './RoleContext'
@@ -16,6 +16,7 @@ const NAV_ALL = [
   { href: '/appointments', label: 'Appointments', icon: Calendar },
   { href: '/lab-cases', label: 'Lab Cases', icon: FlaskConical },
   { href: '/vendors', label: 'Vendors', icon: Building2 },
+  { href: '/inventory', label: 'Inventory', icon: Package },
   { href: '/billing', label: 'Billing', icon: Receipt },
   { href: '/settings', label: 'Settings', icon: Settings, receptionistHidden: true },
 ]
@@ -26,6 +27,7 @@ const PAGE_TITLES = {
   '/appointments': 'Appointments',
   '/lab-cases': 'Lab Cases',
   '/vendors': 'Vendors',
+  '/inventory': 'Inventory',
   '/billing': 'Billing',
   '/settings': 'Settings',
 }

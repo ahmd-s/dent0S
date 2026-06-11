@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from 'sonner'
 import { useRole } from '@/components/dentos/RoleContext'
 
-const EMPTY = { name: '', contact_person: '', phone: '', email: '', material_types: '', address: '', notes: '' }
+const EMPTY = { name: '', contact_person: '', phone: '', email: '', material_types: '', address: '', notes: '', vendor_type: 'both' }
 
 function App() {
   const [list, setList] = useState([])
@@ -72,6 +72,15 @@ function App() {
                 <div className="min-w-0">
                   <div className="font-semibold text-[#0F172A] truncate">{v.name}</div>
                   {v.material_types && <div className="text-xs text-muted-foreground mt-0.5 truncate">{v.material_types}</div>}
+                  {v.vendor_type === 'dental_lab' && (
+                    <span className="text-xs bg-blue-50 text-blue-600 border border-blue-200 rounded-full px-2 py-0.5 mt-1 inline-block">Dental Lab</span>
+                  )}
+                  {v.vendor_type === 'supplier' && (
+                    <span className="text-xs bg-green-50 text-green-600 border border-green-200 rounded-full px-2 py-0.5 mt-1 inline-block">Material Supplier</span>
+                  )}
+                  {(v.vendor_type === 'both' || !v.vendor_type) && (
+                    <span className="text-xs bg-gray-50 text-gray-500 border border-gray-200 rounded-full px-2 py-0.5 mt-1 inline-block">Lab & Supplier</span>
+                  )}
                 </div>
                 {!receptionist && (
                   <div className="flex items-center gap-1 shrink-0">
@@ -105,6 +114,7 @@ function VendorDialog({ open, setOpen, editing, onSaved }) {
     if (open) setF(editing ? {
       name: editing.name || '', contact_person: editing.contact_person || '', phone: editing.phone || '',
       email: editing.email || '', material_types: editing.material_types || '', address: editing.address || '', notes: editing.notes || '',
+      vendor_type: editing.vendor_type || 'both',
     } : EMPTY)
   }, [open, editing])
 
@@ -128,6 +138,21 @@ function VendorDialog({ open, setOpen, editing, onSaved }) {
         <DialogHeader><DialogTitle>{editing ? 'Edit Vendor' : 'Add New Vendor'}</DialogTitle></DialogHeader>
         <form onSubmit={submit} className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5 col-span-2"><Label>Lab / Vendor Name <span className="text-[#EF4444]">*</span></Label><Input value={f.name} onChange={e=>setF({...f,name:e.target.value})} placeholder="e.g. XYZ Dental Lab" autoFocus/></div>
+          <div className="space-y-1.5 col-span-2">
+            <Label>Vendor Type</Label>
+            <select 
+              value={f.vendor_type} 
+              onChange={e => setF({...f, vendor_type: e.target.value})}
+              className="w-full border border-input rounded-md px-3 py-2 text-sm"
+            >
+              <option value="both">Dental Lab & Material Supplier</option>
+              <option value="dental_lab">Dental Lab only (Lab Cases)</option>
+              <option value="supplier">Material Supplier only (Inventory)</option>
+            </select>
+            <p className="text-xs text-muted-foreground">
+              Dental Labs appear in Lab Cases. Material Suppliers appear in Inventory stock management.
+            </p>
+          </div>
           <div className="space-y-1.5"><Label>Contact Person</Label><Input value={f.contact_person} onChange={e=>setF({...f,contact_person:e.target.value})} placeholder="e.g. Rahul Sharma"/></div>
           <div className="space-y-1.5"><Label>Phone Number</Label><Input value={f.phone} onChange={e=>setF({...f,phone:e.target.value.replace(/\D/g,'').slice(0,15)})} placeholder="9876543210"/></div>
           <div className="space-y-1.5 col-span-2"><Label>Email</Label><Input type="email" value={f.email} onChange={e=>setF({...f,email:e.target.value})} placeholder="lab@example.com"/></div>

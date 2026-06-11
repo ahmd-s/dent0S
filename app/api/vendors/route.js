@@ -10,10 +10,25 @@ export async function GET(request) {
     const { profile, db } = ctx; const cid = profile.clinic_id
     const url = new URL(request.url)
     const q = url.searchParams.get('q')
+    const type = url.searchParams.get('type')
     const f = { clinic_id: cid, is_archived: { $ne: true } }
     if (q) {
       const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
       f.$or = [{ name: re }, { contact_person: re }, { phone: re }]
+    }
+    if (type === 'supplier') {
+      f.$or = [
+        { vendor_type: 'supplier' },
+        { vendor_type: 'both' },
+        { vendor_type: { $exists: false } }
+      ]
+    }
+    if (type === 'dental_lab') {
+      f.$or = [
+        { vendor_type: 'dental_lab' },
+        { vendor_type: 'both' },
+        { vendor_type: { $exists: false } }
+      ]
     }
     const list = await db.collection('vendors').find(f).sort({ name: 1 }).toArray()
     return json({ vendors: list.map(clean) })

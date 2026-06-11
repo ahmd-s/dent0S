@@ -25,7 +25,7 @@ export async function PUT(request, { params }) {
     if ('name' in b && !b.name?.trim()) return err('Vendor name is required')
     if (b.phone && !/^\d{7,15}$/.test(String(b.phone).replace(/\D/g, ''))) return err('Phone must be 7-15 digits')
     const update = {}
-    for (const k of ['name', 'contact_person', 'phone', 'email', 'address', 'material_types', 'notes']) {
+    for (const k of ['name', 'contact_person', 'phone', 'email', 'address', 'material_types', 'notes', 'vendor_type']) {
       if (k in b) update[k] = k === 'name' ? b[k].trim() : (k === 'phone' ? String(b[k] || '').replace(/\D/g, '') : b[k])
     }
     const r = await db.collection('vendors').updateOne({ id: params.id, clinic_id: cid }, { $set: update })
