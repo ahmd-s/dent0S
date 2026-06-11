@@ -84,7 +84,7 @@ async function handle(request, { params }) {
       if (!b.name || !b.phone || !b.appointment_date || !b.appointment_time) return err('Missing fields')
       if (!/^\d{10}$/.test(b.phone)) return err('Phone must be 10 digits')
       // rate limit: max 3 per phone per day
-      const sameDay = await db.collection('appointments').countDocuments({ clinic_id: c.id, $or: [{ patient_phone_temp: b.phone }, { patient_id: { $ne: null } }], appointment_date: b.appointment_date })
+      const sameDay = await db.collection('appointments').countDocuments({ clinic_id: c.id, patient_phone_temp: b.phone, appointment_date: b.appointment_date })
       if (sameDay >= 3) return err('Too many bookings for this number today', 429)
       // re-check slot
       const conflict = await db.collection('appointments').findOne({ clinic_id: c.id, appointment_date: b.appointment_date, appointment_time: b.appointment_time, doctor_id: b.doctor_id||null, status: { $nin:['cancelled','no_show'] } })
