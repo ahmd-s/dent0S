@@ -28,7 +28,6 @@ function App() {
   const [editing, setEditing] = useState(null)
   const [stockItem, setStockItem] = useState(null)
   const { isReceptionist } = useRole()
-  const receptionist = isReceptionist()
 
   const load = async () => {
     setLoading(true)
@@ -68,7 +67,7 @@ function App() {
           <h1 className="text-2xl font-bold text-[#0F172A]">Inventory Items</h1>
           <p className="text-muted-foreground text-sm">Manage dental materials and supplies</p>
         </div>
-        {!receptionist && <Button onClick={openNew} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>Add Item</Button>}
+        {!isReceptionist() && <Button onClick={openNew} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>Add Item</Button>}
       </div>
       
       <Card className="mt-5 p-4 bg-white border-border rounded-lg flex items-center gap-3 flex-wrap">
@@ -91,7 +90,7 @@ function App() {
       {loading && <div className="mt-6 flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]"/></div>}
       {!loading && items.length === 0 && (
         <Card className="mt-4 bg-white border-border rounded-lg py-16 text-center text-muted-foreground text-sm">
-          No inventory items yet. {!receptionist && 'Add your first item to start tracking stock.'}
+          No inventory items yet. {!isReceptionist() && 'Add your first item to start tracking stock.'}
         </Card>
       )}
       {!loading && items.length > 0 && (
@@ -106,7 +105,7 @@ function App() {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Min Stock</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Status</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Vendor</th>
-                {!receptionist && <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase">Actions</th>}
+                {!isReceptionist() && <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase">Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -114,7 +113,7 @@ function App() {
                 const status = getStatus(item)
                 const vendor = vendors.find(v => v.id === item.vendor_id)
                 return (
-                  <tr key={item.id} className="border-b border-border hover:bg-muted/50 cursor-pointer" onClick={() => !receptionist && openEdit(item)}>
+                  <tr key={item.id} className="border-b border-border hover:bg-muted/50 cursor-pointer" onClick={() => !isReceptionist() && openEdit(item)}>
                     <td className="px-4 py-3 text-sm font-medium">{item.item_name}</td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">{item.category}</td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">{item.unit}</td>
@@ -122,7 +121,7 @@ function App() {
                     <td className="px-4 py-3 text-sm text-muted-foreground">{item.minimum_stock}</td>
                     <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded-full border ${status.color}`}>{status.label}</span></td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">{vendor?.name || '-'}</td>
-                    {!receptionist && (
+                    {!isReceptionist() && (
                       <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
                           <button onClick={() => openStockIn(item)} className="w-7 h-7 rounded hover:bg-green-50 flex items-center justify-center" title="Stock In"><ArrowUp className="w-3.5 h-3.5 text-green-600"/></button>
