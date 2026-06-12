@@ -1,4 +1,5 @@
 'use client'
+import { Component } from 'react'
 import { useEffect, useState } from 'react'
 import { Plus, Loader2, Edit2, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -8,6 +9,27 @@ import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { useRole } from '@/components/dentos/RoleContext'
+
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false, error: null }
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error }
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 text-red-500">
+          <h2>Error loading treatment templates</h2>
+          <pre className="text-xs mt-2">{this.state.error?.message}</pre>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 function App() {
   const [templates, setTemplates] = useState([])
@@ -186,4 +208,10 @@ function TemplateDialog({ open, setOpen, editing, items, onSaved }) {
   )
 }
 
-export default App
+export default function TreatmentTemplatesPage() {
+  return (
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  )
+}

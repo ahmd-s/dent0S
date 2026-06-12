@@ -1,4 +1,5 @@
 'use client'
+import { Component } from 'react'
 import { useEffect, useState } from 'react'
 import { Plus, Search, X, Loader2, Edit2, ArrowUp, ArrowDown, Package } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -9,6 +10,27 @@ import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { useRole } from '@/components/dentos/RoleContext'
+
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false, error: null }
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error }
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 text-red-500">
+          <h2>Error loading inventory items</h2>
+          <pre className="text-xs mt-2">{this.state.error?.message}</pre>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 const CATEGORIES = ['Restorative', 'Endodontic', 'Orthodontic', 'Surgical', 'Consumables', 'PPE', 'Lab Materials', 'Impression Materials', 'Miscellaneous']
 const UNITS = ['piece', 'box', 'packet', 'bottle', 'syringe', 'ml', 'gram']
@@ -306,4 +328,10 @@ function StockOutDialog({ open, setOpen, item, onSaved }) {
   )
 }
 
-export default App
+export default function InventoryItemsPage() {
+  return (
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  )
+}
