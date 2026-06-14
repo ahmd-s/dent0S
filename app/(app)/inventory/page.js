@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Loader2, Package, IndianRupee, AlertTriangle, Clock, ArrowUp, ArrowRight } from 'lucide-react'
+import { Loader2, Package, IndianRupee, AlertTriangle, Clock, ArrowUp, ArrowRight, Plus } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 function App() {
   const [analytics, setAnalytics] = useState({ 
@@ -27,6 +28,8 @@ function App() {
   const [stockInOpen, setStockInOpen] = useState(false)
   const [stockItem, setStockItem] = useState(null)
   const [vendors, setVendors] = useState([])
+  const [quickAddOpen, setQuickAddOpen] = useState(false)
+  const [inventoryItems, setInventoryItems] = useState([])
 
   const load = async () => {
     setLoading(true)
@@ -53,7 +56,13 @@ function App() {
     setVendors(d.vendors || [])
   }
 
-  useEffect(() => { load(); loadVendors() }, [])
+  const loadInventoryItems = async () => {
+    const r = await fetch('/api/inventory')
+    const d = await r.json()
+    setInventoryItems(d.items || [])
+  }
+
+  useEffect(() => { load(); loadVendors(); loadInventoryItems() }, [])
 
   const openStockIn = (item) => { setStockItem(item); setStockInOpen(true) }
 
@@ -65,9 +74,14 @@ function App() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold text-[#0F172A]">Inventory Dashboard</h1>
-        <p className="text-muted-foreground text-sm">Overview of your dental materials and supplies</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-[#0F172A]">Inventory Dashboard</h1>
+          <p className="text-muted-foreground text-sm">Overview of your dental materials and supplies</p>
+        </div>
+        <Button onClick={() => setQuickAddOpen(true)} className="bg-[#0D9488] hover:bg-[#0B7E73]">
+          <Plus className="w-4 h-4 mr-1"/>Add Stock
+        </Button>
       </div>
 
       {loading && <div className="mt-6 flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]"/></div>}
@@ -192,6 +206,7 @@ function App() {
       )}
 
       <StockInDialog open={stockInOpen} setOpen={setStockInOpen} item={stockItem} vendors={vendors} onSaved={load} />
+      <QuickAddStockDialog open={quickAddOpen} setOpen={setQuickAddOpen} inventoryItems={inventoryItems} vendors={vendors} onSaved={load} />
     </div>
   )
 }
@@ -236,6 +251,72 @@ function StockInDialog({ open, setOpen, item, vendors, onSaved }) {
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={()=>setOpen(false)}>Cancel</Button>
             <Button type="submit" disabled={loading} className="bg-[#0D9488] hover:bg-[#0B7E73]">{loading?<Loader2 className="w-4 h-4 animate-spin"/>:'Add Stock'}</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function QuickAddStockDialog({ open, setOpen, inventoryItems, vendors, onSaved }) {
+  const [f, setF] = useState({ item_id: '', quantity: 1, vendor_id: '', purchase_cost: 0, invoice_number: '', notes: '' })
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setF({ item_id: '', quantity: 1, vendor_id: '', purchase_cost: 0, invoice_number: '', notes: '' })
+    }
+  }, [open])
+
+  const selectedItem = inventoryItems.find(i => i.id === f.item_id)
+
+  useEffect(() => {
+    if (selectedItem) {
+      setF(prev => ({ ...prev, vendor_id: selectedItem.vendor_id || '', purchase_cost: selectedItem.purchase_price || 0 }))
+    }
+  }, [selectedItem])
+
+  const submit = async (e) => {
+    e.preventDefault()
+    if (!f.item_id) { toast.error('Please select an item'); return }
+    if (!f.quantity || f.quantity <= 0) { toast.error('Quantity must be greater than 0'); return }
+    setLoading(true)
+    const r = await fetch('/api/inventory/stock-in', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item_id: f.item_id, ...f }) })
+    const d = await r.json()
+    setLoading(false)
+    if (r.ok) { toast.success('Stock added successfully'); setOpen(false); onSaved && onSaved() }
+    else toast.error(d.error || 'Failed')
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Add Stock</DialogTitle></DialogHeader>
+        <form onSubmit={submit} className="space-y-4">
+          <div className="space-y-1.5"><Label>Item <span className="text-[#EF4444]">*</span></Label>
+            <Select value={f.item_id} onValueChange={v=>setF({...f,item_id:v})}>
+              <SelectTrigger><SelectValue placeholder="Select item"/></SelectTrigger>
+              <SelectContent>
+                {inventoryItems.map(i => <SelectItem key={i.id} value={i.id}>{i.item_name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5"><Label>Quantity <span className="text-[#EF4444]">*</span></Label><Input type="number" value={f.quantity} onChange={e=>setF({...f,quantity:parseInt(e.target.value)||0})} min="1" disabled={!f.item_id}/></div>
+          <div className="space-y-1.5"><Label>Vendor</Label>
+            <Select value={f.vendor_id} onValueChange={v=>setF({...f,vendor_id:v})} disabled={!f.item_id}>
+              <SelectTrigger><SelectValue placeholder="Select vendor"/></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">No vendor</SelectItem>
+                {vendors.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5"><Label>Purchase Cost ₹</Label><Input type="number" value={f.purchase_cost} onChange={e=>setF({...f,purchase_cost:parseFloat(e.target.value)||0})} min="0" step="0.01" disabled={!f.item_id}/></div>
+          <div className="space-y-1.5"><Label>Invoice Number</Label><Input value={f.invoice_number} onChange={e=>setF({...f,invoice_number:e.target.value})} disabled={!f.item_id}/></div>
+          <div className="space-y-1.5"><Label>Notes</Label><Textarea rows={2} value={f.notes} onChange={e=>setF({...f,notes:e.target.value})} disabled={!f.item_id}/></div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={()=>setOpen(false)}>Cancel</Button>
+            <Button type="submit" disabled={loading || !f.item_id} className="bg-[#0D9488] hover:bg-[#0B7E73]">{loading?<Loader2 className="w-4 h-4 animate-spin"/>:'Add Stock'}</Button>
           </div>
         </form>
       </DialogContent>

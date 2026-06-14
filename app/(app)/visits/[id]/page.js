@@ -120,31 +120,50 @@ function App() {
     setSaving(true)
     const cur = stateRef.current
     
-    // If not skipping and has items, consume inventory
-    if (!skipConsumption && consumeItems.length > 0) {
-      const itemsToConsume = consumeItems.filter(i => i.actual_quantity > 0).map(i => ({
-        item_id: i.item_id,
-        quantity: i.actual_quantity
-      }))
-      
-      if (itemsToConsume.length > 0) {
-        await fetch('/api/inventory/consume', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            visit_id: id,
-            patient_name: cur.v.patient?.name || 'Unknown',
-            items: itemsToConsume
-          })
-        })
+    try {
+      // If not skipping and has items, consume inventory
+      if (!skipConsumption && consumeItems.length > 0) {
+        const itemsToConsume = consumeItems.filter(i => i.actual_quantity > 0).map(i => ({
+          item_id: i.item_id,
+          quantity: i.actual_quantity
+        }))
+        
+        if (itemsToConsume.length > 0) {
+          try {
+            const consumeRes = await fetch('/api/inventory/consume', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                visit_id: id,
+                patient_name: cur.v.patient?.name || 'Unknown',
+                items: itemsToConsume
+              })
+            })
+            if (consumeRes.ok) {
+              toast.success('Stock deducted successfully')
+            } else {
+              toast.warning('Stock deduction failed, but visit will complete')
+            }
+          } catch (consumeError) {
+            console.error('Consume API error:', consumeError)
+            toast.warning('Stock deduction failed, but visit will complete')
+          }
+        }
       }
+      
+      // Always complete the visit regardless of consume result
+      const r = await fetch(`/api/visits/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ ...cur.v, prescriptions: cur.rxs, invoice_items: cur.items, discount: cur.discount, gst_enabled: cur.gstOn, payment_mode: cur.paymentMode, payment_status: cur.paymentStatus, complete: true }) })
+      if (r.ok) { 
+        toast.success('Visit completed and invoice saved')
+        router.push(`/patients/${cur.v.patient_id}`)
+      } else {
+        toast.error('Failed to complete visit')
+      }
+    } finally {
+      setSaving(false)
+      setConsumeModalOpen(false)
     }
-    
-    const r = await fetch(`/api/visits/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ ...cur.v, prescriptions: cur.rxs, invoice_items: cur.items, discount: cur.discount, gst_enabled: cur.gstOn, payment_mode: cur.paymentMode, payment_status: cur.paymentStatus, complete: true }) })
-    setSaving(false)
-    if (r.ok) { toast.success('Visit completed and invoice saved'); router.push(`/patients/${cur.v.patient_id}`) }
-    else toast.error('Failed')
   }
   // autosave every 90s
   useEffect(() => {
