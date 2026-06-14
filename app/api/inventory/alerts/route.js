@@ -8,6 +8,8 @@ export async function GET(request) {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
     
+    console.log('Alerts clinic_id:', cid)
+    
     // Low stock items
     const lowStockItems = await db.collection('inventory_items')
       .find({ 

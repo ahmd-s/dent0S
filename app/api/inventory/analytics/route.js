@@ -8,20 +8,18 @@ export async function GET(request) {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
     
-    // Safe defaults
-    const safeResponse = {
-      total_items: 0,
-      total_value: 0,
-      low_stock_count: 0,
-      expiring_soon_count: 0,
-      total_consumed_this_month: 0,
-      cost_consumed_this_month: 0,
-      most_consumed: [],
-      monthly_consumption: []
-    }
+    // Declare all variables with safe defaults at the top
+    let totalItems = 0
+    let totalValue = 0
+    let lowStockCount = 0
+    let expiringSoonCount = 0
+    let totalConsumedThisMonth = 0
+    let costConsumedThisMonth = 0
+    let mostConsumed = []
+    let monthlyConsumption = []
+    let thisMonthMovements = []
 
     // Total items
-    let totalItems = 0
     try {
       totalItems = await db.collection('inventory_items').countDocuments({ 
         clinic_id: cid, 
@@ -32,7 +30,6 @@ export async function GET(request) {
     }
     
     // Total value (sum of current_stock * purchase_price)
-    let totalValue = 0
     try {
       const items = await db.collection('inventory_items')
         .find({ clinic_id: cid, is_active: { $ne: false } })
@@ -44,7 +41,6 @@ export async function GET(request) {
     }
     
     // Low stock count
-    let lowStockCount = 0
     try {
       lowStockCount = await db.collection('inventory_items').countDocuments({ 
         clinic_id: cid, 
@@ -56,7 +52,6 @@ export async function GET(request) {
     }
     
     // Expiring soon count (within 90 days)
-    let expiringSoonCount = 0
     try {
       const today = new Date()
       const ninetyDaysLater = new Date()
@@ -71,9 +66,6 @@ export async function GET(request) {
     }
     
     // This month's consumption
-    let totalConsumedThisMonth = 0
-    let costConsumedThisMonth = 0
-    let thisMonthMovements = []
     try {
       const monthStart = new Date()
       monthStart.setDate(1)
@@ -94,7 +86,6 @@ export async function GET(request) {
     }
     
     // Most consumed items this month
-    let mostConsumed = []
     try {
       const consumptionByItem = {}
       thisMonthMovements.forEach(m => {
@@ -127,7 +118,6 @@ export async function GET(request) {
     }
     
     // Monthly consumption for last 6 months
-    let monthlyConsumption = []
     try {
       for (let i = 5; i >= 0; i--) {
         const monthDate = new Date()
