@@ -25,7 +25,7 @@ export async function GET(request) {
     try {
       totalItems = await db.collection('inventory_items').countDocuments({ 
         clinic_id: cid, 
-        is_active: true 
+        is_active: { $ne: false } 
       })
     } catch (e) {
       console.error('Error counting total items:', e)
@@ -35,7 +35,7 @@ export async function GET(request) {
     let totalValue = 0
     try {
       const items = await db.collection('inventory_items')
-        .find({ clinic_id: cid, is_active: true })
+        .find({ clinic_id: cid, is_active: { $ne: false } })
         .project({ current_stock: 1, purchase_price: 1 })
         .toArray()
       totalValue = items.reduce((sum, item) => sum + ((item.current_stock || 0) * (item.purchase_price || 0)), 0)
@@ -48,7 +48,7 @@ export async function GET(request) {
     try {
       lowStockCount = await db.collection('inventory_items').countDocuments({ 
         clinic_id: cid, 
-        is_active: true,
+        is_active: { $ne: false },
         $expr: { $lte: ['$current_stock', '$minimum_stock'] }
       })
     } catch (e) {
@@ -63,7 +63,7 @@ export async function GET(request) {
       ninetyDaysLater.setDate(today.getDate() + 90)
       expiringSoonCount = await db.collection('inventory_items').countDocuments({ 
         clinic_id: cid, 
-        is_active: true,
+        is_active: { $ne: false },
         expiry_date: { $ne: null, $gte: today.toISOString(), $lte: ninetyDaysLater.toISOString() }
       })
     } catch (e) {
