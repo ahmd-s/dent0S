@@ -151,7 +151,7 @@ export async function GET(request) {
       expiring_soon_count: expiringSoonCount,
       total_consumed_this_month: totalConsumedThisMonth,
       cost_consumed_this_month: costConsumedThisMonth,
-      most_consumed,
+      most_consumed: mostConsumed,
       monthly_consumption: monthlyConsumption
     })
   } catch (e) {
