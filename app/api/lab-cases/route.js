@@ -43,6 +43,7 @@ export async function POST(request) {
     if (!patient) return err('Selected patient not found', 404)
     const vendor = await db.collection('vendors').findOne({ id: b.vendor_id, clinic_id: cid })
     if (!vendor) return err('Selected vendor not found', 404)
+    const clinic = await db.collection('clinics').findOne({ id: cid })
     const expected = safeIsoDate(b.expected_delivery_date)
 
     const id = uuidv4()
@@ -71,6 +72,21 @@ export async function POST(request) {
       created_at: now,
       updated_at: now,
     })
+
+    // Notify lab via WhatsApp (fire and forget)
+    if (vendor?.phone) {
+      const { sendWhatsApp } = await import('@/lib/whatsapp')
+      const msg = `🦷 New Lab Case from ${clinic?.name || 'Dental Clinic'}\n\n` +
+        `Case: ${case_number}\n` +
+        `Type: ${b.case_type}\n` +
+        `Tooth: ${b.tooth_numbers || 'N/A'}\n` +
+        `Expected: ${expected || 'TBD'}\n\n` +
+        `Reply with:\n` +
+        `RECEIVED ${case_number} — when you receive it\n` +
+        `READY ${case_number} — when it's ready`
+      sendWhatsApp(vendor.phone, msg)
+    }
+
     await logAudit(db, { clinicId: cid, labCaseId: id, caseNumber: case_number, action: AUDIT_ACTIONS.CASE_CREATED, source: AUDIT_SOURCE.CLINIC, actorId: profile.id, actorName: profile.full_name || '' })
     await logAudit(db, { clinicId: cid, labCaseId: id, caseNumber: case_number, action: AUDIT_ACTIONS.LINK_GENERATED, source: AUDIT_SOURCE.SYSTEM, actorId: profile.id, actorName: profile.full_name || '' })
     return json({ ok: true, id, case_number, public_token })
