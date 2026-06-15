@@ -170,10 +170,54 @@ function App() {
 function ItemDialog({ open, setOpen, editing, vendors, onSaved }) {
   const [f, setF] = useState(EMPTY)
   const [loading, setLoading] = useState(false)
+  const [catalogSearch, setCatalogSearch] = useState('')
+  const [catalogResults, setCatalogResults] = useState([])
+  const [catalogLoading, setCatalogLoading] = useState(false)
+  const [showCatalogDropdown, setShowCatalogDropdown] = useState(false)
+  const [fromCatalog, setFromCatalog] = useState(false)
+  const searchRef = { current: null }
 
   useEffect(() => {
     if (open) setF(editing ? { ...editing } : EMPTY)
   }, [open, editing])
+
+  useEffect(() => {
+    const searchCatalog = async () => {
+      if (catalogSearch.length < 2) {
+        setCatalogResults([])
+        return
+      }
+      setCatalogLoading(true)
+      try {
+        const r = await fetch(`/api/catalog/items?q=${encodeURIComponent(catalogSearch)}`)
+        const d = await r.json()
+        setCatalogResults(d.items || [])
+      } catch (e) {
+        setCatalogResults([])
+      } finally {
+        setCatalogLoading(false)
+      }
+    }
+    const debounce = setTimeout(searchCatalog, 300)
+    return () => clearTimeout(debounce)
+  }, [catalogSearch])
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchRef.current && !searchRef.current.contains(e.target)) {
+        setShowCatalogDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const selectCatalogItem = (item) => {
+    setF({ ...f, item_name: item.item_name, category: item.category, unit: item.unit })
+    setCatalogSearch(item.item_name)
+    setShowCatalogDropdown(false)
+    setFromCatalog(true)
+  }
 
   const submit = async (e) => {
     e.preventDefault()
@@ -196,7 +240,44 @@ function ItemDialog({ open, setOpen, editing, vendors, onSaved }) {
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>{editing ? 'Edit Item' : 'Add New Item'}</DialogTitle></DialogHeader>
         <form onSubmit={submit} className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5 col-span-2"><Label>Item Name <span className="text-[#EF4444]">*</span></Label><Input value={f.item_name} onChange={e=>setF({...f,item_name:e.target.value})} placeholder="e.g. Composite Syringe A2" autoFocus/></div>
+          <div className="space-y-1.5 col-span-2" ref={searchRef}>
+            <Label>Item Name <span className="text-[#EF4444]">*</span></Label>
+            <div className="relative">
+              <Input 
+                value={catalogSearch || f.item_name} 
+                onChange={e => { setCatalogSearch(e.target.value); setF({...f, item_name: e.target.value}); setFromCatalog(false) }}
+                onFocus={() => setShowCatalogDropdown(true)}
+                placeholder="e.g. Composite Syringe A2" 
+                autoFocus
+              />
+              {fromCatalog && (
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs bg-[#0D9488] text-white px-2 py-0.5 rounded">from catalog</span>
+              )}
+              {showCatalogDropdown && catalogSearch.length >= 2 && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-border rounded-md shadow-lg max-h-64 overflow-y-auto">
+                  {catalogLoading ? (
+                    <div className="p-3 text-sm text-muted-foreground flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin"/>Searching...
+                    </div>
+                  ) : catalogResults.length > 0 ? (
+                    catalogResults.slice(0, 8).map(item => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => selectCatalogItem(item)}
+                        className="w-full px-3 py-2 text-left hover:bg-muted border-b border-border last:border-0 flex items-center justify-between"
+                      >
+                        <span className="text-sm">{item.item_name}</span>
+                        <span className="text-xs bg-muted px-2 py-0.5 rounded">{item.category}</span>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="p-3 text-sm text-muted-foreground">No matches — you can still add custom item</div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
           <div className="space-y-1.5"><Label>Category <span className="text-[#EF4444]">*</span></Label>
             <select value={f.category} onChange={e=>setF({...f,category:e.target.value})} className="w-full border border-input rounded-md px-3 py-2 text-sm">
               <option value="">Select category</option>

@@ -144,6 +144,30 @@ async function handle(request, { params }) {
       return json({ ok:true, id, doctor_name: doctor?.full_name || '', clinic_name: c.name, clinic_phone: c.phone, clinic_city: c.city, unmatched_note })
     }
 
+    // ============ CATALOG SEARCH (no auth) ============
+    // GET /catalog/items?q=composite
+    // Search master_catalog collection, return top 10 matches
+    if (path[0] === 'catalog' && path[1] === 'items' && m === 'GET') {
+      const url = new URL(request.url)
+      const q = url.searchParams.get('q') || ''
+      const category = url.searchParams.get('category') || ''
+      const filter = {}
+      if (q) filter.item_name = { $regex: q, $options: 'i' }
+      if (category) filter.category = category
+      const items = await db.collection('master_catalog').find(filter).limit(10).toArray()
+      return json({ items: items.map(clean) })
+    }
+
+    // GET /catalog/treatments?q=root
+    // Search master_treatments collection
+    if (path[0] === 'catalog' && path[1] === 'treatments' && m === 'GET') {
+      const url = new URL(request.url)
+      const q = url.searchParams.get('q') || ''
+      const filter = q ? { treatment_name: { $regex: q, $options: 'i' } } : {}
+      const treatments = await db.collection('master_treatments').find(filter).limit(15).toArray()
+      return json({ treatments: treatments.map(clean) })
+    }
+
     // ============ AUTH ============
     if (route === '/auth/signup' && m === 'POST') {
       const b = await request.json()

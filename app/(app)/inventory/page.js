@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Loader2, Package, IndianRupee, AlertTriangle, Clock, ArrowUp, ArrowRight, Plus } from 'lucide-react'
+import { Loader2, Package, IndianRupee, AlertTriangle, Clock, ArrowUp, ArrowRight, Plus, Settings } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useRole } from '@/components/dentos/RoleContext'
 
 function App() {
   const [analytics, setAnalytics] = useState({ 
@@ -30,6 +31,32 @@ function App() {
   const [vendors, setVendors] = useState([])
   const [quickAddOpen, setQuickAddOpen] = useState(false)
   const [inventoryItems, setInventoryItems] = useState([])
+  const [seedingCatalog, setSeedingCatalog] = useState(false)
+  const [catalogSeeded, setCatalogSeeded] = useState(false)
+  const { isAdmin } = useRole()
+
+  useEffect(() => {
+    setCatalogSeeded(localStorage.getItem('master_catalog_seeded') === 'true')
+  }, [])
+
+  const seedCatalog = async () => {
+    setSeedingCatalog(true)
+    try {
+      const r = await fetch('/api/seed-master-catalog', { method: 'POST' })
+      const d = await r.json()
+      if (r.ok) {
+        toast.success('Catalog ready — 110+ items loaded')
+        localStorage.setItem('master_catalog_seeded', 'true')
+        setCatalogSeeded(true)
+      } else {
+        toast.error(d.error || 'Failed to seed catalog')
+      }
+    } catch (e) {
+      toast.error('Failed to seed catalog')
+    } finally {
+      setSeedingCatalog(false)
+    }
+  }
 
   const load = async () => {
     setLoading(true)
@@ -79,9 +106,22 @@ function App() {
           <h1 className="text-2xl font-bold text-[#0F172A]">Inventory Dashboard</h1>
           <p className="text-muted-foreground text-sm">Overview of your dental materials and supplies</p>
         </div>
-        <Button onClick={() => setQuickAddOpen(true)} className="bg-[#0D9488] hover:bg-[#0B7E73]">
-          <Plus className="w-4 h-4 mr-1"/>Add Stock
-        </Button>
+        <div className="flex items-center gap-2">
+          {!catalogSeeded && isAdmin() && (
+            <Button 
+              onClick={seedCatalog} 
+              disabled={seedingCatalog}
+              variant="outline"
+              className="border-[#0D9488] text-[#0D9488] hover:bg-[#0D9488]/10"
+            >
+              {seedingCatalog ? <Loader2 className="w-4 h-4 mr-1 animate-spin"/> : <Settings className="w-4 h-4 mr-1"/>}
+              Setup Catalog
+            </Button>
+          )}
+          <Button onClick={() => setQuickAddOpen(true)} className="bg-[#0D9488] hover:bg-[#0B7E73]">
+            <Plus className="w-4 h-4 mr-1"/>Add Stock
+          </Button>
+        </div>
       </div>
 
       {loading && <div className="mt-6 flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]"/></div>}
