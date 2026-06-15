@@ -12,6 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { toast } from 'sonner'
+import BalanceBadge from '@/components/dentos/BalanceBadge'
+import OutstandingBalanceModal from '@/components/dentos/OutstandingBalanceModal'
 
 const todayIso = () => new Date().toISOString().slice(0,10)
 const fmtFull = d => { const x = new Date(d+'T00:00:00'); return x.toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long', year:'numeric' }) }
@@ -50,6 +52,8 @@ function App() {
   const [verifyModalOpen, setVerifyModalOpen] = useState(false)
   const [selectedAppointment, setSelectedAppointment] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [balanceModalOpen, setBalanceModalOpen] = useState(false)
+  const [selectedPatientId, setSelectedPatientId] = useState(null)
 
   useEffect(() => {
     const url = new URL(window.location.href)
@@ -160,7 +164,18 @@ function App() {
                       <td className="px-5 py-3 font-semibold text-[#0D9488] whitespace-nowrap">{a.appointment_time}</td>
                       <td className="px-5 py-3">
                         <div className="flex flex-col gap-1">
-                          {a.patient_id ? <Link href={`/patients/${a.patient_id}`} className="font-medium hover:text-[#0D9488]">{a.patient_name}</Link> : <span className="font-medium">{a.patient_name_temp} <span className="text-xs text-orange-600">(walk-in)</span></span>}
+                          <div className="flex items-center gap-2">
+                            {a.patient_id ? <Link href={`/patients/${a.patient_id}`} className="font-medium hover:text-[#0D9488]">{a.patient_name}</Link> : <span className="font-medium">{a.patient_name_temp} <span className="text-xs text-orange-600">(walk-in)</span></span>}
+                            {a.patient_id && (
+                              <BalanceBadge
+                                patientId={a.patient_id}
+                                onClick={() => {
+                                  setSelectedPatientId(a.patient_id)
+                                  setBalanceModalOpen(true)
+                                }}
+                              />
+                            )}
+                          </div>
                           <span className={`text-xs px-2 py-0.5 rounded-full w-fit ${patientStatusBadge(a).className}`}>{patientStatusBadge(a).text}</span>
                         </div>
                       </td>
@@ -224,6 +239,7 @@ function App() {
       )}
       <NewAppointmentModal open={open} setOpen={setOpen} initialDate={date} onCreated={load} />
       <VerifyPatientModal open={verifyModalOpen} setOpen={setVerifyModalOpen} appointment={selectedAppointment} onVerified={load} />
+      <OutstandingBalanceModal open={balanceModalOpen} onOpenChange={setBalanceModalOpen} patientId={selectedPatientId} />
     </div>
   )
 }

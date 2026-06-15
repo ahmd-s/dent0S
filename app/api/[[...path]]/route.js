@@ -721,6 +721,37 @@ async function handle(request, { params }) {
       return json({ ok:true })
     }
 
+    // ============ PATIENT OUTSTANDING BALANCE ============
+    if (path[0] === 'patients' && path[1] === 'outstanding-balance' && m === 'GET') {
+      const url = new URL(request.url)
+      const patientId = url.searchParams.get('patient_id')
+      if (!patientId) return err('patient_id required')
+      
+      const invoices = await db.collection('invoices').find({
+        patient_id: patientId,
+        clinic_id: cid,
+        payment_status: { $in: ['pending', 'partial'] }
+      }).sort({ invoice_date: -1 }).toArray()
+      
+      const unpaidInvoices = invoices.map(inv => {
+        const totalAmount = Number(inv.total_amount || 0)
+        return {
+          _id: inv.id,
+          invoice_number: inv.invoice_number,
+          date: inv.invoice_date,
+          pending_amount: totalAmount,
+          payment_status: inv.payment_status
+        }
+      })
+      
+      const outstandingBalance = unpaidInvoices.reduce((sum, inv) => sum + inv.pending_amount, 0)
+      
+      return json({
+        outstandingBalance,
+        unpaidInvoices
+      })
+    }
+
     // ============ SMART TYPING ============
     if (path[0] === 'smart-typing' && path[1] === 'seed' && m === 'POST') {
       const count = await db.collection('smart_typing_templates').countDocuments()

@@ -18,6 +18,8 @@ import { DocumentsTab } from '@/components/dentos/DocumentsTab'
 import { ConsentFormsTab } from '@/components/dentos/ConsentFormsTab'
 import { NewLabCaseDialog } from '@/components/dentos/NewLabCaseDialog'
 import { LAB_CASE_STATUS_META, statusLabel } from '@/lib/lab-case-helpers'
+import BalanceBadge from '@/components/dentos/BalanceBadge'
+import OutstandingBalanceModal from '@/components/dentos/OutstandingBalanceModal'
 const labStatusBadge = (s) => {
   const cls = LAB_CASE_STATUS_META[s]?.badge || 'bg-slate-100 text-slate-700'
   return <span className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${cls}`}>{statusLabel(s)}</span>
@@ -41,6 +43,7 @@ function App() {
   const [expanded, setExpanded] = useState({})
 const [labCases, setLabCases] = useState([])
   const [newLabOpen, setNewLabOpen] = useState(false)
+  const [balanceModalOpen, setBalanceModalOpen] = useState(false)
 const loadLabCases = async () => {
     const r = await fetch(`/api/lab-cases?patient_id=${id}`)
     if (r.ok) setLabCases((await r.json()).lab_cases || [])
@@ -75,7 +78,13 @@ loadLabCases()
           <Card className="p-6 bg-white border-border rounded-lg sticky top-20">
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0">
-                <h1 className="text-2xl font-bold text-[#0F172A] truncate">{patient.name}</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl font-bold text-[#0F172A] truncate">{patient.name}</h1>
+                  <BalanceBadge
+                    patientId={id}
+                    onClick={() => setBalanceModalOpen(true)}
+                  />
+                </div>
                 <div className="text-xs text-muted-foreground mt-0.5">{patient.patient_code}</div>
               </div>
               <button type="button" onClick={()=>setEditOpen(true)} className="w-8 h-8 rounded-md hover:bg-muted flex items-center justify-center" aria-label="Edit patient"><Edit2 className="w-4 h-4 text-muted-foreground"/></button>
@@ -253,6 +262,7 @@ loadLabCases()
       <EditPatientModal open={editOpen} setOpen={setEditOpen} patient={patient} onSaved={load} clinicalLocked={receptionist} />
       <BookForPatient open={bookOpen} setOpen={setBookOpen} patient={patient} onCreated={load} />
 <NewLabCaseDialog open={newLabOpen} setOpen={setNewLabOpen} lockedPatient={patient} navigateOnCreate={false} onCreated={loadLabCases} />
+<OutstandingBalanceModal open={balanceModalOpen} onOpenChange={setBalanceModalOpen} patientId={id} />
     </div>
   )
 }

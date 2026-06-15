@@ -13,6 +13,8 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import { useRole } from '@/components/dentos/RoleContext'
+import BalanceBadge from '@/components/dentos/BalanceBadge'
+import OutstandingBalanceModal from '@/components/dentos/OutstandingBalanceModal'
 
 const todayIso = () => new Date().toISOString().slice(0,10)
 const fmtDate = d => { const x = new Date(d); return `${String(x.getDate()).padStart(2,'0')}/${String(x.getMonth()+1).padStart(2,'0')}/${x.getFullYear()}` }
@@ -33,6 +35,8 @@ function App() {
   const receptionist = isReceptionist()
   const [stats, setStats] = useState(null)
   const [bookOpen, setBookOpen] = useState(false)
+  const [balanceModalOpen, setBalanceModalOpen] = useState(false)
+  const [selectedPatientId, setSelectedPatientId] = useState(null)
 
   const load = () => fetch('/api/dashboard/stats').then(r=>r.json()).then(setStats)
   useEffect(() => { load() }, [])
@@ -159,6 +163,7 @@ function App() {
         </Card>
       </div>
       <BookAppointmentModal open={bookOpen} setOpen={setBookOpen} onCreated={load} />
+      <OutstandingBalanceModal open={balanceModalOpen} onOpenChange={setBalanceModalOpen} patientId={selectedPatientId} />
     </div>
   )
 }
@@ -167,6 +172,8 @@ function QuickSearchBar({ onBook, receptionist }) {
   const router = useRouter()
   const [q, setQ] = useState('')
   const [results, setResults] = useState([])
+  const [balanceModalOpen, setBalanceModalOpen] = useState(false)
+  const [selectedPatientId, setSelectedPatientId] = useState(null)
   const debRef = require('react').useRef(null)
   useEffect(() => {
     if (debRef.current) clearTimeout(debRef.current)
@@ -187,7 +194,17 @@ function QuickSearchBar({ onBook, receptionist }) {
               {results.length===0 ? <div className="p-3 text-sm flex items-center justify-between"><span className="text-muted-foreground">No patient found.</span>{!receptionist && <Link href="/patients" className="text-[#0D9488] hover:underline flex items-center gap-1"><Plus className="w-3 h-3"/>Add New Patient</Link>}</div>
                : results.map(p=>(
                 <button key={p.id} onClick={()=>router.push(`/patients/${p.id}`)} className="w-full text-left px-4 py-2.5 hover:bg-[#F8FAFC] border-b border-border last:border-0 flex items-center justify-between">
-                  <div><div className="font-medium text-sm">{p.name}</div><div className="text-xs text-muted-foreground">+91 {p.phone}</div></div>
+                  <div className="flex items-center gap-2">
+                    <div><div className="font-medium text-sm">{p.name}</div><div className="text-xs text-muted-foreground">+91 {p.phone}</div></div>
+                    <BalanceBadge
+                      patientId={p.id}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setSelectedPatientId(p.id)
+                        setBalanceModalOpen(true)
+                      }}
+                    />
+                  </div>
                   <span className="text-xs text-muted-foreground">{p.last_visit_date ? `Last: ${fmtDate(p.last_visit_date)}` : 'No visits'}</span>
                 </button>
               ))}
@@ -197,6 +214,7 @@ function QuickSearchBar({ onBook, receptionist }) {
         <Button onClick={onBook} className="bg-[#0D9488] hover:bg-[#0B7E73] h-11"><Plus className="w-4 h-4 mr-1"/>Quick Book</Button>
       </div>
     </Card>
+    <OutstandingBalanceModal open={balanceModalOpen} onOpenChange={setBalanceModalOpen} patientId={selectedPatientId} />
   )
 }
 
