@@ -301,10 +301,14 @@ function StockInDialog({ open, setOpen, item, vendors, onSaved }) {
 function QuickAddStockDialog({ open, setOpen, inventoryItems, vendors, onSaved }) {
   const [f, setF] = useState({ item_id: '', quantity: 1, vendor_id: '', purchase_cost: 0, invoice_number: '', notes: '' })
   const [loading, setLoading] = useState(false)
+  const [itemSearch, setItemSearch] = useState('')
+  const [showItemDropdown, setShowItemDropdown] = useState(false)
+  const itemSearchRef = { current: null }
 
   useEffect(() => {
     if (open) {
       setF({ item_id: '', quantity: 1, vendor_id: '', purchase_cost: 0, invoice_number: '', notes: '' })
+      setItemSearch('')
     }
   }, [open])
 
@@ -312,9 +316,30 @@ function QuickAddStockDialog({ open, setOpen, inventoryItems, vendors, onSaved }
 
   useEffect(() => {
     if (selectedItem) {
+      setItemSearch(selectedItem.item_name)
       setF(prev => ({ ...prev, vendor_id: selectedItem.vendor_id || '', purchase_cost: selectedItem.purchase_price || 0 }))
     }
   }, [selectedItem])
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (itemSearchRef.current && !itemSearchRef.current.contains(e.target)) {
+        setShowItemDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const filteredItems = itemSearch.length >= 1 
+    ? inventoryItems.filter(i => i.item_name.toLowerCase().includes(itemSearch.toLowerCase()))
+    : inventoryItems
+
+  const selectItem = (item) => {
+    setF({ ...f, item_id: item.id })
+    setItemSearch(item.item_name)
+    setShowItemDropdown(false)
+  }
 
   const submit = async (e) => {
     e.preventDefault()
@@ -333,13 +358,34 @@ function QuickAddStockDialog({ open, setOpen, inventoryItems, vendors, onSaved }
       <DialogContent className="max-w-md">
         <DialogHeader><DialogTitle>Add Stock</DialogTitle></DialogHeader>
         <form onSubmit={submit} className="space-y-4">
-          <div className="space-y-1.5"><Label>Item <span className="text-[#EF4444]">*</span></Label>
-            <Select value={f.item_id} onValueChange={v=>setF({...f,item_id:v})}>
-              <SelectTrigger><SelectValue placeholder="Select item"/></SelectTrigger>
-              <SelectContent>
-                {inventoryItems.map(i => <SelectItem key={i.id} value={i.id}>{i.item_name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+          <div className="space-y-1.5" ref={itemSearchRef}>
+            <Label>Item <span className="text-[#EF4444]">*</span></Label>
+            <div className="relative">
+              <Input 
+                value={itemSearch} 
+                onChange={e => setItemSearch(e.target.value)}
+                onFocus={() => setShowItemDropdown(true)}
+                placeholder="Search item..."
+              />
+              {showItemDropdown && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-border rounded-md shadow-lg max-h-64 overflow-y-auto">
+                  {filteredItems.length > 0 ? (
+                    filteredItems.slice(0, 10).map(item => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => selectItem(item)}
+                        className="w-full px-3 py-2 text-left hover:bg-muted border-b border-border last:border-0"
+                      >
+                        <span className="text-sm">{item.item_name}</span>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="p-3 text-sm text-muted-foreground">No items found</div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
           <div className="space-y-1.5"><Label>Quantity <span className="text-[#EF4444]">*</span></Label><Input type="number" value={f.quantity} onChange={e=>setF({...f,quantity:parseInt(e.target.value)||0})} min="1" disabled={!f.item_id}/></div>
           <div className="space-y-1.5"><Label>Vendor</Label>
