@@ -22,15 +22,26 @@ export async function GET(request, { params }) {
     const visit = await db.collection('visits').findOne({ id: visitId })
     if (!visit) return err('Not found', 404)
     
-    // Fetch related data
-    const [clinic, patient, doctor, prescriptions, invoice, invoice_items] = await Promise.all([
-      db.collection('clinics').findOne({ id: visit.clinic_id }),
-      db.collection('patients').findOne({ id: visit.patient_id }),
-      visit.doctor_id ? db.collection('profiles').findOne({ id: visit.doctor_id }) : null,
-      db.collection('prescriptions').find({ visit_id: visit.id }).toArray(),
-      db.collection('invoices').findOne({ visit_id: visit.id }),
-      invoice ? db.collection('invoice_items').find({ invoice_id: invoice.id }).toArray() : []
-    ])
+    // Fetch related data with individual error handling
+    let clinic, patient, doctor, prescriptions, invoice, invoice_items
+    try {
+      clinic = await db.collection('clinics').findOne({ id: visit.clinic_id })
+    } catch (e) { console.error('Error fetching clinic:', e) }
+    try {
+      patient = await db.collection('patients').findOne({ id: visit.patient_id })
+    } catch (e) { console.error('Error fetching patient:', e) }
+    try {
+      doctor = visit.doctor_id ? await db.collection('profiles').findOne({ id: visit.doctor_id }) : null
+    } catch (e) { console.error('Error fetching doctor:', e) }
+    try {
+      prescriptions = await db.collection('prescriptions').find({ visit_id: visit.id }).toArray()
+    } catch (e) { console.error('Error fetching prescriptions:', e); prescriptions = [] }
+    try {
+      invoice = await db.collection('invoices').findOne({ visit_id: visit.id })
+    } catch (e) { console.error('Error fetching invoice:', e) }
+    try {
+      invoice_items = invoice ? await db.collection('invoice_items').find({ invoice_id: invoice.id }).toArray() : []
+    } catch (e) { console.error('Error fetching invoice items:', e); invoice_items = [] }
     
     if (!clinic) return err('Clinic not found', 404)
     if (!patient) return err('Patient not found', 404)
@@ -52,7 +63,7 @@ export async function GET(request, { params }) {
         city: clinic.city,
         phone: clinic.phone
       },
-      prescriptions: prescriptions.map(clean),
+      prescriptions: (prescriptions || []).map(clean),
       invoice: invoice ? {
         invoice_number: invoice.invoice_number,
         invoice_date: invoice.invoice_date,
@@ -62,7 +73,7 @@ export async function GET(request, { params }) {
         discount: invoice.discount,
         gst_amount: invoice.gst_amount,
         total_amount: invoice.total_amount,
-        items: invoice_items.map(clean)
+        items: (invoice_items || []).map(clean)
       } : null
     })
   } catch (e) {
