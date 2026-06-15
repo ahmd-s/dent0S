@@ -343,10 +343,10 @@ function QuickAddStockDialog({ open, setOpen, inventoryItems, vendors, onSaved }
           </div>
           <div className="space-y-1.5"><Label>Quantity <span className="text-[#EF4444]">*</span></Label><Input type="number" value={f.quantity} onChange={e=>setF({...f,quantity:parseInt(e.target.value)||0})} min="1" disabled={!f.item_id}/></div>
           <div className="space-y-1.5"><Label>Vendor</Label>
-            <Select value={f.vendor_id} onValueChange={v=>setF({...f,vendor_id:v})} disabled={!f.item_id}>
+            <Select value={f.vendor_id || 'none'} onValueChange={v=>setF({...f,vendor_id:v === 'none' ? '' : v})} disabled={!f.item_id}>
               <SelectTrigger><SelectValue placeholder="Select vendor"/></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No vendor</SelectItem>
+                <SelectItem value="none">No vendor</SelectItem>
                 {vendors.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
               </SelectContent>
             </Select>
