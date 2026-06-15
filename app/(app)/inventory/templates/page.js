@@ -37,7 +37,7 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState(null)
-  const { isReceptionist } = useRole()
+  const { isReceptionist, loading: roleLoading } = useRole()
 
   const load = async () => {
     setLoading(true)
@@ -73,13 +73,13 @@ function App() {
           <h1 className="text-2xl font-bold text-[#0F172A]">Treatment Templates</h1>
           <p className="text-muted-foreground text-sm">Define suggested material consumption per treatment</p>
         </div>
-        {!isReceptionist() && <Button onClick={openNew} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>Add Template</Button>}
+        {!roleLoading && !isReceptionist() && <Button onClick={openNew} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>Add Template</Button>}
       </div>
 
       {loading && <div className="mt-6 flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]"/></div>}
       {!loading && templates.length === 0 && (
         <Card className="mt-4 bg-white border-border rounded-lg py-16 text-center text-muted-foreground text-sm">
-          No treatment templates yet. {!isReceptionist() && 'Create your first template to streamline inventory consumption.'}
+          No treatment templates yet. {!roleLoading && !isReceptionist() && 'Create your first template to streamline inventory consumption.'}
         </Card>
       )}
       {!loading && templates.length > 0 && (
@@ -88,7 +88,7 @@ function App() {
             <Card key={template.id} className="p-5 bg-white border-border rounded-lg">
               <div className="flex items-start justify-between gap-2">
                 <h3 className="font-semibold text-[#0F172A]">{template.treatment_name}</h3>
-                {!isReceptionist() && (
+                {!roleLoading && !isReceptionist() && (
                   <div className="flex items-center gap-1 shrink-0">
                     <button onClick={() => openEdit(template)} className="w-7 h-7 rounded hover:bg-muted flex items-center justify-center" title="Edit"><Edit2 className="w-3.5 h-3.5 text-muted-foreground"/></button>
                     <button onClick={() => del(template)} className="w-7 h-7 rounded hover:bg-red-50 flex items-center justify-center" title="Delete"><Trash2 className="w-3.5 h-3.5 text-red-500"/></button>
