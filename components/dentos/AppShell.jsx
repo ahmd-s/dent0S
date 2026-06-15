@@ -21,6 +21,14 @@ const NAV_ALL = [
   { href: '/settings', label: 'Settings', icon: Settings, receptionistHidden: true },
 ]
 
+const INVENTORY_SUBNAV = [
+  { href: '/inventory', label: 'Dashboard' },
+  { href: '/inventory/items', label: 'Items' },
+  { href: '/inventory/templates', label: 'Templates' },
+  { href: '/inventory/movements', label: 'Movements' },
+  { href: '/inventory/alerts', label: 'Alerts' },
+]
+
 const PAGE_TITLES = {
   '/dashboard': 'Dashboard',
   '/patients': 'Patients',
@@ -96,10 +104,25 @@ export default function AppShell({ children }) {
             const active = pathname === n.href || pathname.startsWith(n.href + '/')
             const Icon = n.icon
             return (
-              <Link key={n.href} href={n.href} onClick={()=>setMobileOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition ${active?'bg-[#0D9488] text-white':'text-white/70 hover:bg-white/5 hover:text-white'}`}>
-                <Icon className="w-4 h-4"/>{n.label}
-              </Link>
+              <div key={n.href}>
+                <Link href={n.href} onClick={()=>setMobileOpen(false)}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition ${active?'bg-[#0D9488] text-white':'text-white/70 hover:bg-white/5 hover:text-white'}`}>
+                  <Icon className="w-4 h-4"/>{n.label}
+                </Link>
+                {n.href === '/inventory' && pathname.startsWith('/inventory') && (
+                  <div className="ml-3 mt-1 space-y-0.5 border-l border-white/20 pl-3">
+                    {INVENTORY_SUBNAV.map(sub => {
+                      const subActive = pathname === sub.href
+                      return (
+                        <Link key={sub.href} href={sub.href} onClick={()=>setMobileOpen(false)}
+                          className={`block pl-9 py-1.5 text-xs font-medium rounded-md transition ${subActive?'text-white bg-white/10':'text-white/50 hover:text-white/80 hover:bg-white/5'}`}>
+                          {sub.label}
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             )
           })}
         </nav>
