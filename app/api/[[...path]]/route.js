@@ -603,6 +603,41 @@ async function handle(request, { params }) {
       return json({ ok:true, invoice_id: invoiceId })
     }
 
+    // ============ TOOTH CHART ============
+    // GET /visits/:id/tooth-chart — get tooth chart for a visit
+    if (path[0]==='visits' && path[1] && path[2]==='tooth-chart' && m==='GET') {
+      const chart = await db.collection('tooth_charts').findOne({ 
+        visit_id: path[1], clinic_id: cid 
+      })
+      return json({ chart: chart ? clean(chart) : null })
+    }
+    // PUT /visits/:id/tooth-chart — save tooth chart for a visit
+    if (path[0]==='visits' && path[1] && path[2]==='tooth-chart' && m==='PUT') {
+      if (isReceptionist(profile)) return err('Forbidden', 403)
+      const b = await request.json()
+      const existing = await db.collection('tooth_charts').findOne({ 
+        visit_id: path[1], clinic_id: cid 
+      })
+      if (existing) {
+        await db.collection('tooth_charts').updateOne(
+          { visit_id: path[1], clinic_id: cid },
+          { $set: { teeth: b.teeth, last_updated: new Date(), updated_by: profile.id } }
+        )
+      } else {
+        await db.collection('tooth_charts').insertOne({
+          id: uuidv4(),
+          visit_id: path[1],
+          clinic_id: cid,
+          patient_id: b.patient_id,
+          teeth: b.teeth,
+          last_updated: new Date(),
+          updated_by: profile.id,
+          created_at: new Date()
+        })
+      }
+      return json({ ok: true })
+    }
+
     // ============ PUBLIC INVOICE ============
     if (path[0] === 'public' && path[1] === 'invoice' && path[2] && m === 'GET') {
       const inv = await db.collection('invoices').findOne({ share_token: path[2] })

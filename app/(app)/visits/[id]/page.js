@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { VisitVoiceRecorder } from '@/components/dentos/VisitVoiceRecorder'
+import ToothChart from '@/components/dentos/ToothChart'
 import SmartTextarea from '@/components/SmartTextarea'
 import { toast } from 'sonner'
 
@@ -54,6 +55,7 @@ function App() {
   const [consumeItems, setConsumeItems] = useState([])
   const [inventoryItems, setInventoryItems] = useState([])
   const [clinicName, setClinicName] = useState('')
+  const [showToothChart, setShowToothChart] = useState(false)
 
   const stateRef = useRef({})
   stateRef.current = { v, rxs, items, discount, gstOn, paymentMode, paymentStatus, clinicName }
@@ -312,6 +314,16 @@ function App() {
       )}
 
       <VisitVoiceRecorder visitId={id} disabled={saving} onApplyExtraction={handleVoiceApply} />
+
+      <Card className="mt-5 bg-white border-border rounded-lg">
+        <button type="button" onClick={()=>setShowToothChart(s=>!s)} className="w-full flex items-center justify-between p-4 text-sm font-medium hover:bg-gray-50 transition-colors">
+          <span className="flex items-center gap-2">🦷 Tooth Chart</span>
+          {showToothChart ? <ChevronUp className="w-4 h-4"/> : <ChevronDown className="w-4 h-4"/>}
+        </button>
+        {showToothChart && <div className="px-4 pb-4">
+          <ToothChart visitId={id} patientId={v.patient_id} readOnly={saving} />
+        </div>}
+      </Card>
 
       <Card className="mt-5 p-6 bg-white border-border rounded-lg space-y-5">
         <div className="space-y-1.5"><Label className="text-base">Chief Complaint <span className="text-[#EF4444]">*</span></Label><SmartTextarea value={v.chief_complaint||''} onChange={val=>set('chief_complaint',val)} category="chief_complaints" placeholder="What brings the patient in today?" rows={2}/></div>
