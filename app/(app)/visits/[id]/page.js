@@ -53,9 +53,10 @@ function App() {
   const [consumeModalOpen, setConsumeModalOpen] = useState(false)
   const [consumeItems, setConsumeItems] = useState([])
   const [inventoryItems, setInventoryItems] = useState([])
+  const [clinicName, setClinicName] = useState('')
 
   const stateRef = useRef({})
-  stateRef.current = { v, rxs, items, discount, gstOn, paymentMode, paymentStatus }
+  stateRef.current = { v, rxs, items, discount, gstOn, paymentMode, paymentStatus, clinicName }
 
   const set = (k, val) => setV(p => ({...p, [k]: val}))
 
@@ -72,6 +73,9 @@ function App() {
       setPaymentMode(d.visit.invoice.payment_mode || 'cash')
       setPaymentStatus(d.visit.invoice.payment_status || 'pending')
     }
+    const meRes = await fetch('/api/auth/me')
+    const meData = await meRes.json()
+    setClinicName(meData.clinic?.name || '')
     setLoading(false)
   }
   useEffect(() => { if (id) load() }, [id])
@@ -156,8 +160,21 @@ function App() {
       const r = await fetch(`/api/visits/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ ...cur.v, prescriptions: cur.rxs, invoice_items: cur.items, discount: cur.discount, gst_enabled: cur.gstOn, payment_mode: cur.paymentMode, payment_status: cur.paymentStatus, complete: true }) })
       if (r.ok) { 
-        toast.success('Visit completed and invoice saved')
-        router.push(`/patients/${cur.v.patient_id}`)
+        toast.success('Visit completed!', {
+          description: 'Send visit summary to patient on WhatsApp?',
+          action: {
+            label: 'Send WhatsApp',
+            onClick: () => {
+              const summaryUrl = `https://www.dent-os.in/visit-summary/${id}`
+              const treatment = cur.v.treatment_done || 'Dental treatment'
+              const msg = `Hello ${cur.v.patient?.name || 'Patient'}! 🦷\n\nThank you for visiting ${cur.clinicName}.\n\nTreatment: ${treatment}\n\n💊 Prescription & Invoice:\n${summaryUrl}\n\n— ${cur.clinicName}`
+              const waUrl = `https://wa.me/91${cur.v.patient?.phone}?text=${encodeURIComponent(msg)}`
+              window.open(waUrl, '_blank')
+            }
+          },
+          duration: 10000
+        })
+        setTimeout(() => router.push(`/patients/${cur.v.patient_id}`), 500)
       } else {
         toast.error('Failed to complete visit')
       }

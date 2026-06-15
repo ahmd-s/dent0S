@@ -147,7 +147,9 @@ function ClinicTab({ me, reload }) {
 function TeamTab() {
   const [team, setTeam] = useState([])
   const [open, setOpen] = useState(false)
-  const [f, setF] = useState({ full_name:'', email:'', role:'doctor', password:'' })
+  const [f, setF] = useState({ full_name:'', email:'', role:'doctor', password:'', whatsapp_number:'' })
+  const [editingWhatsApp, setEditingWhatsApp] = useState(null)
+  const [whatsappValue, setWhatsappValue] = useState('')
   const load = () => fetch('/api/team').then(r=>r.json()).then(d=>setTeam(d.team||[]))
   useEffect(() => { load() }, [])
   const invite = async () => {
@@ -155,7 +157,7 @@ function TeamTab() {
     const d = await r.json()
     if (r.ok) {
       toast.success(d.invite_email_sent ? 'Invitation email sent with login details.' : 'Team member added. Set RESEND_API_KEY and RESEND_FROM_EMAIL to send invite emails automatically.')
-      setOpen(false); setF({full_name:'',email:'',role:'doctor',password:''}); load()
+      setOpen(false); setF({full_name:'',email:'',role:'doctor',password:'',whatsapp_number:''}); load()
     } else toast.error(d.error||'Failed')
   }
   const toggleActive = async (m) => {
@@ -166,18 +168,42 @@ function TeamTab() {
     const r = await fetch(`/api/team/${m.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ role }) })
     if (r.ok) { toast.success('Role updated'); load() }
   }
+  const updateWhatsApp = async (m) => {
+    if (!/^\d{10}$/.test(whatsappValue)) {
+      toast.error('Please enter a valid 10-digit mobile number')
+      return
+    }
+    const r = await fetch(`/api/team/${m.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ whatsapp_number: whatsappValue }) })
+    if (r.ok) { toast.success('WhatsApp number updated'); setEditingWhatsApp(null); setWhatsappValue(''); load() }
+    else toast.error('Failed')
+  }
+  const formatWhatsApp = (num) => num ? `+91 ${num}` : '—'
   return (
     <Card className="p-6 bg-white border-border rounded-lg">
       <div className="flex items-center justify-between mb-3"><h3 className="font-semibold">Team Members ({team.length})</h3><Button size="sm" onClick={()=>setOpen(true)} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>Invite</Button></div>
       <table className="w-full text-sm">
         <thead className="text-xs uppercase text-muted-foreground tracking-wider border-b border-border">
-          <tr><th className="text-left py-2 font-medium">Name</th><th className="text-left font-medium">Email</th><th className="text-left font-medium">Role</th><th className="text-left font-medium">Last login</th><th className="text-left font-medium">Status</th><th className="text-right font-medium">Actions</th></tr>
+          <tr><th className="text-left py-2 font-medium">Name</th><th className="text-left font-medium">Email</th><th className="text-left font-medium">WhatsApp</th><th className="text-left font-medium">Role</th><th className="text-left font-medium">Last login</th><th className="text-left font-medium">Status</th><th className="text-right font-medium">Actions</th></tr>
         </thead>
         <tbody>
           {team.map(m => (
             <tr key={m.id} className="border-b border-border last:border-0">
               <td className="py-3 font-medium">{m.full_name}</td>
               <td className="py-3 text-muted-foreground">{m.email}</td>
+              <td className="py-3">
+                {editingWhatsApp === m.id ? (
+                  <div className="flex items-center gap-2">
+                    <Input type="text" value={whatsappValue} onChange={e=>setWhatsappValue(e.target.value)} placeholder="10 digits" className="w-28 h-8" maxLength={10}/>
+                    <button onClick={()=>updateWhatsApp(m)} className="text-green-600 hover:text-green-700"><Check className="w-4 h-4"/></button>
+                    <button onClick={()=>{setEditingWhatsApp(null); setWhatsappValue('')}} className="text-muted-foreground hover:text-red-600"><Trash2 className="w-4 h-4"/></button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className={m.role === 'doctor' ? '' : 'text-muted-foreground'}>{m.role === 'doctor' ? formatWhatsApp(m.whatsapp_number) : '—'}</span>
+                    {m.role === 'doctor' && <button onClick={()=>{setEditingWhatsApp(m.id); setWhatsappValue(m.whatsapp_number||'')}} className="text-muted-foreground hover:text-[#0D9488]"><Edit2 className="w-3.5 h-3.5"/></button>}
+                  </div>
+                )}
+              </td>
               <td className="py-3"><Select value={m.role} onValueChange={v=>updateRole(m,v)}><SelectTrigger className="w-32 h-8"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="admin">Admin</SelectItem><SelectItem value="doctor">Doctor</SelectItem><SelectItem value="receptionist">Receptionist</SelectItem></SelectContent></Select></td>
               <td className="py-3 text-muted-foreground text-xs whitespace-nowrap">{fmtLastLogin(m.last_login_at)}</td>
               <td className="py-3">{m.is_active?<span className="text-xs px-2 py-1 rounded-full bg-green-50 text-green-700">Active</span>:<span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">Inactive</span>}</td>
@@ -192,6 +218,7 @@ function TeamTab() {
             <div className="space-y-1.5"><Label>Full Name</Label><Input value={f.full_name} onChange={e=>setF({...f,full_name:e.target.value})}/></div>
             <div className="space-y-1.5"><Label>Email</Label><Input type="email" value={f.email} onChange={e=>setF({...f,email:e.target.value})}/></div>
             <div className="space-y-1.5"><Label>Role</Label><Select value={f.role} onValueChange={v=>setF({...f,role:v})}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="doctor">Doctor</SelectItem><SelectItem value="receptionist">Receptionist</SelectItem></SelectContent></Select></div>
+            {f.role === 'doctor' && <div className="space-y-1.5"><Label>WhatsApp Number (for daily schedule)</Label><Input type="text" value={f.whatsapp_number} onChange={e=>setF({...f,whatsapp_number:e.target.value.replace(/\D/g,'').slice(0,10)})} placeholder="10-digit mobile number" maxLength={10}/></div>}
             <div className="space-y-1.5"><Label>Temporary Password</Label><Input type="password" value={f.password} onChange={e=>setF({...f,password:e.target.value})} placeholder="min 8 characters"/></div>
             <Button onClick={invite} className="w-full bg-[#0D9488] hover:bg-[#0B7E73]">Add Member</Button>
           </div>

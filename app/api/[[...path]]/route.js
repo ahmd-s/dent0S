@@ -294,7 +294,7 @@ async function handle(request, { params }) {
       if (!['doctor', 'receptionist'].includes(b.role)) return err('Role must be doctor or receptionist', 400)
       if (await db.collection('profiles').findOne({ email })) return err('Email already registered')
       const id = uuidv4()
-      await db.collection('profiles').insertOne({ id, clinic_id: cid, email, password_hash: await hashPassword(b.password), full_name: b.full_name, role: b.role, phone:'', is_active:true, created_at:new Date() })
+      await db.collection('profiles').insertOne({ id, clinic_id: cid, email, password_hash: await hashPassword(b.password), full_name: b.full_name, role: b.role, phone:'', whatsapp_number: b.whatsapp_number || '', is_active:true, created_at:new Date() })
       const origin = new URL(request.url).origin
       const emailResult = await sendStaffInviteEmail({
         to: email,
@@ -313,6 +313,7 @@ async function handle(request, { params }) {
         update.role = b.role
       }
       if ('is_active' in b) update.is_active = b.is_active
+      if ('whatsapp_number' in b) update.whatsapp_number = b.whatsapp_number
       await db.collection('profiles').updateOne({ id: path[1], clinic_id: cid }, { $set: update })
       return json({ ok:true })
     }
