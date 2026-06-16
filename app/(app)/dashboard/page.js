@@ -18,7 +18,7 @@ import OutstandingBalanceModal from '@/components/dentos/OutstandingBalanceModal
 
 const todayIso = () => new Date().toISOString().slice(0,10)
 const fmtDate = d => { const x = new Date(d); return `${String(x.getDate()).padStart(2,'0')}/${String(x.getMonth()+1).padStart(2,'0')}/${x.getFullYear()}` }
-const inr = n => '₹' + (n||0).toLocaleString('en-IN')
+const inr = n => 'Γé╣' + (n||0).toLocaleString('en-IN')
 
 const statusBadge = s => {
   const map = {
@@ -55,14 +55,14 @@ function App() {
   const cont = (apt) => apt.visit_id ? router.push(`/visits/${apt.visit_id}`) : startVisit(apt)
 
   const cards = [
-    { label:'Patients Seen Today', val: stats?.patients_seen_today ?? '—', sub: stats ? `${stats.patients_seen_yesterday>=0?`vs ${stats.patients_seen_yesterday} yesterday`:''}` : '', icon: UserCheck, color:'#0D9488' },
-    { label:'Revenue Collected', val: stats ? inr(stats.revenue_today) : '—', sub:'Across paid invoices today', icon: IndianRupee, color:'#22C55E' },
-    { label:'Pending Payments', val: stats ? inr(stats.pending_today) : '—', sub:'Pending & partial today', icon: AlertCircle, color: stats?.pending_today>0?'#F59E0B':'#94A3B8' },
-    { label:'Follow-ups Due', val: stats?.followups_due_count ?? '—', sub:'Patients due for return visit', icon: Calendar, color: stats?.followups_due_count>0?'#EF4444':'#94A3B8' },
-    { label:'Awaiting Lab Acceptance', val: stats?.awaiting_lab_acceptance ?? '—', sub:'Sent, not yet received by lab', icon: FlaskConical, color:'#6366F1', href:'/lab-cases?status=sent' },
-    { label:'Cases In Production', val: stats?.in_production_lab_cases ?? '—', sub:'Being made at the lab', icon: FlaskConical, color:'#0D9488', href:'/lab-cases?status=lab_received,in_production,in_progress' },
-    { label:'Cases Ready', val: stats?.ready_lab_cases ?? '—', sub:'Ready / awaiting delivery', icon: FlaskConical, color:'#22C55E', href:'/lab-cases?status=ready' },
-    { label:'Overdue Cases', val: stats?.overdue_lab_cases ?? '—', sub:'Past expected delivery', icon: AlertTriangle, color: stats?.overdue_lab_cases>0?'#EF4444':'#94A3B8', href:'/lab-cases?status=overdue' },
+    { label:'Patients Seen Today', val: stats?.patients_seen_today ?? 'ΓÇö', sub: stats ? `${stats.patients_seen_yesterday>=0?`vs ${stats.patients_seen_yesterday} yesterday`:''}` : '', icon: UserCheck, color:'#0D9488' },
+    { label:'Revenue Collected', val: stats ? inr(stats.revenue_today) : 'ΓÇö', sub:'Across paid invoices today', icon: IndianRupee, color:'#22C55E' },
+    { label:'Pending Payments', val: stats ? inr(stats.pending_today) : 'ΓÇö', sub:'Pending & partial today', icon: AlertCircle, color: stats?.pending_today>0?'#F59E0B':'#94A3B8' },
+    { label:'Follow-ups Due', val: stats?.followups_due_count ?? 'ΓÇö', sub:'Patients due for return visit', icon: Calendar, color: stats?.followups_due_count>0?'#EF4444':'#94A3B8' },
+    { label:'Awaiting Lab Acceptance', val: stats?.awaiting_lab_acceptance ?? 'ΓÇö', sub:'Sent, not yet received by lab', icon: FlaskConical, color:'#6366F1', href:'/lab-cases?status=sent' },
+    { label:'Cases In Production', val: stats?.in_production_lab_cases ?? 'ΓÇö', sub:'Being made at the lab', icon: FlaskConical, color:'#0D9488', href:'/lab-cases?status=lab_received,in_production,in_progress' },
+    { label:'Cases Ready', val: stats?.ready_lab_cases ?? 'ΓÇö', sub:'Ready / awaiting delivery', icon: FlaskConical, color:'#22C55E', href:'/lab-cases?status=ready' },
+    { label:'Overdue Cases', val: stats?.overdue_lab_cases ?? 'ΓÇö', sub:'Past expected delivery', icon: AlertTriangle, color: stats?.overdue_lab_cases>0?'#EF4444':'#94A3B8', href:'/lab-cases?status=overdue' },
   ]
 
   return (
@@ -94,7 +94,7 @@ function App() {
             <h3 className="font-semibold text-[#0F172A]">Today&apos;s Appointment Queue</h3>
             <span className="text-xs text-muted-foreground">{fmtDate(new Date())}</span>
           </div>
-          {!stats && <div className="text-sm text-muted-foreground py-6">Loading…</div>}
+          {!stats && <div className="text-sm text-muted-foreground py-6">LoadingΓÇª</div>}
           {stats && stats.today_queue.length === 0 && (
             <div className="text-center py-12">
               <Calendar className="w-10 h-10 mx-auto text-muted-foreground/50"/>
@@ -113,7 +113,7 @@ function App() {
                     <td className="py-3 font-medium text-[#0D9488] whitespace-nowrap">{a.appointment_time}</td>
                     <td className="py-3"><Link href={`/patients/${a.patient_id}`} className="font-medium hover:text-[#0D9488]">{a.patient_name||a.patient_name_temp}</Link></td>
                     <td className="py-3 text-muted-foreground capitalize">{a.appointment_type?.replace('_',' ')}</td>
-                    <td className="py-3 text-muted-foreground">{a.doctor_name||'—'}</td>
+                    <td className="py-3 text-muted-foreground">{a.doctor_name||'ΓÇö'}</td>
                     <td className="py-3">{statusBadge(a.status)}</td>
                     <td className="py-3">
                       <div className="flex justify-end items-center gap-1">
@@ -151,7 +151,7 @@ function App() {
                   <Link href={`/patients/${p.id}`} className="font-medium text-sm hover:text-[#0D9488]">{p.name}</Link>
                   <span className={`text-xs ${overdue?'text-[#EF4444]':'text-success'}`}>{fmtDate(p.next_followup_date)}</span>
                 </div>
-                <div className="text-xs text-muted-foreground mt-0.5">{p.last_visit_reason || '—'}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">{p.last_visit_reason || 'ΓÇö'}</div>
                 <div className="flex gap-2 mt-2">
                   <a href={`https://wa.me/91${p.phone}?text=${encodeURIComponent(`Hello ${p.name}, this is a reminder for your follow-up appointment at ${stats.clinic_name}. Please call us to book your visit.`)}`} target="_blank" rel="noreferrer" className="text-xs px-2 py-1 rounded bg-green-50 text-green-700 hover:bg-green-100 flex items-center gap-1"><MessageCircle className="w-3 h-3"/>WhatsApp</a>
                   <button className="text-xs px-2 py-1 rounded bg-[#0D9488]/10 text-[#0D9488] hover:bg-[#0D9488]/20">Book Appointment</button>
@@ -159,7 +159,7 @@ function App() {
               </div>
             )
           })}
-          {stats?.followups?.length>0 && <Link href="/patients" className="text-xs text-[#0D9488] hover:underline mt-3 inline-block">View all follow-ups →</Link>}
+          {stats?.followups?.length>0 && <Link href="/patients" className="text-xs text-[#0D9488] hover:underline mt-3 inline-block">View all follow-ups ΓåÆ</Link>}
         </Card>
       </div>
       <BookAppointmentModal open={bookOpen} setOpen={setBookOpen} onCreated={load} />
@@ -188,7 +188,7 @@ function QuickSearchBar({ onBook, receptionist }) {
       <div className="flex items-center gap-3">
         <div className="flex-1 relative">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"/>
-          <Input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search by name or phone number…" className="pl-9 h-11 text-base"/>
+          <Input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search by name or phone numberΓÇª" className="pl-9 h-11 text-base"/>
           {q && (
             <div className="absolute top-12 left-0 right-0 bg-white border border-border rounded-md shadow-lg z-10">
               {results.length===0 ? <div className="p-3 text-sm flex items-center justify-between"><span className="text-muted-foreground">No patient found.</span>{!receptionist && <Link href="/patients" className="text-[#0D9488] hover:underline flex items-center gap-1"><Plus className="w-3 h-3"/>Add New Patient</Link>}</div>
@@ -235,7 +235,7 @@ function BookAppointmentModal({ open, setOpen, onCreated }) {
         <form onSubmit={submit} className="space-y-3">
           <div className="space-y-1.5"><Label>Patient</Label>
             <Select value={f.patient_id} onValueChange={v=>setF({...f,patient_id:v})}><SelectTrigger><SelectValue placeholder="Select patient"/></SelectTrigger>
-              <SelectContent>{patients.map(p=><SelectItem key={p.id} value={p.id}>{p.name} · +91 {p.phone}</SelectItem>)}</SelectContent></Select>
+              <SelectContent>{patients.map(p=><SelectItem key={p.id} value={p.id}>{p.name} ┬╖ +91 {p.phone}</SelectItem>)}</SelectContent></Select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5"><Label>Date</Label><Input type="date" value={f.appointment_date} onChange={e=>setF({...f,appointment_date:e.target.value})}/></div>
