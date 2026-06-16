@@ -140,6 +140,32 @@ async function handle(request, { params }) {
         status: 'scheduled', appointment_type: 'consultation', chief_complaint: b.reason || '', notes: '',
         booked_via: 'online', visitor_type, created_at: new Date()
       })
+      
+      // WhatsApp notification (fire and forget)
+      ;(async () => {
+        try {
+          if (!process.env.WHATSAPP_SERVICE_URL) return
+          const patientPhone = b.phone
+          const patientName = b.name
+          if (!patientPhone) return
+          const msg = `Hello ${patientName}! ✅\n\nYour appointment at ${c.name} is confirmed.\n\n📅 Date: ${b.appointment_date}\n⏰ Time: ${b.appointment_time}\n\nSee you soon!\n— ${c.name}` 
+          await fetch(`${process.env.WHATSAPP_SERVICE_URL}/send`, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'x-api-key': process.env.WHATSAPP_SERVICE_API_KEY 
+            },
+            body: JSON.stringify({ 
+              sessionId: 'dentos_main', 
+              to: patientPhone, 
+              message: msg 
+            })
+          })
+        } catch (e) {
+          console.error('WhatsApp notification failed:', e.message)
+        }
+      })()
+      
       const doctor = b.doctor_id ? await db.collection('profiles').findOne({ id: b.doctor_id }) : null
       return json({ ok:true, id, doctor_name: doctor?.full_name || '', clinic_name: c.name, clinic_phone: c.phone, clinic_city: c.city, unmatched_note })
     }
@@ -418,6 +444,38 @@ async function handle(request, { params }) {
       if (!b.appointment_date || !b.appointment_time) return err('Date and time required')
       const id = uuidv4()
       await db.collection('appointments').insertOne({ id, clinic_id: cid, patient_id: b.patient_id||null, doctor_id: b.doctor_id||profile.id, patient_name_temp: b.patient_name_temp||'', patient_phone_temp: b.patient_phone_temp||'', appointment_date: b.appointment_date, appointment_time: b.appointment_time, duration_minutes: b.duration_minutes||30, status:'scheduled', appointment_type: b.appointment_type||'consultation', chief_complaint: b.chief_complaint||'', notes: b.notes||'', booked_via: b.booked_via||'in_clinic', created_by: profile.id, created_at: new Date() })
+      
+      // WhatsApp notification (fire and forget)
+      ;(async () => {
+        try {
+          if (!process.env.WHATSAPP_SERVICE_URL) return
+          let patientPhone = b.patient_phone_temp
+          let patientName = b.patient_name_temp
+          if (b.patient_id) {
+            const pt = await db.collection('patients').findOne({ id: b.patient_id })
+            patientPhone = pt?.phone
+            patientName = pt?.name
+          }
+          if (!patientPhone) return
+          const clinicDoc = await db.collection('clinics').findOne({ id: cid })
+          const msg = `Hello ${patientName}! ✅\n\nYour appointment at ${clinicDoc?.name} is confirmed.\n\n📅 Date: ${b.appointment_date}\n⏰ Time: ${b.appointment_time}\n\nSee you soon!\n— ${clinicDoc?.name}` 
+          await fetch(`${process.env.WHATSAPP_SERVICE_URL}/send`, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'x-api-key': process.env.WHATSAPP_SERVICE_API_KEY 
+            },
+            body: JSON.stringify({ 
+              sessionId: 'dentos_main', 
+              to: patientPhone, 
+              message: msg 
+            })
+          })
+        } catch (e) {
+          console.error('WhatsApp notification failed:', e.message)
+        }
+      })()
+      
       return json({ ok:true, id })
     }
     if (path[0] === 'appointments' && path[1] && m === 'PUT') {
@@ -427,6 +485,39 @@ async function handle(request, { params }) {
       for (const k of allowed) if (k in b) update[k] = b[k]
       await db.collection('appointments').updateOne({ id: path[1], clinic_id: cid }, { $set: update })
       return json({ ok:true })
+    }
+
+    // ============ LAB CASES BY NUMBER (WhatsApp integration) ============
+    if (path[0] === 'lab-cases' && path[1] === 'by-number' && path[2] && m === 'PATCH') {
+      const caseNumber = path[2].toUpperCase()
+      const b = await request.json()
+      const allowedStatuses = ['lab_received', 'ready', 'sent', 'completed']
+      if (!allowedStatuses.includes(b.status)) return err('Invalid status', 400)
+      
+      const labCase = await db.collection('lab_cases').findOne({ case_number: caseNumber })
+      if (!labCase) return err('Lab case not found', 404)
+      
+      await db.collection('lab_cases').updateOne(
+        { case_number: caseNumber },
+        { 
+          $set: { status: b.status, updated_at: new Date() },
+          $push: { 
+            update_log: { 
+              status: b.status, 
+              updated_via: b.updated_via || 'whatsapp',
+              timestamp: new Date() 
+            } 
+          }
+        }
+      )
+      
+      return json({ ok: true, case_number: caseNumber, status: b.status })
+    }
+    if (path[0] === 'lab-cases' && path[1] === 'by-number' && path[2] && m === 'GET') {
+      const caseNumber = path[2].toUpperCase()
+      const labCase = await db.collection('lab_cases').findOne({ case_number: caseNumber })
+      if (!labCase) return err('Lab case not found', 404)
+      return json({ lab_case: clean(labCase) })
     }
 
     // ============ VISITS ============
