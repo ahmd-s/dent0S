@@ -194,6 +194,39 @@ async function handle(request, { params }) {
       return json({ treatments: treatments.map(clean) })
     }
 
+    // ============ LAB CASES BY NUMBER (WhatsApp integration) ============
+    if (path[0] === 'lab-cases' && path[1] === 'by-number' && path[2] && m === 'PATCH') {
+      const caseNumber = path[2].toUpperCase()
+      const b = await request.json()
+      const allowedStatuses = ['lab_received', 'ready', 'sent', 'completed']
+      if (!allowedStatuses.includes(b.status)) return err('Invalid status', 400)
+      
+      const labCase = await db.collection('lab_cases').findOne({ case_number: caseNumber })
+      if (!labCase) return err('Lab case not found', 404)
+      
+      await db.collection('lab_cases').updateOne(
+        { case_number: caseNumber },
+        { 
+          $set: { status: b.status, updated_at: new Date() },
+          $push: { 
+            update_log: { 
+              status: b.status, 
+              updated_via: b.updated_via || 'whatsapp',
+              timestamp: new Date() 
+            } 
+          }
+        }
+      )
+      
+      return json({ ok: true, case_number: caseNumber, status: b.status })
+    }
+    if (path[0] === 'lab-cases' && path[1] === 'by-number' && path[2] && m === 'GET') {
+      const caseNumber = path[2].toUpperCase()
+      const labCase = await db.collection('lab_cases').findOne({ case_number: caseNumber })
+      if (!labCase) return err('Lab case not found', 404)
+      return json({ lab_case: clean(labCase) })
+    }
+
     // ============ AUTH ============
     if (route === '/auth/signup' && m === 'POST') {
       const b = await request.json()
@@ -485,39 +518,6 @@ async function handle(request, { params }) {
       for (const k of allowed) if (k in b) update[k] = b[k]
       await db.collection('appointments').updateOne({ id: path[1], clinic_id: cid }, { $set: update })
       return json({ ok:true })
-    }
-
-    // ============ LAB CASES BY NUMBER (WhatsApp integration) ============
-    if (path[0] === 'lab-cases' && path[1] === 'by-number' && path[2] && m === 'PATCH') {
-      const caseNumber = path[2].toUpperCase()
-      const b = await request.json()
-      const allowedStatuses = ['lab_received', 'ready', 'sent', 'completed']
-      if (!allowedStatuses.includes(b.status)) return err('Invalid status', 400)
-      
-      const labCase = await db.collection('lab_cases').findOne({ case_number: caseNumber })
-      if (!labCase) return err('Lab case not found', 404)
-      
-      await db.collection('lab_cases').updateOne(
-        { case_number: caseNumber },
-        { 
-          $set: { status: b.status, updated_at: new Date() },
-          $push: { 
-            update_log: { 
-              status: b.status, 
-              updated_via: b.updated_via || 'whatsapp',
-              timestamp: new Date() 
-            } 
-          }
-        }
-      )
-      
-      return json({ ok: true, case_number: caseNumber, status: b.status })
-    }
-    if (path[0] === 'lab-cases' && path[1] === 'by-number' && path[2] && m === 'GET') {
-      const caseNumber = path[2].toUpperCase()
-      const labCase = await db.collection('lab_cases').findOne({ case_number: caseNumber })
-      if (!labCase) return err('Lab case not found', 404)
-      return json({ lab_case: clean(labCase) })
     }
 
     // ============ VISITS ============
