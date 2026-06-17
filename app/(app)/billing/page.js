@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Search, Eye, IndianRupee, AlertCircle, Receipt, Loader2 } from 'lucide-react'
@@ -29,6 +29,7 @@ function App() {
   const [status, setStatus] = useState('all')
   const [q, setQ] = useState('')
   const [payOpen, setPayOpen] = useState(null)
+  const searchTimeoutRef = useRef(null)
 
   const load = async () => {
     const params = new URLSearchParams({ from, to, status })
@@ -38,6 +39,15 @@ function App() {
     setList(d.invoices||[]); setSummary(d.summary||{collected:0,pending:0,total:0})
   }
   useEffect(() => { load() }, [from, to, status, q])
+
+  const handleSearchChange = useCallback((value) => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+    searchTimeoutRef.current = setTimeout(() => {
+      setQ(value)
+    }, 300)
+  }, [])
 
   const exportCsv = () => {
     const rows = [['Invoice #','Date','Patient','Amount','Status','Payment Mode']].concat(list.map(i => [i.invoice_number, i.invoice_date, i.patient_name, i.total_amount, i.payment_status, i.payment_mode||'']))
@@ -69,7 +79,7 @@ function App() {
       <Card className="mt-5 p-4 bg-white border-border rounded-lg flex items-center gap-3 flex-wrap">
         <div><Label className="text-xs">From</Label><Input type="date" value={from} onChange={e=>setFrom(e.target.value)} className="w-40"/></div>
         <div><Label className="text-xs">To</Label><Input type="date" value={to} onChange={e=>setTo(e.target.value)} className="w-40"/></div>
-        <div className="flex-1 min-w-[180px]"><Label className="text-xs">Search</Label><div className="relative"><Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"/><Input value={q} onChange={e=>setQ(e.target.value)} placeholder="Patient name or invoice number…" className="pl-9"/></div></div>
+        <div className="flex-1 min-w-[180px]"><Label className="text-xs">Search</Label><div className="relative"><Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"/><Input value={q} onChange={e=>handleSearchChange(e.target.value)} placeholder="Patient name or invoice number…" className="pl-9"/></div></div>
         <div><Label className="text-xs">Status</Label><Select value={status} onValueChange={setStatus}><SelectTrigger className="w-40"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All</SelectItem><SelectItem value="pending">Pending</SelectItem><SelectItem value="paid">Paid</SelectItem><SelectItem value="partial">Partial</SelectItem><SelectItem value="waived">Waived</SelectItem></SelectContent></Select></div>
         <div className="self-end"><Button variant="outline" onClick={exportCsv}>Export CSV</Button></div>
       </Card>

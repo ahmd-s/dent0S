@@ -50,11 +50,15 @@ const loadLabCases = async () => {
   }
 
   const load = async () => {
-    const r = await fetch(`/api/patients/${id}`)
+    const [r, v, a] = await Promise.all([
+      fetch(`/api/patients/${id}`),
+      fetch(`/api/visits?patient_id=${id}`),
+      fetch(`/api/appointments?patient_id=${id}`)
+    ])
     if (r.ok) setPatient((await r.json()).patient)
-    const v = await fetch(`/api/visits?patient_id=${id}`); if (v.ok) setVisits((await v.json()).visits||[])
-    const a = await fetch(`/api/appointments?patient_id=${id}`); if (a.ok) setAppts((await a.json()).appointments||[])
-loadLabCases()
+    if (v.ok) setVisits((await v.json()).visits||[])
+    if (a.ok) setAppts((await a.json()).appointments||[])
+    loadLabCases()
   }
   useEffect(() => { if (id) load() }, [id])
 
