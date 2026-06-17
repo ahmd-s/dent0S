@@ -33,11 +33,9 @@ const dayNameFromIso = iso => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Da
 async function requireUser() {
   const t = getCurrentUser(); if (!t) return null
   const db = await getDb()
-  const [profile, clinic] = await Promise.all([
-    db.collection('profiles').findOne({ id: t.uid }),
-    db.collection('clinics').findOne({ id: t.clinic_id })
-  ])
+  const profile = await db.collection('profiles').findOne({ id: t.uid })
   if (!profile) return null
+  const clinic = await db.collection('clinics').findOne({ id: profile.clinic_id })
   return { profile, clinic, db }
 }
 
