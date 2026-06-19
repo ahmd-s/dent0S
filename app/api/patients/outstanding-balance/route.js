@@ -1,0 +1,70 @@
+import { NextResponse } from 'next/server'
+import { getDb } from '@/lib/mongo'
+import { getCurrentUser } from '@/lib/auth'
+
+function cors(res) {
+  res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
+  res.headers.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH')
+  res.headers.set('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+  res.headers.set('Access-Control-Allow-Credentials', 'true')
+  return res
+}
+
+const json = (d, s=200) => cors(NextResponse.json(d, { status: s }))
+const err = (msg, s=400) => json({ error: msg }, s)
+
+async function requireUser() {
+  const t = getCurrentUser(); if (!t) return null
+  const db = await getDb()
+  const profile = await db.collection('profiles').findOne({ id: t.uid })
+  if (!profile) return null
+  const clinic = await db.collection('clinics').findOne({ id: profile.clinic_id })
+  return { profile, clinic, db }
+}
+
+export async function GET(request) {
+  try {
+    const ctx = await requireUser()
+    if (!ctx) return err('Unauthorized', 401)
+    
+    const { profile, db } = ctx
+    const cid = profile.clinic_id
+    const url = new URL(request.url)
+    const patient_id = url.searchParams.get('patient_id')
+    
+    if (!patient_id) return err('patient_id required')
+    
+    const invoices = await db.collection('invoices').find({
+      clinic_id: cid,
+      patient_id: patient_id,
+      payment_status: { $in: ['pending', 'partial'] }
+    }).sort({ invoice_date: -1 }).toArray()
+    
+    const unpaidInvoices = invoices.map(inv => {
+      const pending_amount = (inv.total_amount || 0)
+      return {
+        _id: inv.id,
+        invoice_number: inv.invoice_number,
+        date: inv.invoice_date,
+        total_amount: inv.total_amount,
+        pending_amount: pending_amount,
+        payment_status: inv.payment_status
+      }
+    })
+    
+    const outstandingBalance = unpaidInvoices.reduce((sum, inv) => sum + inv.pending_amount, 0)
+    
+    return json({ 
+      outstandingBalance, 
+      unpaidInvoices 
+    })
+    
+  } catch (error) {
+    console.error('Outstanding balance API error:', error)
+    return err('Internal server error', 500)
+  }
+}
+
+export async function OPTIONS() {
+  return cors(new NextResponse(null, { status: 200 }))
+}
