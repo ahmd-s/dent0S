@@ -205,6 +205,7 @@ const loadLabCases = async () => {
             </TabsContent>
             <TabsContent value="documents" className="mt-4">
               {patient && <DocumentsTab patientId={id} />}
+            </TabsContent>
             <TabsContent value="lab-cases" className="mt-4">
               <div className="flex items-center justify-between mb-3">
                 <h4 className="text-sm font-semibold text-[#0F172A] flex items-center gap-2"><FlaskConical className="w-4 h-4 text-[#0D9488]"/>Lab Cases</h4>
@@ -250,7 +251,6 @@ const loadLabCases = async () => {
                   </div>
                 </Card>
               )}
-            </TabsContent>
             </TabsContent>
             <TabsContent value="consents" className="mt-4">
               {patient && <ConsentFormsTab patientId={id} patientName={patient.name} patientPhone={patient.phone} />}
