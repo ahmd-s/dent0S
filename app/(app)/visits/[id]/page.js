@@ -46,7 +46,8 @@ function App() {
   const [gstOn, setGstOn] = useState(false)
   const [paymentMode, setPaymentMode] = useState('cash')
   const [paymentStatus, setPaymentStatus] = useState('pending')
-  const [templates, setTemplates] = useState([])
+  const [inventoryTemplates, setInventoryTemplates] = useState([])
+  const [selectedTemplateMaterials, setSelectedTemplateMaterials] = useState([])
   const [showPrev, setShowPrev] = useState(false)
   const [saving, setSaving] = useState(false)
   const [autosaveAt, setAutosaveAt] = useState(null)
@@ -81,7 +82,7 @@ function App() {
     setLoading(false)
   }
   useEffect(() => { if (id) load() }, [id])
-  useEffect(() => { fetch('/api/treatment_templates').then(r=>r.json()).then(d=>setTemplates(d.templates||[])) }, [])
+  useEffect(() => { fetch('/api/inventory/templates').then(r=>r.json()).then(d=>setInventoryTemplates(d.templates||[])) }, [])
   useEffect(() => { fetch('/api/inventory').then(r=>r.json()).then(d=>setInventoryItems(d.items||[])) }, [])
 
   const saveDraft = async (silent=false) => {
@@ -97,17 +98,9 @@ function App() {
   const completeVisit = async () => {
     if (!stateRef.current.v?.chief_complaint?.trim()) { toast.error('Chief complaint is required'); return }
     
-    // Fetch inventory templates and show consumption modal
-    const templatesRes = await fetch('/api/inventory/templates')
-    const templatesData = await templatesRes.json()
-    const inventoryTemplates = templatesData.templates || []
-    
-    // Find matching template based on treatment done
-    const treatment = stateRef.current.v?.treatment_done?.toLowerCase() || ''
-    const matchedTemplate = inventoryTemplates.find(t => treatment.includes(t.treatment_name.toLowerCase()))
-    
-    if (matchedTemplate) {
-      const suggestedItems = matchedTemplate.items.map(item => ({
+    // Use selected template materials if available, otherwise show empty modal
+    if (selectedTemplateMaterials.length > 0) {
+      const suggestedItems = selectedTemplateMaterials.map(item => ({
         item_id: item.item_id,
         item_name: item.item_name,
         suggested_quantity: item.suggested_quantity,
@@ -115,12 +108,10 @@ function App() {
         unit: item.unit
       }))
       setConsumeItems(suggestedItems)
-      setConsumeModalOpen(true)
     } else {
-      // No template match, show modal with empty list for manual addition
       setConsumeItems([])
-      setConsumeModalOpen(true)
     }
+    setConsumeModalOpen(true)
   }
   
   const confirmCompleteVisit = async (skipConsumption = false) => {
@@ -198,10 +189,12 @@ function App() {
   const addItem = (desc='', price=0) => setItems(p => [...p, { id:'tmp_'+Date.now(), description:desc, quantity:1, unit_price:price }])
   const updateItem = (i,k,val) => setItems(p => p.map((r,j) => j===i?{...r,[k]:val}:r))
   const removeItem = i => setItems(p => p.filter((_,j) => j!==i))
-  const applyTemplate = t => {
-    set('treatment_done', (v.treatment_done? v.treatment_done+'\n':'') + (t.default_notes||t.name))
-    if (t.default_price > 0) addItem(t.name, t.default_price)
-    toast.success(`Applied: ${t.name}`)
+  const applyInventoryTemplate = (template) => {
+    const currentTreatment = v.treatment_done || ''
+    const newTreatment = currentTreatment.trim() ? `${currentTreatment}\n${template.treatment_name}` : template.treatment_name
+    set('treatment_done', newTreatment)
+    setSelectedTemplateMaterials(template.items || [])
+    toast.success(`Applied: ${template.treatment_name} — materials ready for stock deduction`)
   }
 
   const handleVoiceApply = useCallback(({ fields }) => {
@@ -332,16 +325,16 @@ function App() {
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <Label className="text-base">Treatment Done</Label>
-            {templates.length > 0 && (
+            {inventoryTemplates.length > 0 && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild><Button type="button" size="sm" variant="outline" className="h-7 text-xs">Apply Template</Button></DropdownMenuTrigger>
                 <DropdownMenuContent>
-                  {templates.map(t => <DropdownMenuItem key={t.id} onClick={()=>applyTemplate(t)}><div><div className="font-medium">{t.name}</div>{t.default_price>0 && <div className="text-xs text-muted-foreground">₹{t.default_price}</div>}</div></DropdownMenuItem>)}
+                  {inventoryTemplates.map(t => <DropdownMenuItem key={t.id} onClick={()=>applyInventoryTemplate(t)}><div className="font-medium">{t.treatment_name}</div></DropdownMenuItem>)}
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
           </div>
-          <SmartTextarea value={v.treatment_done||''} onChange={val=>set('treatment_done',val)} category="procedures" rows={3}/>
+          <Textarea value={v.treatment_done||''} onChange={e=>set('treatment_done',e.target.value)} placeholder="Describe the treatment performed..." rows={3}/>
         </div>
         <div className="space-y-1.5"><Label className="text-base">Plan for Next Visit</Label><SmartTextarea value={v.treatment_plan||''} onChange={val=>set('treatment_plan',val)} category="treatment_plans" placeholder="What should be done on the next visit…" rows={2}/></div>
       </Card>
