@@ -286,6 +286,10 @@ function NewAppointmentModal({ open, setOpen, initialDate, onCreated }) {
     const r = await fetch('/api/appointments', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ...f, patient_id }) })
     setBusy(false)
     if (r.ok) { toast.success(`Appointment booked${picked?` for ${picked.name}`:''}`); setOpen(false); setPicked(null); setPq(''); setWalkin(false); setWalkinForm({name:'',phone:''}); onCreated && onCreated() }
+    else if (r.status === 409) {
+      const d = await r.json()
+      toast.error(d.message || 'This appointment slot is already booked. Please select another time.')
+    }
     else toast.error('Failed')
   }
 

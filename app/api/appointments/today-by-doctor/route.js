@@ -21,7 +21,7 @@ export async function GET(request) {
     const appointments = await db.collection('appointments')
       .find({ 
         appointment_date: today,
-        status: { $nin: ['cancelled', 'no_show'] }
+        status: { $nin: ['cancelled', 'no_show', 'completed'] }
       })
       .sort({ appointment_time: 1 })
       .toArray()

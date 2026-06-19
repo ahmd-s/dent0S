@@ -30,6 +30,21 @@ const toMin = t => { const m = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(t.trim()); 
 const fromMin = n => { let h = Math.floor(n/60), mm = n%60; const ap = h>=12?'PM':'AM'; let hh = h%12; if (hh===0) hh=12; return `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')} ${ap}` }
 const dayNameFromIso = iso => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(iso+'T00:00:00').getDay()]
 
+// Shared conflict detection helper
+// Checks if an appointment slot is already booked for a specific doctor
+// Blocking statuses: scheduled, arrived, in_progress
+// Non-blocking statuses: completed, cancelled, no_show
+async function checkAppointmentConflict(db, clinic_id, doctor_id, appointment_date, appointment_time) {
+  const conflict = await db.collection('appointments').findOne({
+    clinic_id,
+    doctor_id: doctor_id || null,
+    appointment_date,
+    appointment_time,
+    status: { $in: ['scheduled', 'arrived', 'in_progress'] }
+  })
+  return conflict !== null
+}
+
 async function requireUser() {
   const t = getCurrentUser(); if (!t) return null
   const db = await getDb()
@@ -72,7 +87,7 @@ async function handle(request, { params }) {
         const startM = toMin(wh.start)||600, endM = toMin(wh.end)||1140
         for (let m = startM; m+30 <= endM; m+=30) slots.push(fromMin(m))
       }
-      const f = { clinic_id: c.id, appointment_date: date, status: { $nin: ['cancelled','no_show'] } }
+      const f = { clinic_id: c.id, appointment_date: date, status: { $nin: ['cancelled','no_show','completed'] } }
       if (doctor_id) f.doctor_id = doctor_id
       const taken = (await db.collection('appointments').find(f).toArray()).map(a => a.appointment_time)
       return json({ date, slots: slots.map(t => ({ time: t, taken: taken.includes(t) })) })
@@ -86,9 +101,9 @@ async function handle(request, { params }) {
       // rate limit: max 3 per phone per day
       const sameDay = await db.collection('appointments').countDocuments({ clinic_id: c.id, patient_phone_temp: b.phone, appointment_date: b.appointment_date })
       if (sameDay >= 3) return err('Too many bookings for this number today', 429)
-      // re-check slot
-      const conflict = await db.collection('appointments').findOne({ clinic_id: c.id, appointment_date: b.appointment_date, appointment_time: b.appointment_time, doctor_id: b.doctor_id||null, status: { $nin:['cancelled','no_show'] } })
-      if (conflict) return err('Slot already booked', 409)
+      // re-check slot using shared conflict detection
+      const hasConflict = await checkAppointmentConflict(db, c.id, b.doctor_id, b.appointment_date, b.appointment_time)
+      if (hasConflict) return json({ success: false, message: 'This slot is already booked.' }, 409)
       
       const id = uuidv4()
       let patient_id = null
@@ -475,6 +490,10 @@ async function handle(request, { params }) {
     if (route === '/appointments' && m === 'POST') {
       const b = await request.json()
       if (!b.appointment_date || !b.appointment_time) return err('Date and time required')
+      // conflict check using shared helper
+      const doctorToCheck = b.doctor_id || profile.id
+      const hasConflict = await checkAppointmentConflict(db, cid, doctorToCheck, b.appointment_date, b.appointment_time)
+      if (hasConflict) return json({ success: false, message: 'This slot is already booked.' }, 409)
       const id = uuidv4()
       await db.collection('appointments').insertOne({ id, clinic_id: cid, patient_id: b.patient_id||null, doctor_id: b.doctor_id||profile.id, patient_name_temp: b.patient_name_temp||'', patient_phone_temp: b.patient_phone_temp||'', appointment_date: b.appointment_date, appointment_time: b.appointment_time, duration_minutes: b.duration_minutes||30, status:'scheduled', appointment_type: b.appointment_type||'consultation', chief_complaint: b.chief_complaint||'', notes: b.notes||'', booked_via: b.booked_via||'in_clinic', created_by: profile.id, created_at: new Date() })
       
