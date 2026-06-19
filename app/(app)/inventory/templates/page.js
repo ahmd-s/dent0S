@@ -163,12 +163,15 @@ function TemplateDialog({ open, setOpen, editing, items, onSaved }) {
   }, [])
 
   const selectTreatmentTemplate = (treatment) => {
-    const materialItems = treatment.suggested_materials.map(mat => ({
-      item_id: '',
-      item_name: mat.item_name,
-      suggested_quantity: mat.suggested_quantity,
-      unit: mat.unit
-    }))
+    const materialItems = treatment.suggested_materials.map(mat => {
+      const matchedItem = items.find(i => i.item_name.toLowerCase() === mat.item_name.toLowerCase())
+      return {
+        item_id: matchedItem?.id || '',
+        item_name: mat.item_name,
+        suggested_quantity: mat.suggested_quantity,
+        unit: mat.unit
+      }
+    })
     setF({ treatment_name: treatment.treatment_name, items: materialItems })
     setTreatmentSearch(treatment.treatment_name)
     setShowTreatmentDropdown(false)
@@ -198,8 +201,13 @@ function TemplateDialog({ open, setOpen, editing, items, onSaved }) {
     e.preventDefault()
     if (!f.treatment_name.trim()) { toast.error('Treatment name is required'); return }
     if (!f.items || f.items.length === 0) { toast.error('At least one item is required'); return }
+    const itemsWithoutId = f.items.filter(item => !item.item_id)
+    if (itemsWithoutId.length > 0) {
+      const missingNames = itemsWithoutId.map(item => item.item_name).join(', ')
+      toast.error(`These items need to be added to inventory first: ${missingNames}`)
+      return
+    }
     for (const item of f.items) {
-      if (!item.item_id) { toast.error('Please select an item for all rows'); return }
       if (!item.suggested_quantity || item.suggested_quantity <= 0) { toast.error('Suggested quantity must be greater than 0'); return }
     }
     setLoading(true)
@@ -325,6 +333,10 @@ function MaterialRow({ item, idx, items, updateItem, removeItem, canRemove }) {
   const selectCatalogItem = (catalogItem) => {
     updateItem(idx, 'item_name', catalogItem.item_name)
     updateItem(idx, 'unit', catalogItem.unit)
+    const matchedItem = items.find(i => i.item_name.toLowerCase() === catalogItem.item_name.toLowerCase())
+    if (matchedItem) {
+      updateItem(idx, 'item_id', matchedItem.id)
+    }
     setCatalogSearch(catalogItem.item_name)
     setShowCatalogDropdown(false)
     setFromCatalog(true)
@@ -335,13 +347,27 @@ function MaterialRow({ item, idx, items, updateItem, removeItem, canRemove }) {
       <div className="flex-1 relative">
         <Input 
           value={catalogSearch || item.item_name} 
-          onChange={e => { setCatalogSearch(e.target.value); updateItem(idx, 'item_name', e.target.value); setFromCatalog(false) }}
+          onChange={e => { 
+            const newValue = e.target.value
+            setCatalogSearch(newValue)
+            updateItem(idx, 'item_name', newValue)
+            setFromCatalog(false)
+            const matchedItem = items.find(i => i.item_name.toLowerCase() === newValue.toLowerCase())
+            if (matchedItem) {
+              updateItem(idx, 'item_id', matchedItem.id)
+            } else {
+              updateItem(idx, 'item_id', '')
+            }
+          }}
           onFocus={() => setShowCatalogDropdown(true)}
           placeholder="Search catalog or type custom..."
           className="text-sm"
         />
         {fromCatalog && (
           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs bg-[#0D9488] text-white px-2 py-0.5 rounded">catalog</span>
+        )}
+        {!item.item_id && item.item_name && (
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded text-[10px] whitespace-nowrap">not in inventory — add it first</span>
         )}
         {showCatalogDropdown && catalogSearch.length >= 2 && (
           <div className="absolute z-50 w-full mt-1 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto">
