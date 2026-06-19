@@ -8,6 +8,7 @@ import { createAnthropicMessage } from '@/lib/anthropic-messages'
 import { SMART_TYPING_SEED } from '@/lib/smart-typing-seed'
 import { setupIndexes } from '@/lib/setup-indexes'
 import { AWAITING_ACCEPTANCE_STATUSES, IN_PRODUCTION_STATUSES, READY_STATUSES, CLOSED_STATUSES } from '@/lib/lab-case-helpers'
+import { checkBlockedSlotConflict, toDateTime } from '@/lib/blocked-slots'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -104,6 +105,11 @@ async function handle(request, { params }) {
       // re-check slot using shared conflict detection
       const hasConflict = await checkAppointmentConflict(db, c.id, b.doctor_id, b.appointment_date, b.appointment_time)
       if (hasConflict) return json({ success: false, message: 'This slot is already booked.' }, 409)
+      // check blocked slot conflict
+      const appointment_start = toDateTime(b.appointment_date, b.appointment_time)
+      const appointment_end = new Date(appointment_start.getTime() + 30 * 60000) // default 30 min duration
+      const hasBlockedConflict = await checkBlockedSlotConflict(db, c.id, b.doctor_id, appointment_start, appointment_end)
+      if (hasBlockedConflict) return json({ success: false, message: 'Doctor is unavailable during this time.' }, 409)
       
       const id = uuidv4()
       let patient_id = null
@@ -494,6 +500,12 @@ async function handle(request, { params }) {
       const doctorToCheck = b.doctor_id || profile.id
       const hasConflict = await checkAppointmentConflict(db, cid, doctorToCheck, b.appointment_date, b.appointment_time)
       if (hasConflict) return json({ success: false, message: 'This slot is already booked.' }, 409)
+      // check blocked slot conflict
+      const appointment_start = toDateTime(b.appointment_date, b.appointment_time)
+      const duration_minutes = b.duration_minutes || 30
+      const appointment_end = new Date(appointment_start.getTime() + duration_minutes * 60000)
+      const hasBlockedConflict = await checkBlockedSlotConflict(db, cid, doctorToCheck, appointment_start, appointment_end)
+      if (hasBlockedConflict) return json({ success: false, message: 'Doctor is unavailable during this time.' }, 409)
       const id = uuidv4()
       await db.collection('appointments').insertOne({ id, clinic_id: cid, patient_id: b.patient_id||null, doctor_id: b.doctor_id||profile.id, patient_name_temp: b.patient_name_temp||'', patient_phone_temp: b.patient_phone_temp||'', appointment_date: b.appointment_date, appointment_time: b.appointment_time, duration_minutes: b.duration_minutes||30, status:'scheduled', appointment_type: b.appointment_type||'consultation', chief_complaint: b.chief_complaint||'', notes: b.notes||'', booked_via: b.booked_via||'in_clinic', created_by: profile.id, created_at: new Date() })
       

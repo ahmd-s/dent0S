@@ -28,9 +28,10 @@ function App() {
   return (
     <div className="max-w-4xl mx-auto">
       <Tabs defaultValue="clinic">
-        <TabsList className="bg-[#F8FAFC]"><TabsTrigger value="clinic">Clinic Profile</TabsTrigger><TabsTrigger value="team">Team</TabsTrigger><TabsTrigger value="consent">Consent Forms</TabsTrigger></TabsList>
+        <TabsList className="bg-[#F8FAFC]"><TabsTrigger value="clinic">Clinic Profile</TabsTrigger><TabsTrigger value="team">Team</TabsTrigger><TabsTrigger value="availability">Doctor Availability</TabsTrigger><TabsTrigger value="consent">Consent Forms</TabsTrigger></TabsList>
         <TabsContent value="clinic" className="mt-4 space-y-5"><ClinicTab me={me} reload={()=>fetch('/api/auth/me').then(r=>r.json()).then(setMe)}/></TabsContent>
         <TabsContent value="team" className="mt-4"><TeamTab/></TabsContent>
+        <TabsContent value="availability" className="mt-4"><DoctorAvailabilityTab me={me}/></TabsContent>
         <TabsContent value="consent" className="mt-4"><ConsentFormsTab/></TabsContent>
       </Tabs>
     </div>
@@ -325,6 +326,162 @@ function ConsentFormsTab() {
             <div className="space-y-1.5"><Label>Consent Content (Rich Text)</Label><Textarea rows={10} value={template.content} onChange={e => setTemplate({ ...template, content: e.target.value })} placeholder="Enter the consent form text here..."/></div>
             <div className="flex items-center gap-2"><Switch checked={template.active} onCheckedChange={v => setTemplate({ ...template, active: v })}/><Label className="text-sm">Active</Label></div>
             <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button onClick={save} className="bg-[#0D9488] hover:bg-[#0B7E73]">Save Template</Button></div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  )
+}
+
+function DoctorAvailabilityTab({ me }) {
+  const [blockedSlots, setBlockedSlots] = useState([])
+  const [doctors, setDoctors] = useState([])
+  const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState(null)
+  const [form, setForm] = useState({ doctor_id: '', date: '', start_time: '', end_time: '', title: '', notes: '' })
+  const [loading, setLoading] = useState(true)
+
+  const load = async () => {
+    setLoading(true)
+    const [slotsRes, docsRes] = await Promise.all([
+      fetch('/api/blocked-slots'),
+      fetch('/api/doctors')
+    ])
+    const slotsData = await slotsRes.json()
+    const docsData = await docsRes.json()
+    setBlockedSlots(slotsData.blocked_slots || [])
+    setDoctors(docsData.doctors || [])
+    setLoading(false)
+  }
+
+  useEffect(() => { load() }, [])
+
+  const canEdit = me?.profile?.role === 'admin' || me?.profile?.role === 'doctor'
+
+  const save = async () => {
+    if (!form.doctor_id || !form.date || !form.start_time || !form.end_time) {
+      toast.error('Please fill in all required fields')
+      return
+    }
+    const url = editing ? `/api/blocked-slots/${editing.id}` : '/api/blocked-slots'
+    const r = await fetch(url, {
+      method: editing ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(form)
+    })
+    if (r.ok) {
+      toast.success(editing ? 'Updated' : 'Created')
+      setOpen(false)
+      setEditing(null)
+      setForm({ doctor_id: '', date: '', start_time: '', end_time: '', title: '', notes: '' })
+      load()
+    } else {
+      const d = await r.json()
+      toast.error(d.error || 'Failed')
+    }
+  }
+
+  const deleteSlot = async (id) => {
+    if (!confirm('Delete this blocked slot?')) return
+    const r = await fetch(`/api/blocked-slots/${id}`, { method: 'DELETE' })
+    if (r.ok) {
+      toast.success('Deleted')
+      load()
+    } else {
+      toast.error('Failed')
+    }
+  }
+
+  const openEdit = (slot) => {
+    setEditing(slot)
+    setForm({
+      doctor_id: slot.doctor_id,
+      date: slot.date,
+      start_time: slot.start_time,
+      end_time: slot.end_time,
+      title: slot.title,
+      notes: slot.notes
+    })
+    setOpen(true)
+  }
+
+  const REASON_OPTIONS = ['Conference', 'Travel', 'Personal', 'Meeting', 'Training', 'Other']
+
+  return (
+    <Card className="p-6 bg-white border-border rounded-lg">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-semibold">Doctor Availability</h3>
+        {canEdit && <Button size="sm" onClick={() => { setEditing(null); setForm({ doctor_id: '', date: '', start_time: '', end_time: '', title: '', notes: '' }); setOpen(true) }} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>Add Block</Button>}
+      </div>
+      {loading && <div className="py-8 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-[#0D9488]"/></div>}
+      {!loading && blockedSlots.length === 0 && (
+        <div className="py-12 text-center">
+          <p className="text-muted-foreground text-sm">No blocked slots. Add blocks to mark when doctors are unavailable.</p>
+        </div>
+      )}
+      {!loading && blockedSlots.length > 0 && (
+        <div className="space-y-3">
+          {blockedSlots.map(slot => (
+            <div key={slot.id} className="flex items-center gap-3 p-4 border border-border rounded-lg hover:bg-[#F8FAFC]/50">
+              <div className="flex-1">
+                <div className="font-medium">{slot.doctor_name || 'All Doctors'}</div>
+                <div className="text-sm text-muted-foreground">{slot.date} · {slot.start_time} - {slot.end_time}</div>
+                <div className="text-xs text-muted-foreground mt-1">{slot.title} · {slot.source}</div>
+              </div>
+              {canEdit && (
+                <div className="flex items-center gap-1">
+                  <button onClick={() => openEdit(slot)} className="p-1.5 hover:bg-muted rounded"><Edit2 className="w-4 h-4 text-muted-foreground"/></button>
+                  <button onClick={() => deleteSlot(slot.id)} className="p-1.5 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4 text-red-500"/></button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>{editing ? 'Edit Blocked Slot' : 'Add Blocked Slot'}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Doctor</Label>
+              <Select value={form.doctor_id} onValueChange={v => setForm({ ...form, doctor_id: v })}>
+                <SelectTrigger><SelectValue/></SelectTrigger>
+                <SelectContent>
+                  {doctors.map(d => <SelectItem key={d.id} value={d.id}>{d.full_name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Date</Label>
+              <Input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })}/>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Start Time</Label>
+                <Input type="time" value={form.start_time} onChange={e => setForm({ ...form, start_time: e.target.value })}/>
+              </div>
+              <div className="space-y-1.5">
+                <Label>End Time</Label>
+                <Input type="time" value={form.end_time} onChange={e => setForm({ ...form, end_time: e.target.value })}/>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Reason</Label>
+              <Select value={form.title} onValueChange={v => setForm({ ...form, title: v })}>
+                <SelectTrigger><SelectValue/></SelectTrigger>
+                <SelectContent>
+                  {REASON_OPTIONS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Notes (Optional)</Label>
+              <Textarea rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Additional details..."/>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button onClick={save} className="bg-[#0D9488] hover:bg-[#0B7E73]">{editing ? 'Update' : 'Add Block'}</Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
