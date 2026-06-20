@@ -22,21 +22,29 @@ export async function GET(request) {
 
     const { searchParams } = new URL(request.url)
     const patientId = searchParams.get('patient_id')
+    const visitId = searchParams.get('visit_id')
 
-    if (!patientId) {
+    if (!patientId && !visitId) {
       return NextResponse.json(
-        { error: 'patient_id required' },
+        { error: 'patient_id or visit_id required' },
         { status: 400 }
       )
     }
 
     const db = await getDb()
+    let query = { clinic_id: user.clinic_id }
+    
+    if (visitId) {
+      // Fetch documents for a specific visit
+      query.visit_id = visitId
+    } else if (patientId) {
+      // Fetch all documents for a patient (includes both patient-uploaded and visit-uploaded docs)
+      query.patient_id = patientId
+    }
+    
     const documents = await db
       .collection('documents')
-      .find({
-        patient_id: patientId,
-        clinic_id: user.clinic_id,
-      })
+      .find(query)
       .sort({ uploaded_at: -1 })
       .toArray()
 

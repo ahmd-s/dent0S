@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { VisitVoiceRecorder } from '@/components/dentos/VisitVoiceRecorder'
+import { VisitDocuments } from '@/components/dentos/VisitDocuments'
 import ToothChart from '@/components/dentos/ToothChart'
 import SmartTextarea from '@/components/SmartTextarea'
 import { toast } from 'sonner'
@@ -397,6 +398,11 @@ function App() {
           <div className="space-y-1.5"><Label>Payment Mode</Label><Select value={paymentMode} onValueChange={setPaymentMode}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{['cash','upi','card','net_banking','free'].map(p=><SelectItem key={p} value={p} className="capitalize">{p.replace('_',' ')}</SelectItem>)}</SelectContent></Select></div>
           <div className="space-y-1.5"><Label>Payment Status</Label><Select value={paymentStatus} onValueChange={setPaymentStatus}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="pending">Pending</SelectItem><SelectItem value="paid">Paid</SelectItem><SelectItem value="partial">Partial</SelectItem><SelectItem value="waived">Waived</SelectItem></SelectContent></Select></div>
         </div>
+      </Card>
+
+      <Card className="mt-5 p-6 bg-white border-border rounded-lg">
+        <Label className="text-base mb-3 block">Documents & Scans</Label>
+        <VisitDocuments visitId={id} patientId={v.patient_id} />
       </Card>
 
       <ConsumptionModal 

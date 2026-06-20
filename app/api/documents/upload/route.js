@@ -22,6 +22,7 @@ export async function POST(request) {
     const formData = await request.formData()
     const file = formData.get('file')
     const patientId = formData.get('patient_id')
+    const visitId = formData.get('visit_id') || null
     const description = formData.get('description') || ''
 
     if (!file || !patientId) {
@@ -58,6 +59,7 @@ export async function POST(request) {
     const db = await getDb()
     const doc = {
       patient_id: patientId,
+      visit_id: visitId,
       clinic_id: user.clinic_id,
       file_name: file.name,
       file_url: uploadResult.secure_url,
