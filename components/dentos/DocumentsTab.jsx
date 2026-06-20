@@ -1,7 +1,8 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Upload, Trash2, Download, FileText, Loader2 } from 'lucide-react'
+import { Upload, Trash2, Download, FileText, Loader2, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 
@@ -17,6 +18,7 @@ function formatDate(date) {
 }
 
 export function DocumentsTab({ patientId }) {
+  const router = useRouter()
   const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
@@ -175,7 +177,7 @@ export function DocumentsTab({ patientId }) {
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {documents.map(doc => (
-            <Card key={doc._id} className="p-3 space-y-2">
+            <Card key={doc._id} className="p-3 space-y-2 rounded-lg hover:shadow-md transition-all duration-200">
               {/* Preview */}
               <div className="w-full h-32 rounded-md overflow-hidden bg-gray-100 flex items-center justify-center">
                 {doc.file_format === 'pdf' || doc.file_type === 'raw' ? (
@@ -198,9 +200,13 @@ export function DocumentsTab({ patientId }) {
                   {doc.file_name}
                 </p>
                 {doc.visit_id && (
-                  <p className="text-xs text-[#0D9488] font-medium mt-1">
-                    From a visit
-                  </p>
+                  <button
+                    onClick={() => router.push(`/visits/${doc.visit_id}`)}
+                    className="inline-flex items-center gap-1 text-xs bg-[#0D9488] text-white rounded-full px-2 py-0.5 mt-1 hover:bg-[#0B7E75] hover:scale-105 transition-all duration-200"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    View Visit →
+                  </button>
                 )}
                 <p className="text-xs text-gray-400">
                   {formatDate(doc.uploaded_at)} · {formatSize(doc.file_size)}
