@@ -48,7 +48,28 @@ export async function GET(request) {
       .sort({ uploaded_at: -1 })
       .toArray()
 
-    return NextResponse.json({ documents })
+    // Fetch visit dates for documents that have visit_id
+    const visitIds = documents.filter(doc => doc.visit_id).map(doc => doc.visit_id)
+    let visitDatesMap = {}
+    if (visitIds.length > 0) {
+      const visits = await db
+        .collection('visits')
+        .find({ _id: { $in: visitIds.map(id => new ObjectId(id)) } })
+        .project({ _id: 1, visit_date: 1 })
+        .toArray()
+      visitDatesMap = visits.reduce((acc, visit) => {
+        acc[visit._id.toString()] = visit.visit_date
+        return acc
+      }, {})
+    }
+
+    // Attach visit_date to documents
+    const documentsWithVisitDate = documents.map(doc => ({
+      ...doc,
+      visit_date: doc.visit_id ? visitDatesMap[doc.visit_id] : null
+    }))
+
+    return NextResponse.json({ documents: documentsWithVisitDate })
 
   } catch (error) {
     console.error('Fetch documents error:', error)
