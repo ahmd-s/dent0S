@@ -39,6 +39,7 @@ export async function GET(request) {
       query.visit_id = visitId
     } else if (patientId) {
       // Fetch all documents for a patient (includes both patient-uploaded and visit-uploaded docs)
+      // No filter on visit_id — include ALL patient documents
       query.patient_id = patientId
     }
     

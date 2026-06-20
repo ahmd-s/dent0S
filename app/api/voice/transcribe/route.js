@@ -70,13 +70,22 @@ export async function POST(request) {
             },
             {
               role: 'user',
-              content: `Extract the following fields from this transcript and return ONLY a JSON object:
+              content: `Extract the following fields from this dental note:
+
+- chief_complaint: what the patient complains about
+- clinical_notes/examination_findings: clinical observations
+- diagnosis: the diagnosis
+- treatment_done: what treatment was actually performed today (look for phrases like 'treatment done today', 'we performed', 'procedure done', 'initiated', 'completed today')
+- treatment_plan/plan_for_next_visit: future plans
+- prescriptions: medicines with dosage and frequency
+
+Return ONLY a JSON object:
 
 {
   "chief_complaint": "main reason for visit as a short sentence",
   "clinical_notes": "examination findings mentioned",
   "diagnosis": "diagnosis mentioned",
-  "treatment_done": "treatment performed today",
+  "treatment_done": "treatment performed today (look for phrases like 'treatment done today', 'we performed', 'procedure done', 'initiated', 'completed today')",
   "treatment_plan": "plan for future visits",
   "prescriptions": [
     {
@@ -97,6 +106,7 @@ Rules:
 - Use empty array for prescriptions if none mentioned
 - Extract ALL medicines mentioned
 - next_visit_recommended should be true if follow up is mentioned
+- For treatment_done, look specifically for what was done TODAY in this visit
 
 Transcript: ${transcript}`
             }
