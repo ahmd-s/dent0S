@@ -197,6 +197,11 @@ export function DocumentsTab({ patientId }) {
                 <p className="text-xs font-medium text-gray-700 truncate">
                   {doc.file_name}
                 </p>
+                {doc.visit_id && (
+                  <p className="text-xs text-[#0D9488] font-medium mt-1">
+                    From a visit
+                  </p>
+                )}
                 <p className="text-xs text-gray-400">
                   {formatDate(doc.uploaded_at)} · {formatSize(doc.file_size)}
                 </p>
