@@ -567,27 +567,65 @@ async function handle(request, { params }) {
           
           // Handle based on visitor_type
           if (appointment.visitor_type === 'new') {
-            // CASE: visitor_type = "new" - NEVER check phone, always create new patient
-            patientId = uuidv4()
-            const count = await db.collection('patients').countDocuments({
-              clinic_id: cid
-            })
-            const code = 'PT' + String(count + 1).padStart(5,'0')
-            await db.collection('patients').insertOne({
-              id: patientId,
-              clinic_id: cid,
-              name: appointment.patient_name_temp || 'Unknown',
-              phone: appointment.patient_phone_temp || '',
-              patient_code: code,
-              total_visits: 0,
-              is_archived: false,
-              created_by: profile.id,
-              created_at: new Date()
-            })
-            await db.collection('appointments').updateOne(
-              { id: appointment.id },
-              { $set: { patient_id: patientId } }
-            )
+            // Check if BOTH name AND phone match existing patient
+            // This safely handles "booking for family member" cases
+            if (appointment.patient_phone_temp && appointment.patient_name_temp) {
+              // Normalize names for comparison (lowercase, trim)
+              const searchName = appointment.patient_name_temp.toLowerCase().trim()
+              
+              const existingPatient = await db.collection('patients').findOne({
+                phone: appointment.patient_phone_temp,
+                clinic_id: cid
+              })
+              
+              if (existingPatient) {
+                const existingName = (existingPatient.name || '').toLowerCase().trim()
+                
+                // Check if names are similar (exact or one contains the other)
+                const nameMatches = existingName === searchName || 
+                  existingName.includes(searchName) || 
+                  searchName.includes(existingName)
+                
+                if (nameMatches) {
+                  // Both phone AND name match → same person who clicked wrong
+                  // Silently link to existing patient
+                  patientId = existingPatient.id
+                  await db.collection('appointments').updateOne(
+                    { id: appointment.id },
+                    { $set: { 
+                      patient_id: patientId,
+                      visitor_type: 'new_auto_matched'
+                    } }
+                  )
+                }
+                // If phone matches but name doesn't → family member
+                // Fall through to create new patient below
+              }
+            }
+            
+            // Create new patient if no match found
+            if (!patientId) {
+              patientId = uuidv4()
+              const count = await db.collection('patients').countDocuments({
+                clinic_id: cid
+              })
+              const code = 'PT' + String(count + 1).padStart(5,'0')
+              await db.collection('patients').insertOne({
+                id: patientId,
+                clinic_id: cid,
+                name: appointment.patient_name_temp || 'Unknown',
+                phone: appointment.patient_phone_temp || '',
+                patient_code: code,
+                total_visits: 0,
+                is_archived: false,
+                created_by: profile.id,
+                created_at: new Date()
+              })
+              await db.collection('appointments').updateOne(
+                { id: appointment.id },
+                { $set: { patient_id: patientId } }
+              )
+            }
           } else if (appointment.visitor_type === 'returning_unmatched') {
             // CASE: visitor_type = "returning_unmatched" - return error to show modal
             return err('returning_unmatched', 400)
