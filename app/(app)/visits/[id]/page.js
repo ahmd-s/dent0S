@@ -224,6 +224,13 @@ function App() {
     }
   }, [])
 
+  const handleAddToFindings = (findings) => {
+    setV(prev => ({
+      ...prev,
+      clinical_notes: prev.clinical_notes ? `${prev.clinical_notes}\n\n${findings}` : findings
+    }))
+  }
+
   const subtotal = items.reduce((s,it) => s + (parseFloat(it.unit_price)||0)*(parseInt(it.quantity)||1), 0)
   const gst = gstOn ? Math.round((subtotal-discount)*0.18*100)/100 : 0
   const total = Math.max(0, subtotal - discount + gst)
@@ -402,7 +409,7 @@ function App() {
 
       <Card className="mt-5 p-6 bg-white border-border rounded-lg">
         <Label className="text-base mb-3 block">Documents & Scans</Label>
-        <VisitDocuments visitId={id} patientId={v.patient_id} />
+        <VisitDocuments visitId={id} patientId={v.patient_id} onAddFindings={handleAddToFindings} />
       </Card>
 
       <ConsumptionModal 

@@ -1,9 +1,10 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
-import { Upload, Trash2, Download, FileText, Loader2 } from 'lucide-react'
+import { Upload, Trash2, Download, FileText, Loader2, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { AIAnalysisModal } from './AIAnalysisModal'
 
 function formatSize(bytes) {
   if (bytes < 1024) return bytes + ' B'
@@ -16,12 +17,15 @@ function formatDate(date) {
   return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`
 }
 
-export function VisitDocuments({ visitId, patientId }) {
+export function VisitDocuments({ visitId, patientId, onAddFindings }) {
   const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const fileInputRef = useRef(null)
+  const [aiModalOpen, setAiModalOpen] = useState(false)
+  const [aiFindings, setAiFindings] = useState('')
+  const [analyzing, setAnalyzing] = useState(false)
 
   const fetchDocuments = async () => {
     try {
@@ -112,6 +116,41 @@ export function VisitDocuments({ visitId, patientId }) {
     } catch {
       toast.error('Failed to delete document')
     }
+  }
+
+  const handleAnalyze = async (doc) => {
+    setAnalyzing(true)
+    setAiModalOpen(true)
+    setAiFindings('')
+    
+    try {
+      const res = await fetch('/api/ai/analyze-xray', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl: doc.file_url })
+      })
+      const data = await res.json()
+      
+      if (res.ok) {
+        setAiFindings(data.findings)
+      } else {
+        toast.error(data.error || 'Analysis failed. Try again.')
+        setAiModalOpen(false)
+      }
+    } catch (error) {
+      toast.error('Analysis failed. Try again.')
+      setAiModalOpen(false)
+    } finally {
+      setAnalyzing(false)
+    }
+  }
+
+  const handleAddToFindings = () => {
+    if (onAddFindings && aiFindings) {
+      onAddFindings(aiFindings)
+      toast.success('AI findings added ✓')
+    }
+    setAiModalOpen(false)
   }
 
   if (loading) {
@@ -223,10 +262,46 @@ export function VisitDocuments({ visitId, patientId }) {
                   <Trash2 className="w-3 h-3 text-red-500"/>
                 </Button>
               </div>
+
+              {/* AI Analysis Button - only for images */}
+              {doc.file_format !== 'pdf' && doc.file_type !== 'raw' && (
+                <button
+                  onClick={() => handleAnalyze(doc)}
+                  disabled={analyzing}
+                  className={`
+                    w-full py-1.5 px-3 rounded-full text-xs font-medium text-white
+                    bg-gradient-to-r from-[#0D9488] to-[#0f766e]
+                    hover:brightness-110 hover:scale-105 transition-all duration-200
+                    disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
+                    flex items-center justify-center gap-1.5
+                  `}
+                >
+                  {analyzing ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin"/>
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3 h-3"/>
+                      Analyze with AI
+                    </>
+                  )}
+                </button>
+              )}
             </Card>
           ))}
         </div>
       )}
+
+      {/* AI Analysis Modal */}
+      <AIAnalysisModal
+        open={aiModalOpen}
+        onOpenChange={setAiModalOpen}
+        findings={aiFindings}
+        onAddToFindings={handleAddToFindings}
+        loading={analyzing}
+      />
     </div>
   )
 }
