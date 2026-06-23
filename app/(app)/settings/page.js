@@ -340,6 +340,7 @@ function DoctorAvailabilityTab({ me }) {
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState({ doctor_id: '', date: '', start_time: '', end_time: '', title: '', notes: '' })
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -359,10 +360,12 @@ function DoctorAvailabilityTab({ me }) {
   const canEdit = me?.profile?.role === 'admin' || me?.profile?.role === 'doctor'
 
   const save = async () => {
+    if (saving) return // Prevent double-submission
     if (!form.doctor_id || !form.date || !form.start_time || !form.end_time) {
       toast.error('Please fill in all required fields')
       return
     }
+    setSaving(true)
     const url = editing ? `/api/blocked-slots/${editing.id}` : '/api/blocked-slots'
     const r = await fetch(url, {
       method: editing ? 'PUT' : 'POST',
@@ -379,6 +382,7 @@ function DoctorAvailabilityTab({ me }) {
       const d = await r.json()
       toast.error(d.error || 'Failed')
     }
+    setSaving(false)
   }
 
   const deleteSlot = async (id) => {
@@ -479,8 +483,8 @@ function DoctorAvailabilityTab({ me }) {
               <Textarea rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Additional details..."/>
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button onClick={save} className="bg-[#0D9488] hover:bg-[#0B7E73]">{editing ? 'Update' : 'Add Block'}</Button>
+              <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>Cancel</Button>
+              <Button onClick={save} disabled={saving} className="bg-[#0D9488] hover:bg-[#0B7E73]">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (editing ? 'Update' : 'Add Block')}</Button>
             </div>
           </div>
         </DialogContent>

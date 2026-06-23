@@ -92,12 +92,15 @@ async function handle(request, { params }) {
       if (doctor_id) f.doctor_id = doctor_id
       const taken = (await db.collection('appointments').find(f).toArray()).map(a => a.appointment_time)
       
-      // Fetch blocked slots for this date and doctor
+      // Fetch blocked slots for this date and doctor using overlap logic
+      const dayStart = new Date(date + 'T00:00:00.000Z')
+      const dayEnd = new Date(date + 'T23:59:59.999Z')
+      
       const blockedFilter = {
         clinic_id: c.id,
-        is_active: true,
-        start_datetime: { $gte: new Date(date + 'T00:00:00') },
-        end_datetime: { $lte: new Date(date + 'T23:59:59') }
+        is_active: { $ne: false },
+        start_datetime: { $lt: dayEnd },
+        end_datetime: { $gt: dayStart }
       }
       if (doctor_id) {
         blockedFilter.doctor_id = doctor_id
@@ -114,8 +117,9 @@ async function handle(request, { params }) {
       slots.forEach(slotTime => {
         const slotMin = toMin(slotTime)
         const isBlocked = blockedSlots.some(block => {
-          const blockStartMin = block.start_datetime.getHours() * 60 + block.start_datetime.getMinutes()
-          const blockEndMin = block.end_datetime.getHours() * 60 + block.end_datetime.getMinutes()
+          // Convert UTC datetime to minutes since midnight for comparison
+          const blockStartMin = block.start_datetime.getUTCHours() * 60 + block.start_datetime.getUTCMinutes()
+          const blockEndMin = block.end_datetime.getUTCHours() * 60 + block.end_datetime.getUTCMinutes()
           return slotMin >= blockStartMin && slotMin < blockEndMin
         })
         if (isBlocked) blockedTimes.push(slotTime)
