@@ -91,7 +91,37 @@ async function handle(request, { params }) {
       const f = { clinic_id: c.id, appointment_date: date, status: { $nin: ['cancelled','no_show','completed'] } }
       if (doctor_id) f.doctor_id = doctor_id
       const taken = (await db.collection('appointments').find(f).toArray()).map(a => a.appointment_time)
-      return json({ date, slots: slots.map(t => ({ time: t, taken: taken.includes(t) })) })
+      
+      // Fetch blocked slots for this date and doctor
+      const blockedFilter = {
+        clinic_id: c.id,
+        is_active: true,
+        start_datetime: { $gte: new Date(date + 'T00:00:00') },
+        end_datetime: { $lte: new Date(date + 'T23:59:59') }
+      }
+      if (doctor_id) {
+        blockedFilter.doctor_id = doctor_id
+      } else {
+        blockedFilter.$or = [
+          { doctor_id: null },
+          { doctor_id: { $exists: false } }
+        ]
+      }
+      const blockedSlots = await db.collection('blocked_slots').find(blockedFilter).toArray()
+      
+      // Generate list of times that fall within any block
+      const blockedTimes = []
+      slots.forEach(slotTime => {
+        const slotMin = toMin(slotTime)
+        const isBlocked = blockedSlots.some(block => {
+          const blockStartMin = block.start_datetime.getHours() * 60 + block.start_datetime.getMinutes()
+          const blockEndMin = block.end_datetime.getHours() * 60 + block.end_datetime.getMinutes()
+          return slotMin >= blockStartMin && slotMin < blockEndMin
+        })
+        if (isBlocked) blockedTimes.push(slotTime)
+      })
+      
+      return json({ date, slots: slots.map(t => ({ time: t, taken: taken.includes(t) || blockedTimes.includes(t), blocked: blockedTimes.includes(t) })) })
     }
     if (path[0] === 'public' && path[1] === 'clinic' && path[2] && path[3] === 'book' && m === 'POST') {
       const c = await db.collection('clinics').findOne({ slug: path[2], is_active: true })
