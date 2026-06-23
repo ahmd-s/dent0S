@@ -89,6 +89,12 @@ export async function POST(request) {
   const start_datetime = toDateTime(body.date, body.start_time)
   const end_datetime = toDateTime(body.date, body.end_time)
 
+  console.log('Saving block:', {
+    start_datetime: start_datetime,
+    end_datetime: end_datetime,
+    doctor_id: body.doctor_id
+  })
+
   if (start_datetime >= end_datetime) {
     return err('End time must be after start time')
   }

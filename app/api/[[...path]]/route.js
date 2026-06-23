@@ -112,6 +112,18 @@ async function handle(request, { params }) {
       }
       const blockedSlots = await db.collection('blocked_slots').find(blockedFilter).toArray()
       
+      console.log('Date queried:', date)
+      console.log('Doctor ID:', doctor_id)
+      console.log('Blocked slots found:', blockedSlots.length)
+      blockedSlots.forEach(b => {
+        console.log('Block:', {
+          start: b.start_datetime,
+          end: b.end_datetime,
+          doctor_id: b.doctor_id,
+          is_active: b.is_active
+        })
+      })
+      
       // Generate list of times that fall within any block
       const blockedTimes = []
       slots.forEach(slotTime => {
