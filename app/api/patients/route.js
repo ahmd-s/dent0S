@@ -117,13 +117,15 @@ export async function POST(request) {
     }
 
     // ── Generate patient code via atomic counter ────────────────────────────
-    const counter = await db.collection('counters').findOneAndUpdate(
-      { clinic_id: cid, type: 'patient' },
-      { $inc: { sequence: 1 } },
-      { upsert: true, returnDocument: 'after' }
-    )
-    const seq = counter?.sequence ?? 1
-    const patientCode = 'PT' + String(seq).padStart(5, '0')
+    const lastPatient = await db.collection('patients')
+  .find({ clinic_id: clinic.id, patient_code: { $regex: /^PT\d+$/ } })
+  .sort({ patient_code: -1 })
+  .limit(1)
+  .toArray()
+const lastNum = lastPatient.length > 0
+  ? parseInt(lastPatient[0].patient_code.replace('PT', '')) 
+  : 0
+const patientCode = 'PT' + String(lastNum + 1).padStart(5, '0')
 
     const id = uuidv4()
 
