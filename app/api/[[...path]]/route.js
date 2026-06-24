@@ -126,12 +126,15 @@ async function handle(request, { params }) {
       
       // Generate list of times that fall within any block
       const blockedTimes = []
+      const istOffsetMs = 330 * 60 * 1000 // IST = UTC + 5:30 = 330 minutes
       slots.forEach(slotTime => {
         const slotMin = toMin(slotTime)
         const isBlocked = blockedSlots.some(block => {
-          // Convert UTC datetime to minutes since midnight for comparison
-          const blockStartMin = block.start_datetime.getUTCHours() * 60 + block.start_datetime.getUTCMinutes()
-          const blockEndMin = block.end_datetime.getUTCHours() * 60 + block.end_datetime.getUTCMinutes()
+          // Convert stored UTC datetime to IST for comparison
+          const blockStartIST = new Date(new Date(block.start_datetime).getTime() + istOffsetMs)
+          const blockEndIST = new Date(new Date(block.end_datetime).getTime() + istOffsetMs)
+          const blockStartMin = blockStartIST.getUTCHours() * 60 + blockStartIST.getUTCMinutes()
+          const blockEndMin = blockEndIST.getUTCHours() * 60 + blockEndIST.getUTCMinutes()
           return slotMin >= blockStartMin && slotMin < blockEndMin
         })
         if (isBlocked) blockedTimes.push(slotTime)
