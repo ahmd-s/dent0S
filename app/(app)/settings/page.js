@@ -334,23 +334,22 @@ function ConsentFormsTab() {
 }
 
 function DoctorAvailabilityTab({ me }) {
-  const [blockedSlots, setBlockedSlots] = useState([])
+  const [blocks, setBlocks] = useState([])
   const [doctors, setDoctors] = useState([])
   const [open, setOpen] = useState(false)
-  const [editing, setEditing] = useState(null)
-  const [form, setForm] = useState({ doctor_id: '', date: '', start_time: '', end_time: '', title: '', notes: '' })
+  const [form, setForm] = useState({ doctor_id: '', date: '', start_time: '', end_time: '', reason: '' })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
   const load = async () => {
     setLoading(true)
-    const [slotsRes, docsRes] = await Promise.all([
-      fetch('/api/blocked-slots'),
+    const [blocksRes, docsRes] = await Promise.all([
+      fetch('/api/block-times'),
       fetch('/api/doctors')
     ])
-    const slotsData = await slotsRes.json()
+    const blocksData = await blocksRes.json()
     const docsData = await docsRes.json()
-    setBlockedSlots(slotsData.blocked_slots || [])
+    setBlocks(blocksData.blocks || [])
     setDoctors(docsData.doctors || [])
     setLoading(false)
   }
@@ -360,23 +359,21 @@ function DoctorAvailabilityTab({ me }) {
   const canEdit = me?.profile?.role === 'admin' || me?.profile?.role === 'doctor'
 
   const save = async () => {
-    if (saving) return // Prevent double-submission
-    if (!form.doctor_id || !form.date || !form.start_time || !form.end_time) {
+    if (saving) return
+    if (!form.doctor_id || !form.date || !form.start_time || !form.end_time || !form.reason) {
       toast.error('Please fill in all required fields')
       return
     }
     setSaving(true)
-    const url = editing ? `/api/blocked-slots/${editing.id}` : '/api/blocked-slots'
-    const r = await fetch(url, {
-      method: editing ? 'PUT' : 'POST',
+    const r = await fetch('/api/block-times', {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form)
     })
     if (r.ok) {
-      toast.success(editing ? 'Updated' : 'Created')
+      toast.success('Block added')
       setOpen(false)
-      setEditing(null)
-      setForm({ doctor_id: '', date: '', start_time: '', end_time: '', title: '', notes: '' })
+      setForm({ doctor_id: '', date: '', start_time: '', end_time: '', reason: '' })
       load()
     } else {
       const d = await r.json()
@@ -385,9 +382,9 @@ function DoctorAvailabilityTab({ me }) {
     setSaving(false)
   }
 
-  const deleteSlot = async (id) => {
-    if (!confirm('Delete this blocked slot?')) return
-    const r = await fetch(`/api/blocked-slots/${id}`, { method: 'DELETE' })
+  const deleteBlock = async (id) => {
+    if (!confirm('Delete this block?')) return
+    const r = await fetch(`/api/block-times/${id}`, { method: 'DELETE' })
     if (r.ok) {
       toast.success('Deleted')
       load()
@@ -396,47 +393,42 @@ function DoctorAvailabilityTab({ me }) {
     }
   }
 
-  const openEdit = (slot) => {
-    setEditing(slot)
-    setForm({
-      doctor_id: slot.doctor_id,
-      date: slot.date,
-      start_time: slot.start_time,
-      end_time: slot.end_time,
-      title: slot.title,
-      notes: slot.notes
-    })
-    setOpen(true)
-  }
+  const REASON_OPTIONS = ['Personal', 'Conference', 'Travel', 'Other']
 
-  const REASON_OPTIONS = ['Conference', 'Travel', 'Personal', 'Meeting', 'Training', 'Other']
+  // Generate 30-min time slots from 06:00 to 22:00
+  const TIME_SLOTS = (() => {
+    const slots = []
+    for (let h = 6; h <= 22; h++) {
+      for (let m = 0; m < 60; m += 30) {
+        slots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
+      }
+    }
+    return slots
+  })()
 
   return (
     <Card className="p-6 bg-white border-border rounded-lg">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold">Doctor Availability</h3>
-        {canEdit && <Button size="sm" onClick={() => { setEditing(null); setForm({ doctor_id: '', date: '', start_time: '', end_time: '', title: '', notes: '' }); setOpen(true) }} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>Add Block</Button>}
+        {canEdit && <Button size="sm" onClick={() => { setForm({ doctor_id: '', date: '', start_time: '', end_time: '', reason: '' }); setOpen(true) }} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>Add Block</Button>}
       </div>
       {loading && <div className="py-8 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-[#0D9488]"/></div>}
-      {!loading && blockedSlots.length === 0 && (
+      {!loading && blocks.length === 0 && (
         <div className="py-12 text-center">
-          <p className="text-muted-foreground text-sm">No blocked slots. Add blocks to mark when doctors are unavailable.</p>
+          <p className="text-muted-foreground text-sm">No blocked time slots. Add blocks to mark when doctors are unavailable.</p>
         </div>
       )}
-      {!loading && blockedSlots.length > 0 && (
+      {!loading && blocks.length > 0 && (
         <div className="space-y-3">
-          {blockedSlots.map(slot => (
-            <div key={slot.id} className="flex items-center gap-3 p-4 border border-border rounded-lg hover:bg-[#F8FAFC]/50">
+          {blocks.map(block => (
+            <div key={block.id} className="flex items-center gap-3 p-4 border border-border rounded-lg hover:bg-[#F8FAFC]/50">
               <div className="flex-1">
-                <div className="font-medium">{slot.doctor_name || 'All Doctors'}</div>
-                <div className="text-sm text-muted-foreground">{slot.date} · {slot.start_time} - {slot.end_time}</div>
-                <div className="text-xs text-muted-foreground mt-1">{slot.title} · {slot.source}</div>
+                <div className="font-medium">{block.doctor_name || 'All Doctors'}</div>
+                <div className="text-sm text-muted-foreground">{block.date} · {block.start_time} - {block.end_time}</div>
+                <div className="text-xs text-muted-foreground mt-1">{block.reason}</div>
               </div>
               {canEdit && (
-                <div className="flex items-center gap-1">
-                  <button onClick={() => openEdit(slot)} className="p-1.5 hover:bg-muted rounded"><Edit2 className="w-4 h-4 text-muted-foreground"/></button>
-                  <button onClick={() => deleteSlot(slot.id)} className="p-1.5 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4 text-red-500"/></button>
-                </div>
+                <button onClick={() => deleteBlock(block.id)} className="p-1.5 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4 text-red-500"/></button>
               )}
             </div>
           ))}
@@ -444,7 +436,7 @@ function DoctorAvailabilityTab({ me }) {
       )}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>{editing ? 'Edit Blocked Slot' : 'Add Blocked Slot'}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Add Blocked Time</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label>Doctor</Label>
@@ -462,29 +454,35 @@ function DoctorAvailabilityTab({ me }) {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Start Time</Label>
-                <Input type="time" value={form.start_time} onChange={e => setForm({ ...form, start_time: e.target.value })}/>
+                <Select value={form.start_time} onValueChange={v => setForm({ ...form, start_time: v })}>
+                  <SelectTrigger><SelectValue/></SelectTrigger>
+                  <SelectContent>
+                    {TIME_SLOTS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>End Time</Label>
-                <Input type="time" value={form.end_time} onChange={e => setForm({ ...form, end_time: e.target.value })}/>
+                <Select value={form.end_time} onValueChange={v => setForm({ ...form, end_time: v })}>
+                  <SelectTrigger><SelectValue/></SelectTrigger>
+                  <SelectContent>
+                    {TIME_SLOTS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="space-y-1.5">
               <Label>Reason</Label>
-              <Select value={form.title} onValueChange={v => setForm({ ...form, title: v })}>
+              <Select value={form.reason} onValueChange={v => setForm({ ...form, reason: v })}>
                 <SelectTrigger><SelectValue/></SelectTrigger>
                 <SelectContent>
                   {REASON_OPTIONS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label>Notes (Optional)</Label>
-              <Textarea rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Additional details..."/>
-            </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>Cancel</Button>
-              <Button onClick={save} disabled={saving} className="bg-[#0D9488] hover:bg-[#0B7E73]">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (editing ? 'Update' : 'Add Block')}</Button>
+              <Button onClick={save} disabled={saving} className="bg-[#0D9488] hover:bg-[#0B7E73]">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Add Block'}</Button>
             </div>
           </div>
         </DialogContent>

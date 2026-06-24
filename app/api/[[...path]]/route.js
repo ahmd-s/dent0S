@@ -8,7 +8,7 @@ import { createAnthropicMessage } from '@/lib/anthropic-messages'
 import { SMART_TYPING_SEED } from '@/lib/smart-typing-seed'
 import { setupIndexes } from '@/lib/setup-indexes'
 import { AWAITING_ACCEPTANCE_STATUSES, IN_PRODUCTION_STATUSES, READY_STATUSES, CLOSED_STATUSES } from '@/lib/lab-case-helpers'
-import { checkBlockedSlotConflict, toDateTime } from '@/lib/blocked-slots'
+import { timeToMinutes } from '@/lib/block-times'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -92,55 +92,37 @@ async function handle(request, { params }) {
       if (doctor_id) f.doctor_id = doctor_id
       const taken = (await db.collection('appointments').find(f).toArray()).map(a => a.appointment_time)
       
-      // Fetch blocked slots for this date and doctor using overlap logic
-      const dayStart = new Date(date + 'T00:00:00.000Z')
-      const dayEnd = new Date(date + 'T23:59:59.999Z')
-      
-      const blockedFilter = {
+      // Fetch block times for this date and doctor
+      const blockTimes = await db.collection('block_times').find({
         clinic_id: c.id,
+        date: date,
         is_active: { $ne: false },
-        start_datetime: { $lt: dayEnd },
-        end_datetime: { $gt: dayStart }
-      }
-      if (doctor_id) {
-        blockedFilter.doctor_id = doctor_id
-      } else {
-        blockedFilter.$or = [
+        $or: [
+          { doctor_id: doctor_id },
           { doctor_id: null },
           { doctor_id: { $exists: false } }
         ]
-      }
-      const blockedSlots = await db.collection('blocked_slots').find(blockedFilter).toArray()
-      
-      console.log('Date queried:', date)
-      console.log('Doctor ID:', doctor_id)
-      console.log('Blocked slots found:', blockedSlots.length)
-      blockedSlots.forEach(b => {
-        console.log('Block:', {
-          start: b.start_datetime,
-          end: b.end_datetime,
-          doctor_id: b.doctor_id,
-          is_active: b.is_active
+      }).toArray()
+
+      // Check which slots fall within blocked periods
+      // Both slot times and block times are in IST as plain strings
+      const blockedTimes = slots.filter(slotTime => {
+        const slotMin = timeToMinutes(slotTime)
+        return blockTimes.some(block => {
+          const blockStart = timeToMinutes(block.start_time)
+          const blockEnd = timeToMinutes(block.end_time)
+          return slotMin >= blockStart && slotMin < blockEnd
         })
       })
-      
-      // Generate list of times that fall within any block
-      const blockedTimes = []
-      const istOffsetMs = 330 * 60 * 1000 // IST = UTC + 5:30 = 330 minutes
-      slots.forEach(slotTime => {
-        const slotMin = toMin(slotTime)
-        const isBlocked = blockedSlots.some(block => {
-          // Convert stored UTC datetime to IST for comparison
-          const blockStartIST = new Date(new Date(block.start_datetime).getTime() + istOffsetMs)
-          const blockEndIST = new Date(new Date(block.end_datetime).getTime() + istOffsetMs)
-          const blockStartMin = blockStartIST.getUTCHours() * 60 + blockStartIST.getUTCMinutes()
-          const blockEndMin = blockEndIST.getUTCHours() * 60 + blockEndIST.getUTCMinutes()
-          return slotMin >= blockStartMin && slotMin < blockEndMin
-        })
-        if (isBlocked) blockedTimes.push(slotTime)
+
+      return json({ 
+        date, 
+        slots: slots.map(t => ({ 
+          time: t, 
+          taken: taken.includes(t) || blockedTimes.includes(t),
+          blocked: blockedTimes.includes(t)
+        })) 
       })
-      
-      return json({ date, slots: slots.map(t => ({ time: t, taken: taken.includes(t) || blockedTimes.includes(t), blocked: blockedTimes.includes(t) })) })
     }
     if (path[0] === 'public' && path[1] === 'clinic' && path[2] && path[3] === 'book' && m === 'POST') {
       const c = await db.collection('clinics').findOne({ slug: path[2], is_active: true })
@@ -154,12 +136,28 @@ async function handle(request, { params }) {
       // re-check slot using shared conflict detection
       const hasConflict = await checkAppointmentConflict(db, c.id, b.doctor_id, b.appointment_date, b.appointment_time)
       if (hasConflict) return json({ success: false, message: 'This slot is already booked.' }, 409)
-      // check blocked slot conflict
-      const appointment_start = toDateTime(b.appointment_date, b.appointment_time)
-      const appointment_end = new Date(appointment_start.getTime() + 30 * 60000) // default 30 min duration
-      const hasBlockedConflict = await checkBlockedSlotConflict(db, c.id, b.doctor_id, appointment_start, appointment_end)
-      if (hasBlockedConflict) return json({ success: false, message: 'Doctor is unavailable during this time.' }, 409)
-      
+
+      // check block_times conflict
+      const bookingMin = timeToMinutes(b.appointment_time)
+      const blockConflict = await db.collection('block_times').findOne({
+        clinic_id: c.id,
+        date: b.appointment_date,
+        is_active: { $ne: false },
+        $or: [
+          { doctor_id: b.doctor_id },
+          { doctor_id: null },
+          { doctor_id: { $exists: false } }
+        ]
+      })
+
+      if (blockConflict) {
+        const blockStart = timeToMinutes(blockConflict.start_time)
+        const blockEnd = timeToMinutes(blockConflict.end_time)
+        if (bookingMin >= blockStart && bookingMin < blockEnd) {
+          return err('This time slot is not available', 400)
+        }
+      }
+
       const id = uuidv4()
       let patient_id = null
       let patient_name_temp = null
@@ -549,12 +547,6 @@ async function handle(request, { params }) {
       const doctorToCheck = b.doctor_id || profile.id
       const hasConflict = await checkAppointmentConflict(db, cid, doctorToCheck, b.appointment_date, b.appointment_time)
       if (hasConflict) return json({ success: false, message: 'This slot is already booked.' }, 409)
-      // check blocked slot conflict
-      const appointment_start = toDateTime(b.appointment_date, b.appointment_time)
-      const duration_minutes = b.duration_minutes || 30
-      const appointment_end = new Date(appointment_start.getTime() + duration_minutes * 60000)
-      const hasBlockedConflict = await checkBlockedSlotConflict(db, cid, doctorToCheck, appointment_start, appointment_end)
-      if (hasBlockedConflict) return json({ success: false, message: 'Doctor is unavailable during this time.' }, 409)
       const id = uuidv4()
       await db.collection('appointments').insertOne({ id, clinic_id: cid, patient_id: b.patient_id||null, doctor_id: b.doctor_id||profile.id, patient_name_temp: b.patient_name_temp||'', patient_phone_temp: b.patient_phone_temp||'', appointment_date: b.appointment_date, appointment_time: b.appointment_time, duration_minutes: b.duration_minutes||30, status:'scheduled', appointment_type: b.appointment_type||'consultation', chief_complaint: b.chief_complaint||'', notes: b.notes||'', booked_via: b.booked_via||'in_clinic', created_by: profile.id, created_at: new Date() })
       
