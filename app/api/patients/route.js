@@ -28,7 +28,6 @@ async function requireUser() {
 }
 
 // ── GET /api/patients ────────────────────────────────────────────────────────
-// Server-side paginated patient list for the internal dashboard.
 export async function GET(request) {
   try {
     const user = await requireUser()
@@ -68,7 +67,10 @@ export async function GET(request) {
 
     return json({
       patients: patients.map(clean),
-      pagination: { page, page_size: pageSize, total_count: totalCount, total_pages: totalPages, has_next: page < totalPages, has_prev: page > 1 }
+      pagination: {
+        page, page_size: pageSize, total_count: totalCount,
+        total_pages: totalPages, has_next: page < totalPages, has_prev: page > 1
+      }
     })
 
   } catch (error) {
@@ -78,9 +80,8 @@ export async function GET(request) {
 }
 
 // ── POST /api/patients ───────────────────────────────────────────────────────
-// IDEMPOTENT: if a patient with the same phone already exists in this clinic,
-// returns the existing record (HTTP 200 with existing: true) instead of
-// creating a duplicate. A new record is created only when none exists.
+// Rule: same clinic + same phone + same name = duplicate, block it.
+// Same phone + different name = allowed (family members).
 export async function POST(request) {
   try {
     const user = await requireUser()
@@ -95,16 +96,24 @@ export async function POST(request) {
     if (!b.name || !b.phone) return err('Name and phone required')
 
     const phone = b.phone.toString().trim().replace(/\D/g, '')
+    const name = b.name.trim()
     if (!/^\d{10}$/.test(phone)) return err('Phone must be a 10-digit number')
 
-    // ── Idempotency: check for existing patient with same phone ────────────
+    // ── Duplicate check: same clinic + same phone + same name ──────────────
+    const nameRegex = new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')
     const existing = await db.collection('patients').findOne(
-      { clinic_id: cid, phone },
+      { clinic_id: cid, phone, name: { $regex: nameRegex }, is_archived: { $ne: true } },
       { projection: { _id: 0 } }
     )
     if (existing) {
-      // Return existing patient — never create a duplicate
-      return json({ ok: true, id: existing.id, patient: clean(existing), existing: true })
+      // Same person already exists — return their record with a clear message
+      return json({
+        ok: true,
+        id: existing.id,
+        patient: clean(existing),
+        existing: true,
+        message: 'A patient with this name and phone already exists.'
+      })
     }
 
     // ── Generate patient code via atomic counter ────────────────────────────
@@ -122,7 +131,7 @@ export async function POST(request) {
       await db.collection('patients').insertOne({
         id,
         clinic_id: cid,
-        name: b.name.trim(),
+        name,
         phone,
         dob: b.dob || null,
         age: b.age ? parseInt(b.age) : null,
@@ -140,9 +149,11 @@ export async function POST(request) {
         created_at: new Date()
       })
     } catch (insertErr) {
-      // Unique index violation — concurrent insert beat us; return that record
+      // Unique index violation — race condition
       if (insertErr.code === 11000) {
-        const raceExisting = await db.collection('patients').findOne({ clinic_id: cid, phone })
+        const raceExisting = await db.collection('patients').findOne(
+          { clinic_id: cid, phone, name: { $regex: nameRegex } }
+        )
         if (raceExisting) {
           return json({ ok: true, id: raceExisting.id, patient: clean(raceExisting), existing: true })
         }
