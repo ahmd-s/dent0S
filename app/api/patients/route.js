@@ -87,7 +87,7 @@ export async function POST(request) {
     const user = await requireUser()
     if (!user) return err('Unauthorized', 401)
 
-    const { profile, db } = user
+    const { profile, clinic, db } = user
     const cid = profile.clinic_id
 
     if (profile.role === 'receptionist') return err('Forbidden', 403)
