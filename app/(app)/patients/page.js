@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Plus, Phone, Search, Eye, CalendarPlus, X, Loader2 } from 'lucide-react'
+import { Plus, Phone, Search, Eye, CalendarPlus, X, Loader2, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { useRole } from '@/components/dentos/RoleContext'
+import ImportPatientsModal from '@/components/dentos/ImportPatientsModal'
 
 const fmtDate = d => d ? `${String(new Date(d).getDate()).padStart(2,'0')}/${String(new Date(d).getMonth()+1).padStart(2,'0')}/${new Date(d).getFullYear()}` : '—'
 const PAGE_SIZE = 20
@@ -21,6 +22,7 @@ function App() {
   const [filter, setFilter] = useState('all')
   const [page, setPage] = useState(1)
   const [open, setOpen] = useState(false)
+  const [importModalOpen, setImportModalOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const { isReceptionist } = useRole()
   const receptionist = isReceptionist()
@@ -44,7 +46,24 @@ function App() {
     <div className="max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
         <div><p className="text-muted-foreground text-sm">Manage all patients in your clinic</p></div>
-        {!receptionist && <AddPatientButton onCreated={load} open={open} setOpen={setOpen} />}
+        {!receptionist && (
+          <div className="flex gap-2">
+            <ImportPatientsModal 
+              open={importModalOpen} 
+              onOpenChange={setImportModalOpen} 
+              onImportComplete={load} 
+            />
+            <Button 
+              variant="outline" 
+              className="gap-2"
+              onClick={() => setImportModalOpen(true)}
+            >
+              <Upload className="w-4 h-4" />
+              Import Patients
+            </Button>
+            <AddPatientButton onCreated={load} open={open} setOpen={setOpen} />
+          </div>
+        )}
       </div>
       <Card className="mt-5 p-4 bg-white border-border rounded-lg flex items-center gap-3">
         <div className="flex-1 relative">
