@@ -9,6 +9,7 @@ import { useRole } from './RoleContext'
 import { Badge } from '@/components/ui/badge'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
+import { canAccessRoute } from '@/lib/rbac'
 
 const NAV_ALL = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -18,7 +19,7 @@ const NAV_ALL = [
   { href: '/vendors', label: 'Vendors', icon: Building2 },
   { href: '/inventory', label: 'Inventory', icon: Package },
   { href: '/billing', label: 'Billing', icon: Receipt },
-  { href: '/settings', label: 'Settings', icon: Settings, receptionistHidden: true },
+  { href: '/settings', label: 'Settings', icon: Settings },
 ]
 
 const INVENTORY_SUBNAV = [
@@ -58,12 +59,11 @@ function roleBadgeLabel(role) {
 export default function AppShell({ children }) {
   const pathname = usePathname()
   const router = useRouter()
-  const { me, isReceptionist } = useRole()
+  const { me, currentRole } = useRole()
   const { theme, setTheme } = useTheme()
   const navItems = useMemo(() => {
-    if (isReceptionist()) return NAV_ALL.filter(n => !n.receptionistHidden)
-    return NAV_ALL
-  }, [isReceptionist])
+    return NAV_ALL.filter(n => canAccessRoute(currentRole, n.href))
+  }, [currentRole])
   const [q, setQ] = useState('')
   const [results, setResults] = useState([])
   const [showResults, setShowResults] = useState(false)
@@ -188,7 +188,7 @@ export default function AppShell({ children }) {
                 {results.length === 0 ? (
                   <div className="p-4 text-sm text-muted-foreground flex items-center justify-between">
                     <span>No patient found</span>
-                    {!isReceptionist() && <Link href="/patients" className="text-[#0D9488] hover:underline flex items-center gap-1"><Plus className="w-3 h-3"/>Add new</Link>}
+                    {canAccessRoute(currentRole, '/patients') && <Link href="/patients" className="text-[#0D9488] hover:underline flex items-center gap-1"><Plus className="w-3 h-3"/>Add new</Link>}
                   </div>
                 ) : results.map(p => (
                   <button key={p.id} onClick={()=>{router.push(`/patients/${p.id}`); setQ(''); setShowResults(false)}}

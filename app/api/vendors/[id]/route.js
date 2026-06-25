@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { requireUser, json, err, clean, cors, isReceptionist } from '@/lib/api-helpers'
+import { requireUser, json, err, clean, cors } from '@/lib/api-helpers'
+import { canManageInventory } from '@/lib/rbac'
 
 export async function OPTIONS() { return cors(new NextResponse(null, { status: 200 })) }
 
@@ -20,7 +21,7 @@ export async function PUT(request, { params }) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
-    if (isReceptionist(profile)) return err('Forbidden', 403)
+    if (!canManageInventory(profile.role)) return err('Forbidden', 403)
     const b = await request.json()
     if ('name' in b && !b.name?.trim()) return err('Vendor name is required')
     if (b.phone && !/^\d{7,15}$/.test(String(b.phone).replace(/\D/g, ''))) return err('Phone must be 7-15 digits')
@@ -41,7 +42,7 @@ export async function DELETE(request, { params }) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
-    if (isReceptionist(profile)) return err('Forbidden', 403)
+    if (!canManageInventory(profile.role)) return err('Forbidden', 403)
     const v = await db.collection('vendors').findOne({ id: params.id, clinic_id: cid })
     if (!v) return err('Vendor not found', 404)
     const openCases = await db.collection('lab_cases').countDocuments({

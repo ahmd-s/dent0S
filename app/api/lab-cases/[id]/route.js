@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
-import { requireUser, json, err, clean, cors, isReceptionist } from '@/lib/api-helpers'
+import { requireUser, json, err, clean, cors } from '@/lib/api-helpers'
 import { LAB_CASE_STATUSES, safeIsoDate, populateNames, secureToken } from '@/lib/lab-case-helpers'
 import { logAudit, AUDIT_ACTIONS, AUDIT_SOURCE } from '@/lib/audit'
+import { canManageInventory } from '@/lib/rbac'
 
 export async function OPTIONS() { return cors(new NextResponse(null, { status: 200 })) }
 
@@ -29,6 +30,7 @@ export async function PUT(request, { params }) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
+    if (!canManageInventory(profile.role)) return err('Forbidden', 403)
     const b = await request.json()
     const lc = await db.collection('lab_cases').findOne({ id: params.id, clinic_id: cid })
     if (!lc) return err('Lab case not found', 404)
@@ -82,7 +84,7 @@ export async function DELETE(request, { params }) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
-    if (isReceptionist(profile)) return err('Forbidden', 403)
+    if (!canManageInventory(profile.role)) return err('Forbidden', 403)
     const r = await db.collection('lab_cases').deleteOne({ id: params.id, clinic_id: cid })
     if (!r.deletedCount) return err('Lab case not found', 404)
     return json({ ok: true })

@@ -31,8 +31,8 @@ const statusBadge = s => {
 
 function App() {
   const router = useRouter()
-  const { isReceptionist } = useRole()
-  const receptionist = isReceptionist()
+  const { canAccessClinical } = useRole()
+  const canStartVisit = canAccessClinical()
   const [stats, setStats] = useState(null)
   const [bookOpen, setBookOpen] = useState(false)
   const [balanceModalOpen, setBalanceModalOpen] = useState(false)
@@ -86,7 +86,7 @@ function App() {
         })}
       </div>
 
-      <QuickSearchBar onBook={()=>setBookOpen(true)} receptionist={receptionist} />
+      <QuickSearchBar onBook={()=>setBookOpen(true)} canStartVisit={canStartVisit} />
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
         <Card className="lg:col-span-3 p-6 bg-white border-border rounded-lg">
@@ -117,11 +117,11 @@ function App() {
                     <td className="py-3">{statusBadge(a.status)}</td>
                     <td className="py-3">
                       <div className="flex justify-end items-center gap-1">
-                        {a.status==='scheduled' && <Button size="sm" onClick={()=>setStatus(a.id,'arrived')} className="h-7 text-xs bg-blue-600 hover:bg-blue-700">{receptionist ? 'Check In' : 'Mark Arrived'}</Button>}
-                        {!receptionist && a.status==='arrived' && <Button size="sm" onClick={()=>startVisit(a)} className="h-7 text-xs bg-[#0D9488] hover:bg-[#0B7E73]">Start Visit</Button>}
-                        {receptionist && a.status==='arrived' && <span className="text-xs text-muted-foreground whitespace-nowrap pr-1">Waiting for doctor</span>}
-                        {!receptionist && a.status==='in_progress' && <Button size="sm" onClick={()=>cont(a)} className="h-7 text-xs bg-orange-500 hover:bg-orange-600">Continue</Button>}
-                        {!receptionist && a.status==='completed' && a.visit_id && <Button size="sm" variant="outline" onClick={()=>router.push(`/visits/${a.visit_id}`)} className="h-7 text-xs">View</Button>}
+                        {a.status==='scheduled' && <Button size="sm" onClick={()=>setStatus(a.id,'arrived')} className="h-7 text-xs bg-blue-600 hover:bg-blue-700">{!canStartVisit ? 'Check In' : 'Mark Arrived'}</Button>}
+                        {canStartVisit && a.status==='arrived' && <Button size="sm" onClick={()=>startVisit(a)} className="h-7 text-xs bg-[#0D9488] hover:bg-[#0B7E73]">Start Visit</Button>}
+                        {!canStartVisit && a.status==='arrived' && <span className="text-xs text-muted-foreground whitespace-nowrap pr-1">Waiting for doctor</span>}
+                        {canStartVisit && a.status==='in_progress' && <Button size="sm" onClick={()=>cont(a)} className="h-7 text-xs bg-orange-500 hover:bg-orange-600">Continue</Button>}
+                        {canStartVisit && a.status==='completed' && a.visit_id && <Button size="sm" variant="outline" onClick={()=>router.push(`/visits/${a.visit_id}`)} className="h-7 text-xs">View</Button>}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild><button className="w-7 h-7 hover:bg-muted rounded flex items-center justify-center"><MoreVertical className="w-3.5 h-3.5"/></button></DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
@@ -168,7 +168,7 @@ function App() {
   )
 }
 
-function QuickSearchBar({ onBook, receptionist }) {
+function QuickSearchBar({ onBook, canStartVisit }) {
   const router = useRouter()
   const [q, setQ] = useState('')
   const [results, setResults] = useState([])
@@ -192,7 +192,7 @@ function QuickSearchBar({ onBook, receptionist }) {
             <Input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search by name or phone number…" className="pl-9 h-11 text-base"/>
             {q && (
               <div className="absolute top-12 left-0 right-0 bg-white border border-border rounded-md shadow-lg z-10">
-                {results.length===0 ? <div className="p-3 text-sm flex items-center justify-between"><span className="text-muted-foreground">No patient found.</span>{!receptionist && <Link href="/patients" className="text-[#0D9488] hover:underline flex items-center gap-1"><Plus className="w-3 h-3"/>Add New Patient</Link>}</div>
+                {results.length===0 ? <div className="p-3 text-sm flex items-center justify-between"><span className="text-muted-foreground">No patient found.</span>{canStartVisit && <Link href="/patients" className="text-[#0D9488] hover:underline flex items-center gap-1"><Plus className="w-3 h-3"/>Add New Patient</Link>}</div>
                  : results.map(p=>(
                   <button key={p.id} onClick={()=>router.push(`/patients/${p.id}`)} className="w-full text-left px-4 py-2.5 hover:bg-[#F8FAFC] border-b border-border last:border-0 flex items-center justify-between">
                     <div className="flex items-center gap-2">

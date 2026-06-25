@@ -42,8 +42,8 @@ function Field({ label, value }) {
 function App() {
   const { id } = useParams()
   const router = useRouter()
-  const { isReceptionist } = useRole()
-  const receptionist = isReceptionist()
+  const { canManageInventory } = useRole()
+  const canManage = canManageInventory()
   const [lc, setLc] = useState(null)
   const [saving, setSaving] = useState(false)
   const [statusNote, setStatusNote] = useState('')
@@ -115,7 +115,7 @@ function App() {
           </div>
           <div className="text-sm text-muted-foreground mt-1">{lc.case_type} · for <Link href={`/patients/${lc.patient_id}`} className="text-[#0D9488] hover:underline">{lc.patient_name}</Link></div>
         </div>
-        {!receptionist && <Button variant="outline" onClick={del} className="text-red-600 hover:text-red-700 hover:bg-red-50"><Trash2 className="w-4 h-4 mr-1"/>Delete</Button>}
+        {canManage && <Button variant="outline" onClick={del} className="text-red-600 hover:text-red-700 hover:bg-red-50"><Trash2 className="w-4 h-4 mr-1"/>Delete</Button>}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

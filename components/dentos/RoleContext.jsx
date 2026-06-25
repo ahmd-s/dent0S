@@ -2,6 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
+import { canManageBilling, canManageInventory, canManageStaff, canAccessClinical, canAccessSettings } from '@/lib/rbac'
 
 const RoleContext = createContext(null)
 
@@ -53,8 +54,11 @@ export function RoleProvider({ children }) {
     const isDoctor = () => role === 'doctor'
     const isReceptionist = () => role === 'receptionist'
     const isAdmin = () => role === 'admin'
-    const canAccessClinical = () => role === 'doctor' || role === 'admin'
-    const canAccessSettings = () => canAccessClinical()
+    const canAccessClinicalInternal = () => canAccessClinical(role)
+    const canAccessSettingsInternal = () => canAccessSettings(role)
+    const canManageBillingInternal = () => canManageBilling(role)
+    const canManageInventoryInternal = () => canManageInventory(role)
+    const canManageStaffInternal = () => canManageStaff(role)
     return {
       me,
       loading,
@@ -63,8 +67,11 @@ export function RoleProvider({ children }) {
       isDoctor,
       isReceptionist,
       isAdmin,
-      canAccessClinical,
-      canAccessSettings,
+      canAccessClinical: canAccessClinicalInternal,
+      canAccessSettings: canAccessSettingsInternal,
+      canManageBilling: canManageBillingInternal,
+      canManageInventory: canManageInventoryInternal,
+      canManageStaff: canManageStaffInternal,
     }
   }, [me, loading, refresh])
 

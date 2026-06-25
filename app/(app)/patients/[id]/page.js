@@ -127,12 +127,12 @@ const loadLabCases = async () => {
         </div>
 
         <div className="lg:col-span-7">
-          <Tabs defaultValue="visits">
+          <Tabs defaultValue={receptionist ? "appointments" : "visits"}>
             <TabsList className="bg-[#F8FAFC]">
-              <TabsTrigger value="visits">Visit History</TabsTrigger>
+              {!receptionist && <TabsTrigger value="visits">Visit History</TabsTrigger>}
               <TabsTrigger value="appointments">Appointments</TabsTrigger>
-              <TabsTrigger value="documents">Documents</TabsTrigger>
-              <TabsTrigger value="lab-cases">Lab Cases</TabsTrigger>
+              {!receptionist && <TabsTrigger value="documents">Documents</TabsTrigger>}
+              {!receptionist && <TabsTrigger value="lab-cases">Lab Cases</TabsTrigger>}
               <TabsTrigger value="consents">Consent Forms</TabsTrigger>
               {!receptionist && <TabsTrigger value="ai">AI Summary</TabsTrigger>}
             </TabsList>

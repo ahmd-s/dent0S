@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { canAccessRoute } from '@/lib/rbac'
 
 const PUBLIC_PATHS = ['/login', '/signup']
 const PROTECTED_PREFIXES = ['/dashboard', '/onboarding', '/patients', '/appointments', '/lab-cases', '/vendors', '/billing', '/settings', '/visits', '/inventory']
@@ -29,13 +30,8 @@ export function middleware(req) {
   if (PROTECTED_PREFIXES.some(p => pathname === p || pathname.startsWith(p + '/'))) {
     if (!token) return NextResponse.redirect(new URL('/login', req.url))
     const payload = jwtPayload(token)
-    if (payload?.role === 'receptionist') {
-      if (pathname === '/settings' || pathname.startsWith('/settings/')) {
-        return NextResponse.redirect(new URL('/dashboard', req.url))
-      }
-      if (pathname.startsWith('/visits')) {
-        return NextResponse.redirect(new URL('/dashboard', req.url))
-      }
+    if (!canAccessRoute(payload?.role, pathname)) {
+      return NextResponse.redirect(new URL('/dashboard?error=unauthorized', req.url))
     }
   }
   return NextResponse.next()

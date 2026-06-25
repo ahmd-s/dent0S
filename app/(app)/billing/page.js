@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
+import { useRole } from '@/components/dentos/RoleContext'
 
 const inr = n => '₹' + (n||0).toLocaleString('en-IN')
 const fmtDate = d => d ? `${String(new Date(d+'T00:00:00').getDate()).padStart(2,'0')}/${String(new Date(d+'T00:00:00').getMonth()+1).padStart(2,'0')}/${new Date(d+'T00:00:00').getFullYear()}` : '—'
@@ -22,6 +23,7 @@ const statusBadge = s => {
 
 function App() {
   const router = useRouter()
+  const { canManageBilling } = useRole()
   const [list, setList] = useState([])
   const [summary, setSummary] = useState({ collected:0, pending:0, total:0 })
   const [from, setFrom] = useState(monthAgo())
@@ -102,7 +104,7 @@ function App() {
                   <td className="px-5 py-3">
                     <div className="flex justify-end gap-2">
                       <Link href={`/billing/${i.id}`}><Button size="sm" variant="outline" className="h-8"><Eye className="w-3.5 h-3.5 mr-1"/>View</Button></Link>
-                      {(i.payment_status==='pending' || i.payment_status==='partial') && <Button size="sm" onClick={()=>setPayOpen(i)} className="h-8 bg-[#0D9488] hover:bg-[#0B7E73]">Mark Paid</Button>}
+                      {canManageBilling() && (i.payment_status==='pending' || i.payment_status==='partial') && <Button size="sm" onClick={()=>setPayOpen(i)} className="h-8 bg-[#0D9488] hover:bg-[#0B7E73]">Mark Paid</Button>}
                     </div>
                   </td>
                 </tr>

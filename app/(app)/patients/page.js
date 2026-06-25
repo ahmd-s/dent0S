@@ -24,8 +24,8 @@ function App() {
   const [open, setOpen] = useState(false)
   const [importModalOpen, setImportModalOpen] = useState(false)
   const [loading, setLoading] = useState(true)
-  const { isReceptionist } = useRole()
-  const receptionist = isReceptionist()
+  const { canAccessClinical } = useRole()
+  const canImport = canAccessClinical()
 
   const load = async () => {
     setLoading(true)
@@ -46,7 +46,7 @@ function App() {
     <div className="max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
         <div><p className="text-muted-foreground text-sm">Manage all patients in your clinic</p></div>
-        {!receptionist && (
+        {canImport && (
           <div className="flex gap-2">
             <ImportPatientsModal 
               open={importModalOpen} 

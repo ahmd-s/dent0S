@@ -9,6 +9,7 @@ import { SMART_TYPING_SEED } from '@/lib/smart-typing-seed'
 import { setupIndexes } from '@/lib/setup-indexes'
 import { AWAITING_ACCEPTANCE_STATUSES, IN_PRODUCTION_STATUSES, READY_STATUSES, CLOSED_STATUSES } from '@/lib/lab-case-helpers'
 import { timeToMinutes } from '@/lib/block-times'
+import { hasPermission, canManageBilling, canManageStaff, canAccessClinical } from '@/lib/rbac'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -54,9 +55,6 @@ async function requireUser() {
   const clinic = await db.collection('clinics').findOne({ id: profile.clinic_id })
   return { profile, clinic, db }
 }
-
-const clinicalAccess = p => p?.role === 'admin' || p?.role === 'doctor'
-const isReceptionist = p => p?.role === 'receptionist'
 
 export async function OPTIONS() { return cors(new NextResponse(null, { status: 200 })) }
 
@@ -352,19 +350,19 @@ async function handle(request, { params }) {
 
     // ============ ONBOARDING ============
     if (route === '/onboarding/clinic' && m === 'POST') {
-      if (isReceptionist(profile)) return err('Forbidden', 403)
+      if (!hasPermission(profile.role, 'settings', 'update')) return err('Forbidden', 403)
       const b = await request.json()
       await db.collection('clinics').updateOne({ id: cid }, { $set: { name: b.name, address: b.address, city: b.city, phone: b.phone, gstin: b.gstin || '', logo_url: b.logo_url || '' }})
       return json({ ok:true })
     }
     if (route === '/onboarding/hours' && m === 'POST') {
-      if (isReceptionist(profile)) return err('Forbidden', 403)
+      if (!hasPermission(profile.role, 'settings', 'update')) return err('Forbidden', 403)
       const b = await request.json()
       await db.collection('clinics').updateOne({ id: cid }, { $set: { working_hours: b.working_hours }})
       return json({ ok:true })
     }
     if (route === '/onboarding/team' && m === 'POST') {
-      if (!clinicalAccess(profile)) return err('Forbidden', 403)
+      if (!canManageStaff(profile.role)) return err('Forbidden', 403)
       const b = await request.json(); const email = (b.email||'').toLowerCase().trim()
       if (!b.full_name || !email || !b.password) return err('Missing fields')
       if (!b.role || !['doctor', 'receptionist'].includes(b.role)) return err('Role must be doctor or receptionist', 400)
@@ -388,7 +386,7 @@ async function handle(request, { params }) {
 
     // ============ CLINIC SETTINGS ============
     if (route === '/clinic' && m === 'PUT') {
-      if (isReceptionist(profile)) return err('Forbidden', 403)
+      if (!hasPermission(profile.role, 'settings', 'update')) return err('Forbidden', 403)
       const b = await request.json()
       const allowed = ['name','phone','address','city','gstin','logo_url','working_hours','slug']
       const update = {}
@@ -410,12 +408,12 @@ async function handle(request, { params }) {
       return json({ doctors: docs.map(d => ({ id:d.id, full_name:d.full_name, specialization:d.specialization||'', profile_photo_url:d.profile_photo_url||'' })) })
     }
     if (route === '/team' && m === 'GET') {
-      if (isReceptionist(profile)) return err('Forbidden', 403)
+      if (!hasPermission(profile.role, 'staff', 'read')) return err('Forbidden', 403)
       const team = await db.collection('profiles').find({ clinic_id: cid }).toArray()
       return json({ team: team.map(clean) })
     }
     if (route === '/team' && m === 'POST') {
-      if (!clinicalAccess(profile)) return err('Forbidden', 403)
+      if (!canManageStaff(profile.role)) return err('Forbidden', 403)
       const b = await request.json(); const email = (b.email||'').toLowerCase().trim()
       if (!b.full_name || !email || !b.password || !b.role) return err('Missing fields')
       if (!['doctor', 'receptionist'].includes(b.role)) return err('Role must be doctor or receptionist', 400)
@@ -433,7 +431,7 @@ async function handle(request, { params }) {
       return json({ ok:true, id, invite_email_sent: !!emailResult?.sent })
     }
     if (path[0] === 'team' && path[1] && m === 'PUT') {
-      if (!clinicalAccess(profile)) return err('Forbidden', 403)
+      if (!canManageStaff(profile.role)) return err('Forbidden', 403)
       const b = await request.json(); const update = {}
       if ('role' in b) {
         if (!['admin', 'doctor', 'receptionist'].includes(b.role)) return err('Invalid role', 400)
@@ -447,12 +445,12 @@ async function handle(request, { params }) {
 
     // ============ TREATMENT TEMPLATES ============
     if (route === '/treatment_templates' && m === 'GET') {
-      if (isReceptionist(profile)) return err('Forbidden', 403)
+      if (!hasPermission(profile.role, 'consent_templates', 'read')) return err('Forbidden', 403)
       const list = await db.collection('treatment_templates').find({ clinic_id: cid }).sort({ name: 1 }).toArray()
       return json({ templates: list.map(clean) })
     }
     if (route === '/treatment_templates' && m === 'POST') {
-      if (isReceptionist(profile)) return err('Forbidden', 403)
+      if (!hasPermission(profile.role, 'consent_templates', 'create')) return err('Forbidden', 403)
       const b = await request.json()
       if (!b.name) return err('Name required')
       const id = uuidv4()
@@ -460,14 +458,14 @@ async function handle(request, { params }) {
       return json({ ok:true, id })
     }
     if (path[0]==='treatment_templates' && path[1] && m==='PUT') {
-      if (isReceptionist(profile)) return err('Forbidden', 403)
+      if (!hasPermission(profile.role, 'consent_templates', 'update')) return err('Forbidden', 403)
       const b = await request.json(); const u = {}
       for (const k of ['name','default_notes','default_price','category']) if (k in b) u[k] = k==='default_price'?parseFloat(b[k])||0:b[k]
       await db.collection('treatment_templates').updateOne({ id: path[1], clinic_id: cid }, { $set: u })
       return json({ ok:true })
     }
     if (path[0]==='treatment_templates' && path[1] && m==='DELETE') {
-      if (isReceptionist(profile)) return err('Forbidden', 403)
+      if (!hasPermission(profile.role, 'consent_templates', 'delete')) return err('Forbidden', 403)
       await db.collection('treatment_templates').deleteOne({ id: path[1], clinic_id: cid })
       return json({ ok:true })
     }
@@ -485,7 +483,7 @@ async function handle(request, { params }) {
       return json({ patients: list.map(clean) })
     }
     if (route === '/patients' && m === 'POST') {
-      if (isReceptionist(profile)) return err('Forbidden', 403)
+      if (!hasPermission(profile.role, 'patients', 'create')) return err('Forbidden', 403)
       const b = await request.json()
       if (!b.name || !b.phone) return err('Name and phone required')
       const id = uuidv4()
@@ -501,7 +499,8 @@ async function handle(request, { params }) {
     }
     if (path[0] === 'patients' && path[1] && m === 'PUT') {
       const b = await request.json(); delete b.id; delete b.clinic_id; delete b.created_at; delete b._id
-      if (isReceptionist(profile)) {
+      if (!hasPermission(profile.role, 'patients', 'update')) return err('Forbidden', 403)
+      if (!canAccessClinical(profile.role)) {
         delete b.allergies
         delete b.medical_history
       }
@@ -509,7 +508,7 @@ async function handle(request, { params }) {
       return json({ ok:true })
     }
     if (path[0] === 'patients' && path[1] && m === 'DELETE') {
-      if (isReceptionist(profile)) return err('Forbidden', 403)
+      if (!hasPermission(profile.role, 'patients', 'delete')) return err('Forbidden', 403)
       const p = await db.collection('patients').findOne({ id: path[1], clinic_id: cid })
       if (!p) return err('Not found', 404)
       // Delete related records
@@ -594,7 +593,7 @@ async function handle(request, { params }) {
 
     // ============ VISITS ============
     if (route === '/visits' && m === 'POST') {
-      if (isReceptionist(profile)) return err('Forbidden', 403)
+      if (!hasPermission(profile.role, 'visits', 'create')) return err('Forbidden', 403)
       const b = await request.json()
       if (!b.patient_id && b.appointment_id) {
 
@@ -755,7 +754,7 @@ async function handle(request, { params }) {
       return json({ visit: { ...cleanV, patient: clean(p), doctor_name: doc?.full_name||'', prescriptions: rxs.map(clean), previous_visit: prevList[0] ? clean(prevList[0]) : null, invoice: inv ? { ...cleanInv, items: items.map(clean) } : null } })
     }
     if (path[0]==='visits' && path[1] && m==='PUT') {
-      if (isReceptionist(profile)) return err('Forbidden', 403)
+      if (!hasPermission(profile.role, 'visits', 'update')) return err('Forbidden', 403)
       const b = await request.json()
       const allowed = ['chief_complaint','clinical_notes','diagnosis','treatment_done','treatment_plan','next_visit_recommended','next_visit_date']
       const update = {}
@@ -814,7 +813,7 @@ async function handle(request, { params }) {
     }
     // PUT /visits/:id/tooth-chart — save tooth chart for a visit
     if (path[0]==='visits' && path[1] && path[2]==='tooth-chart' && m==='PUT') {
-      if (isReceptionist(profile)) return err('Forbidden', 403)
+      if (!hasPermission(profile.role, 'visits', 'update')) return err('Forbidden', 403)
       const b = await request.json()
       const existing = await db.collection('tooth_charts').findOne({ 
         visit_id: path[1], clinic_id: cid 
@@ -914,7 +913,7 @@ async function handle(request, { params }) {
       return err('Invalid request')
     }
     if (path[0]==='invoices' && path[1] && m==='DELETE') {
-      if (isReceptionist(profile)) return err('Forbidden', 403)
+      if (!canManageBilling(profile.role)) return err('Forbidden', 403)
       const inv = await db.collection('invoices').findOne({ id: path[1], clinic_id: cid })
       if (!inv) return err('Not found', 404)
       await db.collection('invoice_items').deleteMany({ invoice_id: inv.id, clinic_id: cid })
@@ -1065,7 +1064,7 @@ async function handle(request, { params }) {
 
     // ============ AI PATIENT SUMMARY ============
     if (route === '/generate-summary' && m === 'POST') {
-      if (isReceptionist(profile)) return err('Forbidden', 403)
+      if (!canAccessClinical(profile.role)) return err('Forbidden', 403)
       const b = await request.json()
       if (!b.patient_id) return err('patient_id required')
       const p = await db.collection('patients').findOne({ id: b.patient_id, clinic_id: cid })

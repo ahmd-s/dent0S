@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { requireUser, json, err, clean, cors } from '@/lib/api-helpers'
 import { LAB_CASE_STATUSES, safeIsoDate, populateNames, secureToken } from '@/lib/lab-case-helpers'
 import { logAudit, AUDIT_ACTIONS, AUDIT_SOURCE } from '@/lib/audit'
+import { canManageInventory } from '@/lib/rbac'
 
 export async function OPTIONS() { return cors(new NextResponse(null, { status: 200 })) }
 
@@ -34,6 +35,9 @@ export async function POST(request) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
+    
+    if (!canManageInventory(profile.role)) return err('Forbidden', 403)
+    
     const b = await request.json()
     // Validation
     if (!b.patient_id) return err('Patient is required')

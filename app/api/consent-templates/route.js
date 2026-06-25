@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -59,7 +60,7 @@ export async function POST(request) {
     const { profile, db } = user
     const cid = profile.clinic_id
     
-    if (profile.role === 'receptionist') return err('Forbidden', 403)
+    if (!hasPermission(profile.role, 'consent_templates', 'create')) return err('Forbidden', 403)
     
     const b = await request.json()
     if (!b.name || !b.content) return err('Name and content required')
