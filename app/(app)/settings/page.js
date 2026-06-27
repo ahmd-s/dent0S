@@ -356,7 +356,7 @@ function DoctorAvailabilityTab({ me }) {
 
   useEffect(() => { load() }, [])
 
-  const canEdit = me?.profile?.role === 'admin' || me?.profile?.role === 'doctor'
+  const canEdit = canAccessSettings(me?.profile?.role)
 
   const save = async () => {
     if (saving) return

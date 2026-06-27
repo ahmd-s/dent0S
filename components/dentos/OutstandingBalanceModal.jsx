@@ -23,8 +23,8 @@ const formatDate = (dateStr) => {
 export default function OutstandingBalanceModal({ open, onOpenChange, patientId }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
-  const { isReceptionist } = useRole()
-  const receptionist = isReceptionist()
+  const { canManageBilling } = useRole()
+  const canManage = canManageBilling()
 
   useEffect(() => {
     if (!open || !patientId) return
@@ -97,7 +97,7 @@ export default function OutstandingBalanceModal({ open, onOpenChange, patientId 
               </div>
             </div>
 
-            {!receptionist && (
+            {canManage && (
               <Button
                 onClick={() => window.location.href = '/billing'}
                 className="w-full bg-[#0D9488] hover:bg-[#0B7E73]"
