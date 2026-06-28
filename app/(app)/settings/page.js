@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
+import { canAccessSettings } from '@/lib/rbac'
 
 const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 const TIMES = (() => { const arr = []; for (let h=6; h<=22; h++) for (let m=0;m<60;m+=30) { const hh=h%12===0?12:h%12, ap=h<12?'AM':'PM'; arr.push(`${String(hh).padStart(2,'0')}:${String(m).padStart(2,'0')} ${ap}`) } return arr })()
