@@ -122,7 +122,7 @@ function App() {
                     <td className="px-5 py-3" onClick={e=>e.stopPropagation()}>
                       <div className="flex justify-end gap-2">
                         <Link href={`/patients/${p.id}`}><Button size="sm" variant="outline" className="h-8"><Eye className="w-3.5 h-3.5 mr-1"/>View</Button></Link>
-                        <Link href={`/appointments?patient=${p.id}`}><Button size="sm" className="h-8 bg-[#0D9488] hover:bg-[#0B7E73]"><CalendarPlus className="w-3.5 h-3.5 mr-1"/>Book</Button></Link>
+                        <Button size="sm" className="h-8 bg-[#0D9488] hover:bg-[#0B7E73]" onClick={()=>{window.location.href=`/appointments?patient=${p.id}&patientName=${encodeURIComponent(p.name)}`}}><CalendarPlus className="w-3.5 h-3.5 mr-1"/>Book</Button>
                         <Button
   size="sm"
   variant="destructive"

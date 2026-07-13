@@ -54,11 +54,18 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [balanceModalOpen, setBalanceModalOpen] = useState(false)
   const [selectedPatientId, setSelectedPatientId] = useState(null)
+  const [prefillPatient, setPrefillPatient] = useState(null)
 
   useEffect(() => {
     const url = new URL(window.location.href)
     const pid = url.searchParams.get('patient')
-    if (pid) setOpen(true)
+    const pname = url.searchParams.get('patientName')
+    if (pid && pname) {
+      setPrefillPatient({ id: pid, name: decodeURIComponent(pname) })
+      setOpen(true)
+    } else if (pid) {
+      setOpen(true)
+    }
   }, [])
 
   const load = async () => {
@@ -237,14 +244,14 @@ function App() {
           ))}
         </div>
       )}
-      <NewAppointmentModal open={open} setOpen={setOpen} initialDate={date} onCreated={load} />
+      <NewAppointmentModal open={open} setOpen={(v)=>{setOpen(v); if(!v) setPrefillPatient(null)}} initialDate={date} onCreated={load} prefillPatient={prefillPatient} />
       <VerifyPatientModal open={verifyModalOpen} setOpen={setVerifyModalOpen} appointment={selectedAppointment} onVerified={load} />
       <OutstandingBalanceModal open={balanceModalOpen} onOpenChange={setBalanceModalOpen} patientId={selectedPatientId} />
     </div>
   )
 }
 
-function NewAppointmentModal({ open, setOpen, initialDate, onCreated }) {
+function NewAppointmentModal({ open, setOpen, initialDate, onCreated, prefillPatient }) {
   const [doctors, setDoctors] = useState([])
   const [pq, setPq] = useState('')
   const [pResults, setPresults] = useState([])
@@ -255,7 +262,8 @@ function NewAppointmentModal({ open, setOpen, initialDate, onCreated }) {
   const [conflict, setConflict] = useState(false)
   const [busy, setBusy] = useState(false)
 
-  useEffect(() => { if (open) { fetch('/api/doctors').then(r=>r.json()).then(d=>setDoctors(d.doctors||[])); setF(p=>({...p, appointment_date: initialDate})) } }, [open, initialDate])
+  useEffect(() => { if (open) { fetch('/api/doctors').then(r=>r.json()).then(d=>setDoctors(d.doctors||[])); setF(p=>({...p, appointment_date: initialDate })) } }, [open, initialDate])
+  useEffect(() => { if (open && prefillPatient) { setPicked(prefillPatient) } else if (open && !prefillPatient) { setPicked(null) } }, [open, prefillPatient])
   useEffect(() => {
     if (!pq) { setPresults([]); return }
     const t = setTimeout(async () => { const r = await fetch(`/api/patients?q=${encodeURIComponent(pq)}`); const d = await r.json(); setPresults((d.patients||[]).slice(0,5)) }, 250)
@@ -301,7 +309,7 @@ function NewAppointmentModal({ open, setOpen, initialDate, onCreated }) {
           <div className="space-y-1.5">
             <Label>Patient</Label>
             {picked ? (
-              <div className="flex items-center justify-between p-2 px-3 border border-border rounded-md bg-[#F8FAFC]"><div><div className="font-medium text-sm">{picked.name}</div><div className="text-xs text-muted-foreground">+91 {picked.phone}</div></div><button type="button" onClick={()=>setPicked(null)} className="text-xs text-[#0D9488] hover:underline">Change</button></div>
+              <div className="flex items-center justify-between p-2 px-3 border border-border rounded-md bg-[#F8FAFC]"><div><div className="font-medium text-sm">{picked.name}</div><div className="text-xs text-muted-foreground">+91 {picked.phone}</div></div>{!prefillPatient && <button type="button" onClick={()=>setPicked(null)} className="text-xs text-[#0D9488] hover:underline">Change</button>}</div>
             ) : walkin ? (
               <div className="grid grid-cols-2 gap-2"><Input placeholder="Patient name" value={walkinForm.name} onChange={e=>setWalkinForm({...walkinForm,name:e.target.value})}/><Input placeholder="Phone (10 digits)" value={walkinForm.phone} onChange={e=>setWalkinForm({...walkinForm,phone:e.target.value.replace(/\D/g,'').slice(0,10)})}/><button type="button" onClick={()=>setWalkin(false)} className="col-span-2 text-xs text-[#0D9488] hover:underline text-left">← Search existing patient instead</button></div>
             ) : (
