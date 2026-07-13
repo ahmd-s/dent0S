@@ -236,30 +236,6 @@ async function handle(request, { params }) {
       return json({ ok:true, id, doctor_name: doctor?.full_name || '', clinic_name: c.name, clinic_phone: c.phone, clinic_city: c.city, unmatched_note })
     }
 
-    // ============ CATALOG SEARCH (no auth) ============
-    // GET /catalog/items?q=composite
-    // Search master_catalog collection, return top 10 matches
-    if (path[0] === 'catalog' && path[1] === 'items' && m === 'GET') {
-      const url = new URL(request.url)
-      const q = url.searchParams.get('q') || ''
-      const category = url.searchParams.get('category') || ''
-      const filter = {}
-      if (q) filter.item_name = { $regex: q, $options: 'i' }
-      if (category) filter.category = category
-      const items = await db.collection('master_catalog').find(filter).limit(10).toArray()
-      return json({ items: items.map(clean) })
-    }
-
-    // GET /catalog/treatments?q=root
-    // Search master_treatments collection
-    if (path[0] === 'catalog' && path[1] === 'treatments' && m === 'GET') {
-      const url = new URL(request.url)
-      const q = url.searchParams.get('q') || ''
-      const filter = q ? { treatment_name: { $regex: q, $options: 'i' } } : {}
-      const treatments = await db.collection('master_treatments').find(filter).limit(15).toArray()
-      return json({ treatments: treatments.map(clean) })
-    }
-
     // ============ LAB CASES BY NUMBER (WhatsApp integration) ============
     if (path[0] === 'lab-cases' && path[1] === 'by-number' && path[2] && m === 'PATCH') {
       const caseNumber = path[2].toUpperCase()
@@ -467,55 +443,6 @@ async function handle(request, { params }) {
     if (path[0]==='treatment_templates' && path[1] && m==='DELETE') {
       if (!hasPermission(profile.role, 'consent_templates', 'delete')) return err('Forbidden', 403)
       await db.collection('treatment_templates').deleteOne({ id: path[1], clinic_id: cid })
-      return json({ ok:true })
-    }
-
-    // ============ PATIENTS ============
-    if (route === '/patients' && m === 'GET') {
-      const url = new URL(request.url)
-      const q = url.searchParams.get('q'); const filter = url.searchParams.get('filter')
-      const f = { clinic_id: cid, is_archived: { $ne: true } }
-      if (q) { const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'i'); f.$or = [{ name: re }, { phone: re }, { patient_code: re }] }
-      if (filter === 'week') f.last_visit_date = { $gte: weekStart() }
-      else if (filter === 'month') f.last_visit_date = { $gte: monthBack(1) }
-      else if (filter === 'inactive') f.$and = [{ $or: [{ last_visit_date: { $lt: monthBack(3) } }, { last_visit_date: null }] }]
-      const list = await db.collection('patients').find(f).sort({ created_at: -1 }).limit(500).toArray()
-      return json({ patients: list.map(clean) })
-    }
-    if (route === '/patients' && m === 'POST') {
-      if (!hasPermission(profile.role, 'patients', 'create')) return err('Forbidden', 403)
-      const b = await request.json()
-      if (!b.name || !b.phone) return err('Name and phone required')
-      const id = uuidv4()
-      const count = await db.collection('patients').countDocuments({ clinic_id: cid })
-      const code = 'PT' + String(count + 1).padStart(5,'0')
-      await db.collection('patients').insertOne({ id, clinic_id: cid, name: b.name, phone: b.phone, dob: b.dob||null, age: b.age||null, gender: b.gender||'', blood_group: b.blood_group||'', allergies: b.allergies||'', medical_history: b.medical_history||'', address: b.address||'', referral_source: b.referral_source||'', patient_code: code, total_visits: 0, is_archived: false, created_by: profile.id, created_at: new Date() })
-      return json({ ok:true, id })
-    }
-    if (path[0] === 'patients' && path[1] && m === 'GET') {
-      const p = await db.collection('patients').findOne({ id: path[1], clinic_id: cid })
-      if (!p) return err('Not found', 404)
-      return json({ patient: clean(p) })
-    }
-    if (path[0] === 'patients' && path[1] && m === 'PUT') {
-      const b = await request.json(); delete b.id; delete b.clinic_id; delete b.created_at; delete b._id
-      if (!hasPermission(profile.role, 'patients', 'update')) return err('Forbidden', 403)
-      if (!canAccessClinical(profile.role)) {
-        delete b.allergies
-        delete b.medical_history
-      }
-      await db.collection('patients').updateOne({ id: path[1], clinic_id: cid }, { $set: b })
-      return json({ ok:true })
-    }
-    if (path[0] === 'patients' && path[1] && m === 'DELETE') {
-      if (!hasPermission(profile.role, 'patients', 'delete')) return err('Forbidden', 403)
-      const p = await db.collection('patients').findOne({ id: path[1], clinic_id: cid })
-      if (!p) return err('Not found', 404)
-      // Delete related records
-      await db.collection('visits').deleteMany({ patient_id: path[1], clinic_id: cid })
-      await db.collection('appointments').deleteMany({ patient_id: path[1], clinic_id: cid })
-      await db.collection('prescriptions').deleteMany({ patient_id: path[1], clinic_id: cid })
-      await db.collection('patients').deleteOne({ id: path[1], clinic_id: cid })
       return json({ ok:true })
     }
 
