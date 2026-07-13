@@ -47,7 +47,7 @@ function App() {
     <div className="max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
         <div><p className="text-muted-foreground text-sm">Manage dental labs &amp; suppliers</p></div>
-        {!canManage && <Button onClick={openNew} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>Add Vendor</Button>}
+        {canManage && <Button onClick={openNew} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>Add Vendor</Button>}
       </div>
       <Card className="mt-5 p-4 bg-white border-border rounded-lg flex items-center gap-3">
         <div className="flex-1 relative">
@@ -82,7 +82,7 @@ function App() {
                     <span className="text-xs bg-gray-50 text-gray-500 border border-gray-200 rounded-full px-2 py-0.5 mt-1 inline-block">Lab & Supplier</span>
                   )}
                 </div>
-                {!canManage && (
+                {canManage && (
                   <div className="flex items-center gap-1 shrink-0">
                     <button onClick={()=>openEdit(v)} className="w-7 h-7 rounded hover:bg-muted flex items-center justify-center" aria-label="Edit"><Edit2 className="w-3.5 h-3.5 text-muted-foreground"/></button>
                     <button onClick={()=>del(v)} className="w-7 h-7 rounded hover:bg-red-50 flex items-center justify-center" aria-label="Delete"><Trash2 className="w-3.5 h-3.5 text-red-500"/></button>
