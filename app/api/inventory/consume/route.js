@@ -13,10 +13,21 @@ export async function POST(request) {
     if (!b.patient_name) return err('Patient name is required')
     if (!b.items || !Array.isArray(b.items) || b.items.length === 0) return err('Items array is required')
     
+    // Filter out zero/invalid quantities
+    const validItems = b.items.filter(item => 
+      item.item_id && 
+      item.quantity && 
+      Number(item.quantity) > 0
+    )
+
+    if (validItems.length === 0) {
+      return json({ ok: true, consumed: [], warnings: [] })
+    }
+    
     const consumed = []
     const warnings = []
     
-    for (const itemReq of b.items) {
+    for (const itemReq of validItems) {
       if (!itemReq.item_id) continue
       if (!itemReq.quantity || itemReq.quantity <= 0) continue
       

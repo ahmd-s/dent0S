@@ -122,12 +122,23 @@ function App() {
     try {
       // If not skipping and has items, consume inventory
       if (!skipConsumption && consumeItems.length > 0) {
-        const itemsToConsume = consumeItems.filter(i => i.actual_quantity > 0).map(i => ({
-          item_id: i.item_id,
-          quantity: i.actual_quantity
-        }))
-        
-        if (itemsToConsume.length > 0) {
+        const itemsToSend = consumeItems
+          .filter(item => 
+            item.actual_quantity > 0 && 
+            item.actual_quantity !== '' && 
+            item.actual_quantity !== null &&
+            item.actual_quantity !== undefined
+          )
+          .map(item => ({
+            item_id: item.item_id,
+            quantity: Number(item.actual_quantity)
+          }))
+
+        // If no items with qty > 0, skip consume API call entirely
+        if (itemsToSend.length === 0) {
+          // Just complete the visit, skip inventory
+        } else {
+          // Call consume API with filtered items only
           try {
             const consumeRes = await fetch('/api/inventory/consume', {
               method: 'POST',
@@ -135,7 +146,7 @@ function App() {
               body: JSON.stringify({
                 visit_id: id,
                 patient_name: cur.v.patient?.name || 'Unknown',
-                items: itemsToConsume
+                items: itemsToSend
               })
             })
             if (consumeRes.ok) {
