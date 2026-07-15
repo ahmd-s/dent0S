@@ -22,40 +22,15 @@ async function requireUser() {
   return { profile, clinic, db }
 }
 
-export async function GET(request) {
+export async function GET() {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
-    const url = new URL(request.url)
-    const patient_id = url.searchParams.get('patient_id')
-    if (!patient_id) return err('patient_id required')
-    
-    const invoices = await db.collection('invoices').find({
-      clinic_id: cid,
-      patient_id: patient_id,
-      payment_status: { $in: ['pending', 'partial'] }
-    }).sort({ invoice_date: -1 }).toArray()
-    
-    const unpaidInvoices = invoices.map(inv => {
-      const pending_amount = (inv.total_amount || 0)
-      return {
-        _id: inv.id,
-        invoice_number: inv.invoice_number,
-        date: inv.invoice_date,
-        total_amount: inv.total_amount,
-        pending_amount: pending_amount,
-        payment_status: inv.payment_status
-      }
-    })
-    
-    const outstandingBalance = unpaidInvoices.reduce((sum, inv) => sum + inv.pending_amount, 0)
-    
-    return json({ 
-      outstandingBalance, 
-      unpaidInvoices 
-    })
+    const items = await db.collection('notifications').find({ clinic_id: cid }).sort({ created_at: -1 }).limit(30).toArray()
+    const unread = await db.collection('notifications').countDocuments({ clinic_id: cid, read: { $ne: true } })
+    return json({ notifications: items.map(clean), unread_count: unread })
   } catch (e) {
-    console.error('Outstanding balance error:', e)
+    console.error('Notifications GET error:', e)
     return err('Internal server error', 500)
   }
 }

@@ -22,40 +22,14 @@ async function requireUser() {
   return { profile, clinic, db }
 }
 
-export async function GET(request) {
+export async function GET() {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
-    const url = new URL(request.url)
-    const patient_id = url.searchParams.get('patient_id')
-    if (!patient_id) return err('patient_id required')
-    
-    const invoices = await db.collection('invoices').find({
-      clinic_id: cid,
-      patient_id: patient_id,
-      payment_status: { $in: ['pending', 'partial'] }
-    }).sort({ invoice_date: -1 }).toArray()
-    
-    const unpaidInvoices = invoices.map(inv => {
-      const pending_amount = (inv.total_amount || 0)
-      return {
-        _id: inv.id,
-        invoice_number: inv.invoice_number,
-        date: inv.invoice_date,
-        total_amount: inv.total_amount,
-        pending_amount: pending_amount,
-        payment_status: inv.payment_status
-      }
-    })
-    
-    const outstandingBalance = unpaidInvoices.reduce((sum, inv) => sum + inv.pending_amount, 0)
-    
-    return json({ 
-      outstandingBalance, 
-      unpaidInvoices 
-    })
+    const docs = await db.collection('profiles').find({ clinic_id: cid, role: 'doctor', is_active: true }).toArray()
+    return json({ doctors: docs.map(d => ({ id:d.id, full_name:d.full_name, specialization:d.specialization||'', profile_photo_url:d.profile_photo_url||'' })) })
   } catch (e) {
-    console.error('Outstanding balance error:', e)
+    console.error('Doctors GET error:', e)
     return err('Internal server error', 500)
   }
 }

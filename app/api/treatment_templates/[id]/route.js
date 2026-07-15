@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -22,40 +23,30 @@ async function requireUser() {
   return { profile, clinic, db }
 }
 
-export async function GET(request) {
+export async function PUT(request, { params }) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
-    const url = new URL(request.url)
-    const patient_id = url.searchParams.get('patient_id')
-    if (!patient_id) return err('patient_id required')
-    
-    const invoices = await db.collection('invoices').find({
-      clinic_id: cid,
-      patient_id: patient_id,
-      payment_status: { $in: ['pending', 'partial'] }
-    }).sort({ invoice_date: -1 }).toArray()
-    
-    const unpaidInvoices = invoices.map(inv => {
-      const pending_amount = (inv.total_amount || 0)
-      return {
-        _id: inv.id,
-        invoice_number: inv.invoice_number,
-        date: inv.invoice_date,
-        total_amount: inv.total_amount,
-        pending_amount: pending_amount,
-        payment_status: inv.payment_status
-      }
-    })
-    
-    const outstandingBalance = unpaidInvoices.reduce((sum, inv) => sum + inv.pending_amount, 0)
-    
-    return json({ 
-      outstandingBalance, 
-      unpaidInvoices 
-    })
+    if (!hasPermission(profile.role, 'consent_templates', 'update')) return err('Forbidden', 403)
+    const b = await request.json(); const u = {}
+    for (const k of ['name','default_notes','default_price','category']) if (k in b) u[k] = k==='default_price'?parseFloat(b[k])||0:b[k]
+    await db.collection('treatment_templates').updateOne({ id: params.id, clinic_id: cid }, { $set: u })
+    return json({ ok:true })
   } catch (e) {
-    console.error('Outstanding balance error:', e)
+    console.error('Treatment templates PUT error:', e)
+    return err('Internal server error', 500)
+  }
+}
+
+export async function DELETE(request, { params }) {
+  try {
+    const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
+    const { profile, db } = ctx; const cid = profile.clinic_id
+    if (!hasPermission(profile.role, 'consent_templates', 'delete')) return err('Forbidden', 403)
+    await db.collection('treatment_templates').deleteOne({ id: params.id, clinic_id: cid })
+    return json({ ok:true })
+  } catch (e) {
+    console.error('Treatment templates DELETE error:', e)
     return err('Internal server error', 500)
   }
 }

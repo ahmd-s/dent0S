@@ -25,37 +25,42 @@ async function requireUser() {
 export async function GET(request) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
-    const { profile, db } = ctx; const cid = profile.clinic_id
+    const { db } = ctx
     const url = new URL(request.url)
-    const patient_id = url.searchParams.get('patient_id')
-    if (!patient_id) return err('patient_id required')
+    const q = url.searchParams.get('q') || ''
+    const category = url.searchParams.get('category') || ''
+    const clinicId = url.searchParams.get('clinic_id')
     
-    const invoices = await db.collection('invoices').find({
-      clinic_id: cid,
-      patient_id: patient_id,
-      payment_status: { $in: ['pending', 'partial'] }
-    }).sort({ invoice_date: -1 }).toArray()
+    if (!q) return json({ templates: [] })
     
-    const unpaidInvoices = invoices.map(inv => {
-      const pending_amount = (inv.total_amount || 0)
-      return {
-        _id: inv.id,
-        invoice_number: inv.invoice_number,
-        date: inv.invoice_date,
-        total_amount: inv.total_amount,
-        pending_amount: pending_amount,
-        payment_status: inv.payment_status
-      }
+    const templates = await db.collection('smart_typing_templates').find({
+      $or: [
+        { trigger: { $regex: q, $options: 'i' } },
+        { expansion: { $regex: q, $options: 'i' } }
+      ],
+      ...(category ? { category } : {}),
+      $or: [
+        { clinic_id: null },
+        ...(clinicId ? [{ clinic_id }] : [])
+      ]
+    }).limit(20).toArray()
+    
+    // Sort by exact trigger match first, then partial, then text match
+    const sorted = templates.sort((a, b) => {
+      const aExact = a.trigger.toLowerCase() === q.toLowerCase()
+      const bExact = b.trigger.toLowerCase() === q.toLowerCase()
+      if (aExact && !bExact) return -1
+      if (!aExact && bExact) return 1
+      const aStarts = a.trigger.toLowerCase().startsWith(q.toLowerCase())
+      const bStarts = b.trigger.toLowerCase().startsWith(q.toLowerCase())
+      if (aStarts && !bStarts) return -1
+      if (!aStarts && bStarts) return 1
+      return 0
     })
     
-    const outstandingBalance = unpaidInvoices.reduce((sum, inv) => sum + inv.pending_amount, 0)
-    
-    return json({ 
-      outstandingBalance, 
-      unpaidInvoices 
-    })
+    return json({ templates: sorted })
   } catch (e) {
-    console.error('Outstanding balance error:', e)
+    console.error('Smart typing GET error:', e)
     return err('Internal server error', 500)
   }
 }

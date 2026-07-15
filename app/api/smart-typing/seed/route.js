@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
+import { SMART_TYPING_SEED } from '@/lib/smart-typing-seed'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -22,40 +23,18 @@ async function requireUser() {
   return { profile, clinic, db }
 }
 
-export async function GET(request) {
+export async function POST() {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
-    const { profile, db } = ctx; const cid = profile.clinic_id
-    const url = new URL(request.url)
-    const patient_id = url.searchParams.get('patient_id')
-    if (!patient_id) return err('patient_id required')
-    
-    const invoices = await db.collection('invoices').find({
-      clinic_id: cid,
-      patient_id: patient_id,
-      payment_status: { $in: ['pending', 'partial'] }
-    }).sort({ invoice_date: -1 }).toArray()
-    
-    const unpaidInvoices = invoices.map(inv => {
-      const pending_amount = (inv.total_amount || 0)
-      return {
-        _id: inv.id,
-        invoice_number: inv.invoice_number,
-        date: inv.invoice_date,
-        total_amount: inv.total_amount,
-        pending_amount: pending_amount,
-        payment_status: inv.payment_status
-      }
-    })
-    
-    const outstandingBalance = unpaidInvoices.reduce((sum, inv) => sum + inv.pending_amount, 0)
-    
-    return json({ 
-      outstandingBalance, 
-      unpaidInvoices 
-    })
+    const { db } = ctx
+    const count = await db.collection('smart_typing_templates').countDocuments()
+    if (count >= 331) return json({ ok: true, message: 'Already seeded' })
+    await db.collection('smart_typing_templates').insertMany(
+      SMART_TYPING_SEED.map(t => ({ ...t, clinic_id: null, is_custom: false }))
+    )
+    return json({ ok: true, seeded: 331 })
   } catch (e) {
-    console.error('Outstanding balance error:', e)
+    console.error('Smart typing seed error:', e)
     return err('Internal server error', 500)
   }
 }

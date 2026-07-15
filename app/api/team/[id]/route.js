@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
+import { canManageStaff } from '@/lib/rbac'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -22,40 +23,22 @@ async function requireUser() {
   return { profile, clinic, db }
 }
 
-export async function GET(request) {
+export async function PUT(request, { params }) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
-    const url = new URL(request.url)
-    const patient_id = url.searchParams.get('patient_id')
-    if (!patient_id) return err('patient_id required')
-    
-    const invoices = await db.collection('invoices').find({
-      clinic_id: cid,
-      patient_id: patient_id,
-      payment_status: { $in: ['pending', 'partial'] }
-    }).sort({ invoice_date: -1 }).toArray()
-    
-    const unpaidInvoices = invoices.map(inv => {
-      const pending_amount = (inv.total_amount || 0)
-      return {
-        _id: inv.id,
-        invoice_number: inv.invoice_number,
-        date: inv.invoice_date,
-        total_amount: inv.total_amount,
-        pending_amount: pending_amount,
-        payment_status: inv.payment_status
-      }
-    })
-    
-    const outstandingBalance = unpaidInvoices.reduce((sum, inv) => sum + inv.pending_amount, 0)
-    
-    return json({ 
-      outstandingBalance, 
-      unpaidInvoices 
-    })
+    if (!canManageStaff(profile.role)) return err('Forbidden', 403)
+    const b = await request.json(); const update = {}
+    if ('role' in b) {
+      if (!['admin', 'doctor', 'receptionist'].includes(b.role)) return err('Invalid role', 400)
+      update.role = b.role
+    }
+    if ('is_active' in b) update.is_active = b.is_active
+    if ('whatsapp_number' in b) update.whatsapp_number = b.whatsapp_number
+    await db.collection('profiles').updateOne({ id: params.id, clinic_id: cid }, { $set: update })
+    return json({ ok:true })
   } catch (e) {
-    console.error('Outstanding balance error:', e)
+    console.error('Team PUT error:', e)
     return err('Internal server error', 500)
   }
 }

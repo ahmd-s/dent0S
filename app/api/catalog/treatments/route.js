@@ -24,38 +24,14 @@ async function requireUser() {
 
 export async function GET(request) {
   try {
-    const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
-    const { profile, db } = ctx; const cid = profile.clinic_id
+    const db = await getDb()
     const url = new URL(request.url)
-    const patient_id = url.searchParams.get('patient_id')
-    if (!patient_id) return err('patient_id required')
-    
-    const invoices = await db.collection('invoices').find({
-      clinic_id: cid,
-      patient_id: patient_id,
-      payment_status: { $in: ['pending', 'partial'] }
-    }).sort({ invoice_date: -1 }).toArray()
-    
-    const unpaidInvoices = invoices.map(inv => {
-      const pending_amount = (inv.total_amount || 0)
-      return {
-        _id: inv.id,
-        invoice_number: inv.invoice_number,
-        date: inv.invoice_date,
-        total_amount: inv.total_amount,
-        pending_amount: pending_amount,
-        payment_status: inv.payment_status
-      }
-    })
-    
-    const outstandingBalance = unpaidInvoices.reduce((sum, inv) => sum + inv.pending_amount, 0)
-    
-    return json({ 
-      outstandingBalance, 
-      unpaidInvoices 
-    })
+    const q = url.searchParams.get('q') || ''
+    const filter = q ? { treatment_name: { $regex: q, $options: 'i' } } : {}
+    const treatments = await db.collection('master_treatments').find(filter).limit(15).toArray()
+    return json({ treatments: treatments.map(clean) })
   } catch (e) {
-    console.error('Outstanding balance error:', e)
+    console.error('Catalog treatments error:', e)
     return err('Internal server error', 500)
   }
 }

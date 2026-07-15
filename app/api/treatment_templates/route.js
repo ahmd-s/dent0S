@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
+import { v4 as uuidv4 } from 'uuid'
 import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -22,40 +24,31 @@ async function requireUser() {
   return { profile, clinic, db }
 }
 
-export async function GET(request) {
+export async function GET() {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
-    const url = new URL(request.url)
-    const patient_id = url.searchParams.get('patient_id')
-    if (!patient_id) return err('patient_id required')
-    
-    const invoices = await db.collection('invoices').find({
-      clinic_id: cid,
-      patient_id: patient_id,
-      payment_status: { $in: ['pending', 'partial'] }
-    }).sort({ invoice_date: -1 }).toArray()
-    
-    const unpaidInvoices = invoices.map(inv => {
-      const pending_amount = (inv.total_amount || 0)
-      return {
-        _id: inv.id,
-        invoice_number: inv.invoice_number,
-        date: inv.invoice_date,
-        total_amount: inv.total_amount,
-        pending_amount: pending_amount,
-        payment_status: inv.payment_status
-      }
-    })
-    
-    const outstandingBalance = unpaidInvoices.reduce((sum, inv) => sum + inv.pending_amount, 0)
-    
-    return json({ 
-      outstandingBalance, 
-      unpaidInvoices 
-    })
+    if (!hasPermission(profile.role, 'consent_templates', 'read')) return err('Forbidden', 403)
+    const list = await db.collection('treatment_templates').find({ clinic_id: cid }).sort({ name: 1 }).toArray()
+    return json({ templates: list.map(clean) })
   } catch (e) {
-    console.error('Outstanding balance error:', e)
+    console.error('Treatment templates GET error:', e)
+    return err('Internal server error', 500)
+  }
+}
+
+export async function POST(request) {
+  try {
+    const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
+    const { profile, db } = ctx; const cid = profile.clinic_id
+    if (!hasPermission(profile.role, 'consent_templates', 'create')) return err('Forbidden', 403)
+    const b = await request.json()
+    if (!b.name) return err('Name required')
+    const id = uuidv4()
+    await db.collection('treatment_templates').insertOne({ id, clinic_id: cid, name: b.name, default_notes: b.default_notes||'', default_price: parseFloat(b.default_price)||0, category: b.category||'', created_at: new Date() })
+    return json({ ok:true, id })
+  } catch (e) {
+    console.error('Treatment templates POST error:', e)
     return err('Internal server error', 500)
   }
 }

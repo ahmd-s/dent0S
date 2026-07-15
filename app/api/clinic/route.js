@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
+import slugify from 'slugify'
 import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -22,40 +24,26 @@ async function requireUser() {
   return { profile, clinic, db }
 }
 
-export async function GET(request) {
+export async function PUT(request) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
-    const url = new URL(request.url)
-    const patient_id = url.searchParams.get('patient_id')
-    if (!patient_id) return err('patient_id required')
-    
-    const invoices = await db.collection('invoices').find({
-      clinic_id: cid,
-      patient_id: patient_id,
-      payment_status: { $in: ['pending', 'partial'] }
-    }).sort({ invoice_date: -1 }).toArray()
-    
-    const unpaidInvoices = invoices.map(inv => {
-      const pending_amount = (inv.total_amount || 0)
-      return {
-        _id: inv.id,
-        invoice_number: inv.invoice_number,
-        date: inv.invoice_date,
-        total_amount: inv.total_amount,
-        pending_amount: pending_amount,
-        payment_status: inv.payment_status
-      }
-    })
-    
-    const outstandingBalance = unpaidInvoices.reduce((sum, inv) => sum + inv.pending_amount, 0)
-    
-    return json({ 
-      outstandingBalance, 
-      unpaidInvoices 
-    })
+    if (!hasPermission(profile.role, 'settings', 'update')) return err('Forbidden', 403)
+    const b = await request.json()
+    const allowed = ['name','phone','address','city','gstin','logo_url','working_hours','slug']
+    const update = {}
+    for (const k of allowed) if (k in b) update[k] = b[k]
+    // ensure slug uniqueness
+    if (update.slug) {
+      const s = slugify(update.slug, { lower: true, strict: true })
+      const exists = await db.collection('clinics').findOne({ slug: s, id: { $ne: cid } })
+      if (exists) return err('Slug already in use')
+      update.slug = s
+    }
+    await db.collection('clinics').updateOne({ id: cid }, { $set: update })
+    return json({ ok:true })
   } catch (e) {
-    console.error('Outstanding balance error:', e)
+    console.error('Clinic PUT error:', e)
     return err('Internal server error', 500)
   }
 }
