@@ -69,6 +69,7 @@ export default function AppShell({ children }) {
   const [showResults, setShowResults] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [searchExpanded, setSearchExpanded] = useState(false)
   const debounceRef = useRef(null)
 
   useEffect(() => {
@@ -86,9 +87,9 @@ export default function AppShell({ children }) {
   const title = Object.entries(PAGE_TITLES).find(([k]) => pathname === k || pathname.startsWith(k+'/'))?.[1] || 'DentOS'
 
   return (
-    <div className="min-h-screen flex bg-background">
-      {mobileOpen && <div onClick={()=>setMobileOpen(false)} className="md:hidden fixed inset-0 bg-black/40 z-40"/>}
-      <aside className={`w-60 sidebar-bg sidebar-fg fixed inset-y-0 left-0 flex flex-col z-50 transition-transform md:translate-x-0 ${mobileOpen?'translate-x-0':'-translate-x-full md:translate-x-0'}`}>
+    <div className="min-h-screen flex bg-background overflow-x-hidden">
+      {mobileOpen && <div onClick={()=>setMobileOpen(false)} className="md:hidden fixed inset-0 bg-black/50 z-40 backdrop-blur-sm"/>}
+      <aside className={`w-64 lg:w-72 sidebar-bg sidebar-fg fixed inset-y-0 left-0 flex flex-col z-50 transition-transform duration-300 ease-in-out md:translate-x-0 ${mobileOpen?'translate-x-0':'-translate-x-full md:translate-x-0'}`}>
         <div className="p-5 border-b border-white/10 flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2">
@@ -173,18 +174,28 @@ export default function AppShell({ children }) {
           )}
         </div>
       </aside>
-      <div className="flex-1 md:ml-60">
-        <header className="h-16 border-b border-border bg-background flex items-center px-4 md:px-6 sticky top-0 z-30 gap-3">
-          <button onClick={()=>setMobileOpen(true)} className="md:hidden w-9 h-9 rounded-md hover:bg-muted flex items-center justify-center"><Menu className="w-5 h-5"/></button>
-          <h1 className="text-lg font-bold text-foreground hidden md:block w-48">{title}</h1>
-          <div className="flex-1 max-w-xl mx-auto relative">
+      <div className="flex-1 md:ml-64 lg:ml-72 min-w-0">
+        <header className="h-16 border-b border-border bg-background flex items-center px-3 md:px-6 sticky top-0 z-30 gap-2 md:gap-3">
+          <button onClick={()=>setMobileOpen(true)} className="md:hidden w-10 h-10 rounded-md hover:bg-muted flex items-center justify-center touch-manipulation"><Menu className="w-5 h-5"/></button>
+          <h1 className="text-base md:text-lg font-bold text-foreground hidden md:block w-48 truncate">{title}</h1>
+          
+          {/* Mobile Search Toggle */}
+          <button 
+            onClick={()=>setSearchExpanded(!searchExpanded)}
+            className="md:hidden w-10 h-10 rounded-md hover:bg-muted flex items-center justify-center touch-manipulation"
+          >
+            <Search className="w-5 h-5"/>
+          </button>
+
+          {/* Desktop Search */}
+          <div className="hidden md:flex flex-1 max-w-xl mx-auto relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"/>
             <input value={q} onChange={e=>{setQ(e.target.value); setShowResults(true)}}
               onFocus={()=>setShowResults(true)} onBlur={()=>setTimeout(()=>setShowResults(false), 200)}
               placeholder="Search patients by name or phone…"
               className="w-full h-10 pl-9 pr-3 rounded-md border border-input bg-muted text-sm focus:outline-none focus:ring-2 focus:ring-[#0D9488] focus:bg-background"/>
             {showResults && q && (
-              <div className="absolute top-12 left-0 right-0 bg-background border border-border rounded-md shadow-lg overflow-hidden">
+              <div className="absolute top-12 left-0 right-0 bg-background border border-border rounded-md shadow-lg overflow-hidden z-50">
                 {results.length === 0 ? (
                   <div className="p-4 text-sm text-muted-foreground flex items-center justify-between">
                     <span>No patient found</span>
@@ -200,8 +211,10 @@ export default function AppShell({ children }) {
               </div>
             )}
           </div>
-          <div className="w-48 flex justify-end gap-2">
-            <Button variant="ghost" size="icon" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="w-9 h-9">
+
+          {/* Action Buttons */}
+          <div className="flex items-center gap-1 md:gap-2 ml-auto">
+            <Button variant="ghost" size="icon" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="w-9 h-9 md:w-9 md:h-9 touch-manipulation">
               <Sun className="w-4 h-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
               <Moon className="absolute w-4 h-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
               <span className="sr-only">Toggle theme</span>
@@ -209,7 +222,37 @@ export default function AppShell({ children }) {
             <NotificationBell />
           </div>
         </header>
-        <main className="p-6 bg-background min-h-[calc(100vh-4rem)]">{children}</main>
+
+        {/* Mobile Expanded Search */}
+        {searchExpanded && (
+          <div className="md:hidden px-3 py-3 bg-background border-b border-border">
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"/>
+              <input value={q} onChange={e=>{setQ(e.target.value); setShowResults(true)}}
+                onFocus={()=>setShowResults(true)} onBlur={()=>setTimeout(()=>setShowResults(false), 200)}
+                placeholder="Search patients by name or phone…"
+                className="w-full h-11 pl-9 pr-3 rounded-md border border-input bg-muted text-sm focus:outline-none focus:ring-2 focus:ring-[#0D9488] focus:bg-background"/>
+              {showResults && q && (
+                <div className="absolute top-12 left-0 right-0 bg-background border border-border rounded-md shadow-lg overflow-hidden z-50">
+                  {results.length === 0 ? (
+                    <div className="p-4 text-sm text-muted-foreground flex items-center justify-between">
+                      <span>No patient found</span>
+                      {canAccessRoute(currentRole, '/patients') && <Link href="/patients" className="text-[#0D9488] hover:underline flex items-center gap-1"><Plus className="w-3 h-3"/>Add new</Link>}
+                    </div>
+                  ) : results.map(p => (
+                    <button key={p.id} onClick={()=>{router.push(`/patients/${p.id}`); setQ(''); setShowResults(false); setSearchExpanded(false)}}
+                      className="w-full text-left px-4 py-2.5 hover:bg-muted border-b border-border last:border-0 flex items-center justify-between">
+                      <div><div className="font-medium text-sm">{p.name}</div><div className="text-xs text-muted-foreground">+91 {p.phone}</div></div>
+                      <div className="text-xs text-muted-foreground">{p.last_visit_date ? `Last: ${fmtDate(p.last_visit_date)}` : 'No visits'}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <main className="p-4 md:p-6 bg-background min-h-[calc(100vh-4rem)] overflow-x-hidden">{children}</main>
       </div>
     </div>
   )

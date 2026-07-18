@@ -104,20 +104,20 @@ function App() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button size="icon" variant="outline" onClick={()=>setDate(shiftDate(date,-1))}><ChevronLeft className="w-4 h-4"/></Button>
-          <input type="date" value={date} onChange={e=>setDate(e.target.value)} className="px-3 py-1.5 border border-input rounded-md text-sm font-medium"/>
-          <Button size="icon" variant="outline" onClick={()=>setDate(shiftDate(date, 1))}><ChevronRight className="w-4 h-4"/></Button>
-          <Button size="sm" variant="ghost" onClick={()=>setDate(todayIso())} className="text-[#0D9488]">Today</Button>
-          <span className="ml-2 text-sm text-muted-foreground">{fmtFull(date)}</span>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+          <Button size="icon" variant="outline" onClick={()=>setDate(shiftDate(date,-1))} className="h-10 w-10"><ChevronLeft className="w-4 h-4"/></Button>
+          <input type="date" value={date} onChange={e=>setDate(e.target.value)} className="px-3 py-2 border border-input rounded-md text-sm font-medium h-10"/>
+          <Button size="icon" variant="outline" onClick={()=>setDate(shiftDate(date, 1))} className="h-10 w-10"><ChevronRight className="w-4 h-4"/></Button>
+          <Button size="sm" variant="ghost" onClick={()=>setDate(todayIso())} className="text-[#0D9488] h-10">Today</Button>
         </div>
-        <div className="flex items-center gap-3">
+        <span className="text-sm text-muted-foreground sm:ml-2">{fmtFull(date)}</span>
+        <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto mt-2 sm:mt-0">
           <div className="flex bg-muted border border-border rounded-md p-0.5">
-            <button onClick={()=>setView('list')} className={`px-3 py-1 text-xs rounded ${view==='list'?'bg-card shadow-sm font-medium':'text-muted-foreground'}`}>List</button>
-            <button onClick={()=>setView('doctor')} className={`px-3 py-1 text-xs rounded ${view==='doctor'?'bg-card shadow-sm font-medium':'text-muted-foreground'}`}>By Doctor</button>
+            <button onClick={()=>setView('list')} className={`px-3 py-2 text-xs rounded ${view==='list'?'bg-card shadow-sm font-medium':'text-muted-foreground'}`}>List</button>
+            <button onClick={()=>setView('doctor')} className={`px-3 py-2 text-xs rounded ${view==='doctor'?'bg-card shadow-sm font-medium':'text-muted-foreground'}`}>By Doctor</button>
           </div>
-          <Button onClick={()=>setOpen(true)} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>New Appointment</Button>
+          <Button onClick={()=>setOpen(true)} className="bg-[#0D9488] hover:bg-[#0B7E73] h-10 w-full sm:w-auto"><Plus className="w-4 h-4 mr-1"/>New Appointment</Button>
         </div>
       </div>
 
