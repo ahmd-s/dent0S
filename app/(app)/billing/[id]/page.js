@@ -14,8 +14,8 @@ import { toast } from 'sonner'
 const inr = n => '₹' + (n||0).toLocaleString('en-IN')
 const fmtDate = d => d ? `${String(new Date(d+'T00:00:00').getDate()).padStart(2,'0')}/${String(new Date(d+'T00:00:00').getMonth()+1).padStart(2,'0')}/${new Date(d+'T00:00:00').getFullYear()}` : '—'
 const statusBadge = s => {
-  const m = { pending:'bg-orange-100 text-orange-700', paid:'bg-green-100 text-green-700', partial:'bg-yellow-100 text-yellow-700', waived:'bg-slate-200 text-slate-600' }
-  return <span className={`text-xs px-3 py-1 rounded-full capitalize font-medium ${m[s]||'bg-slate-100'}`}>{s}</span>
+  const m = { pending:'bg-orange-100 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300', paid:'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-300', partial:'bg-yellow-100 text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-300', waived:'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400' }
+  return <span className={`text-xs px-3 py-1 rounded-full capitalize font-medium ${m[s]||'bg-slate-100 dark:bg-slate-800'}`}>{s}</span>
 }
 
 function App() {

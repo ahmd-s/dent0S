@@ -79,11 +79,11 @@ const loadLabCases = async () => {
       <Link href="/patients" className="text-sm text-muted-foreground hover:text-[#0D9488] flex items-center gap-1 mb-4"><ArrowLeft className="w-4 h-4"/>Back to Patients</Link>
       <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
         <div className="lg:col-span-3">
-          <Card className="p-6 bg-white border-border rounded-lg sticky top-20">
+          <Card className="p-6 bg-card border-border rounded-lg sticky top-20">
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <h1 className="text-2xl font-bold text-[#0F172A] truncate">{patient.name}</h1>
+                  <h1 className="text-2xl font-bold text-foreground truncate">{patient.name}</h1>
                   <BalanceBadge
                     patientId={id}
                     onClick={() => setBalanceModalOpen(true)}
@@ -109,7 +109,7 @@ const loadLabCases = async () => {
             </div>
             {patient.medical_history && (
               <div className="mt-4">
-                <button onClick={()=>setShowHistory(s=>!s)} className="text-sm font-medium text-[#0F172A] flex items-center gap-1">Medical History {showHistory?<ChevronUp className="w-3.5 h-3.5"/>:<ChevronDown className="w-3.5 h-3.5"/>}</button>
+                <button onClick={()=>setShowHistory(s=>!s)} className="text-sm font-medium text-foreground flex items-center gap-1">Medical History {showHistory?<ChevronUp className="w-3.5 h-3.5"/>:<ChevronDown className="w-3.5 h-3.5"/>}</button>
                 {showHistory && <div className="text-sm text-muted-foreground mt-2 whitespace-pre-line">{patient.medical_history}</div>}
               </div>
             )}
@@ -117,7 +117,7 @@ const loadLabCases = async () => {
               {patient.address && <div><dt className="text-xs text-muted-foreground">Address</dt><dd>{patient.address}</dd></div>}
               {patient.referral_source && <div><dt className="text-xs text-muted-foreground">Referral</dt><dd>{patient.referral_source}</dd></div>}
               <div><dt className="text-xs text-muted-foreground">Member since</dt><dd>{fmtDate(patient.created_at)}</dd></div>
-              <div><dt className="text-xs text-muted-foreground">Total visits</dt><dd className="font-semibold text-[#0F172A]">{patient.total_visits || visits.length}</dd></div>
+              <div><dt className="text-xs text-muted-foreground">Total visits</dt><dd className="font-semibold text-foreground">{patient.total_visits || visits.length}</dd></div>
             </dl>
             <div className="mt-6 space-y-2">
               <Button onClick={()=>setBookOpen(true)} className="w-full bg-[#0D9488] hover:bg-[#0B7E73]"><CalendarPlus className="w-4 h-4 mr-2"/>Book Appointment</Button>
@@ -128,7 +128,7 @@ const loadLabCases = async () => {
 
         <div className="lg:col-span-7">
           <Tabs defaultValue={receptionist ? "appointments" : "visits"}>
-            <TabsList className="bg-[#F8FAFC]">
+            <TabsList className="bg-muted">
               {!receptionist && <TabsTrigger value="visits">Visit History</TabsTrigger>}
               <TabsTrigger value="appointments">Appointments</TabsTrigger>
               {!receptionist && <TabsTrigger value="documents">Documents</TabsTrigger>}
@@ -138,7 +138,7 @@ const loadLabCases = async () => {
             </TabsList>
             <TabsContent value="visits" className="mt-4">
               {visits.length===0 && (
-                <Card className="p-12 text-center bg-white border-border rounded-lg">
+                <Card className="p-12 text-center bg-card border-border rounded-lg">
                   <FileText className="w-12 h-12 mx-auto text-muted-foreground/40"/>
                   <p className="mt-3 text-muted-foreground">No visits recorded yet</p>
                   {!receptionist && <Button onClick={startWalkin} className="mt-4 bg-[#0D9488] hover:bg-[#0B7E73]"><FilePlus className="w-4 h-4 mr-2"/>Record First Visit</Button>}
@@ -150,9 +150,9 @@ const loadLabCases = async () => {
                   {visits.map((v,i) => (
                     <div key={v.id} className="relative mb-4">
                       <div className={`absolute -left-5 top-3 w-3 h-3 rounded-full ${i===0?'bg-[#0D9488] ring-4 ring-[#0D9488]/20':'bg-border'}`}/>
-                      <Card className="p-5 bg-white border-border rounded-lg">
+                      <Card className="p-5 bg-card border-border rounded-lg">
                         <div className="flex items-center justify-between">
-                          <div><div className="font-semibold text-[#0F172A]">{fmtDate(v.visit_date)}</div><div className="text-xs text-muted-foreground">Dr. {v.doctor_name||'—'}</div></div>
+                          <div><div className="font-semibold text-foreground">{fmtDate(v.visit_date)}</div><div className="text-xs text-muted-foreground">Dr. {v.doctor_name||'—'}</div></div>
                           {clinical ? (
                             <Link href={`/visits/${v.id}`}><Button size="sm" variant="outline" className="h-8"><ExternalLink className="w-3.5 h-3.5 mr-1"/>Open</Button></Link>
                           ) : (
@@ -183,7 +183,7 @@ const loadLabCases = async () => {
               )}
             </TabsContent>
             <TabsContent value="appointments" className="mt-4 space-y-3">
-              {upcoming.length===0 && past.length===0 && <Card className="p-8 text-center text-muted-foreground bg-white border-border rounded-lg">No appointments yet</Card>}
+              {upcoming.length===0 && past.length===0 && <Card className="p-8 text-center text-muted-foreground bg-card border-border rounded-lg">No appointments yet</Card>}
               {upcoming.length>0 && <>
                 <h4 className="text-xs uppercase tracking-wider text-muted-foreground">Upcoming</h4>
                 {upcoming.map(a => (
@@ -196,7 +196,7 @@ const loadLabCases = async () => {
               {past.length>0 && <>
                 <h4 className="text-xs uppercase tracking-wider text-muted-foreground mt-4">Past</h4>
                 {past.map(a => (
-                  <Card key={a.id} className="p-4 bg-white border-border rounded-lg flex items-center justify-between">
+                  <Card key={a.id} className="p-4 bg-card border-border rounded-lg flex items-center justify-between">
                     <div><div className="font-medium">{fmtDate(a.appointment_date)} · {a.appointment_time}</div><div className="text-xs text-muted-foreground capitalize">{a.appointment_type?.replace('_',' ')} · Dr. {a.doctor_name||'—'}</div></div>
                     <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600 capitalize">{a.status?.replace('_',' ')}</span>
                   </Card>
@@ -208,20 +208,20 @@ const loadLabCases = async () => {
             </TabsContent>
             <TabsContent value="lab-cases" className="mt-4">
               <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm font-semibold text-[#0F172A] flex items-center gap-2"><FlaskConical className="w-4 h-4 text-[#0D9488]"/>Lab Cases</h4>
+                <h4 className="text-sm font-semibold text-foreground flex items-center gap-2"><FlaskConical className="w-4 h-4 text-[#0D9488]"/>Lab Cases</h4>
                 <Button size="sm" onClick={()=>setNewLabOpen(true)} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>New Lab Case</Button>
               </div>
               {labCases.length === 0 ? (
-                <Card className="p-10 text-center bg-white border-border rounded-lg">
+                <Card className="p-10 text-center bg-card border-border rounded-lg">
                   <FlaskConical className="w-10 h-10 mx-auto text-muted-foreground/40"/>
                   <p className="mt-3 text-muted-foreground text-sm">No lab cases for this patient yet</p>
                   <Button size="sm" onClick={()=>setNewLabOpen(true)} className="mt-4 bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>Create Lab Case</Button>
                 </Card>
               ) : (
-                <Card className="bg-white border-border rounded-lg overflow-hidden">
+                <Card className="bg-card border-border rounded-lg overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead className="bg-[#F8FAFC] text-left text-xs uppercase text-muted-foreground tracking-wider">
+                      <thead className="bg-muted text-left text-xs uppercase text-muted-foreground tracking-wider">
                         <tr>
                           <th className="px-4 py-3 font-medium">Case #</th>
                           <th className="px-4 py-3 font-medium">Type</th>
@@ -233,8 +233,8 @@ const loadLabCases = async () => {
                       </thead>
                       <tbody>
                         {labCases.map(c => (
-                          <tr key={c.id} className="border-t border-border hover:bg-[#F8FAFC]/50 cursor-pointer" onClick={()=>router.push(`/lab-cases/${c.id}`)}>
-                            <td className="px-4 py-3 font-medium text-[#0F172A]">{c.case_number}</td>
+                          <tr key={c.id} className="border-t border-border hover:bg-muted/50 cursor-pointer" onClick={()=>router.push(`/lab-cases/${c.id}`)}>
+                            <td className="px-4 py-3 font-medium text-foreground">{c.case_number}</td>
                             <td className="px-4 py-3 text-muted-foreground">{c.case_type}</td>
                             <td className="px-4 py-3">{c.vendor_name}</td>
                             <td className="px-4 py-3">{labStatusBadge(c.status)}</td>
@@ -360,7 +360,7 @@ function AISummaryPanel({ patient, visits, onUpdated }) {
 
   if (visits.length === 0) {
     return (
-      <Card className="p-10 text-center bg-[#F8FAFC] border-border rounded-lg">
+      <Card className="p-10 text-center bg-muted border-border rounded-lg">
         <Sparkles className="w-10 h-10 mx-auto text-muted-foreground/50"/>
         <p className="mt-3 text-muted-foreground">Add at least one visit to generate an AI summary</p>
         <Button disabled className="mt-4 bg-[#0D9488] opacity-50 cursor-not-allowed">Generate Summary</Button>
@@ -373,21 +373,21 @@ function AISummaryPanel({ patient, visits, onUpdated }) {
       <Card className="p-6 bg-blue-50/40 border-blue-200 rounded-lg">
         <div className="flex items-start justify-between mb-3">
           <div>
-            <div className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-[#0D9488]"/><h3 className="font-semibold text-[#0F172A]">AI Clinical Summary</h3></div>
+            <div className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-[#0D9488]"/><h3 className="font-semibold text-foreground">AI Clinical Summary</h3></div>
             <p className="text-xs text-muted-foreground mt-0.5">Generated {fmt(genAt)} · Documentation only</p>
           </div>
           <Button size="sm" variant="outline" onClick={generate} disabled={loading}>{loading?<Loader2 className="w-3.5 h-3.5 animate-spin"/>:<><RefreshCw className="w-3.5 h-3.5 mr-1"/>Regenerate</>}</Button>
         </div>
-        <div className="text-sm leading-relaxed whitespace-pre-line text-[#0F172A]">{summary}</div>
+        <div className="text-sm leading-relaxed whitespace-pre-line text-foreground">{summary}</div>
         <p className="mt-4 pt-3 border-t border-blue-200 text-xs text-muted-foreground italic">This summary is generated from doctor&apos;s notes. It is a documentation tool only and does not constitute medical advice or diagnosis.</p>
       </Card>
     )
   }
 
   return (
-    <Card className="p-10 text-center bg-white border-2 border-dashed border-border rounded-lg">
+      <Card className="p-10 text-center bg-card border-2 border-dashed border-border rounded-lg">
       <Sparkles className="w-10 h-10 mx-auto text-[#0D9488]"/>
-      <h3 className="mt-3 font-semibold text-[#0F172A]">{summary ? 'New Visits Since Last Summary' : 'Generate AI Summary'}</h3>
+      <h3 className="mt-3 font-semibold text-foreground">{summary ? 'New Visits Since Last Summary' : 'Generate AI Summary'}</h3>
       <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">Automatically summarize this patient&apos;s treatment history from recorded visits. Documentation assistant only — does not diagnose.</p>
       <Button onClick={generate} disabled={loading} className="mt-5 bg-[#0D9488] hover:bg-[#0B7E73]">
         {loading ? <><Loader2 className="w-4 h-4 animate-spin mr-2"/>Generating summary…</> : <><Sparkles className="w-4 h-4 mr-2"/>{summary?'Regenerate Summary':'Generate Summary'}</>}

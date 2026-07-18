@@ -43,10 +43,10 @@ const PAGE_TITLES = {
 const fmtDate = d => d ? `${String(new Date(d).getDate()).padStart(2,'0')}/${String(new Date(d).getMonth()+1).padStart(2,'0')}/${new Date(d).getFullYear()}` : ''
 
 function roleBadgeVariant(role) {
-  if (role === 'doctor') return 'bg-teal-100 text-teal-800 hover:bg-teal-100 border-teal-200'
-  if (role === 'receptionist') return 'bg-purple-100 text-purple-800 hover:bg-purple-100 border-purple-200'
-  if (role === 'admin') return 'bg-slate-200 text-slate-700 hover:bg-slate-200 border-slate-300'
-  return 'bg-slate-100 text-slate-600'
+  if (role === 'doctor') return 'bg-teal-100 text-teal-800 hover:bg-teal-100 border-teal-200 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-800'
+  if (role === 'receptionist') return 'bg-purple-100 text-purple-800 hover:bg-purple-100 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800'
+  if (role === 'admin') return 'bg-slate-200 text-slate-700 hover:bg-slate-200 border-slate-300 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600'
+  return 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
 }
 
 function roleBadgeLabel(role) {
@@ -70,32 +70,6 @@ export default function AppShell({ children }) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const debounceRef = useRef(null)
-  // #region agent log
-  const headerRef = useRef(null)
-  const mainRef = useRef(null)
-  const outerRef = useRef(null)
-  useEffect(() => {
-    const header = headerRef.current
-    const main = mainRef.current
-    const outer = outerRef.current
-    if (!header || !main || !outer) return
-    const headerRect = header.getBoundingClientRect()
-    const mainRect = main.getBoundingClientRect()
-    const outerRect = outer.getBoundingClientRect()
-    const headerStyles = window.getComputedStyle(header)
-    const mainStyles = window.getComputedStyle(main)
-    const outerStyles = window.getComputedStyle(outer)
-    const data = {
-      header: { height: headerRect.height, top: headerRect.top, position: headerStyles.position, zIndex: headerStyles.zIndex },
-      main: { top: mainRect.top, offsetTop: main.offsetTop, marginTop: mainStyles.marginTop },
-      outer: { overflow: outerStyles.overflow, overflowY: outerStyles.overflowY, height: outerRect.height },
-      contentWrapper: (() => { const el = main.parentElement; if (!el) return null; const s = window.getComputedStyle(el); return { overflow: s.overflow, overflowY: s.overflowY, display: s.display, flexDirection: s.flexDirection } })(),
-      logoUrl: me?.clinic?.logo_url || null,
-      pathname,
-    }
-    fetch('http://127.0.0.1:7366/ingest/f3641e0b-1a49-4955-8e0b-16987fcc4471',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'7e2d06'},body:JSON.stringify({sessionId:'7e2d06',location:'AppShell.jsx:layout-measure',message:'layout dimensions',data,timestamp:Date.now(),hypothesisId:'A-B-C-D'})}).catch(()=>{})
-  }, [pathname, me])
-  // #endregion
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -112,7 +86,7 @@ export default function AppShell({ children }) {
   const title = Object.entries(PAGE_TITLES).find(([k]) => pathname === k || pathname.startsWith(k+'/'))?.[1] || 'DentOS'
 
   return (
-    <div ref={outerRef} className="min-h-screen flex bg-background">
+    <div className="min-h-screen flex bg-background">
       {mobileOpen && <div onClick={()=>setMobileOpen(false)} className="md:hidden fixed inset-0 bg-black/40 z-40"/>}
       <aside className={`w-60 sidebar-bg sidebar-fg fixed inset-y-0 left-0 flex flex-col z-50 transition-transform md:translate-x-0 ${mobileOpen?'translate-x-0':'-translate-x-full md:translate-x-0'}`}>
         <div className="p-5 border-b border-white/10 flex items-center justify-between">
@@ -200,7 +174,7 @@ export default function AppShell({ children }) {
         </div>
       </aside>
       <div className="flex-1 md:ml-60">
-        <header ref={headerRef} className="h-16 border-b border-border bg-background flex items-center px-4 md:px-6 sticky top-0 z-30 gap-3">
+        <header className="h-16 border-b border-border bg-background flex items-center px-4 md:px-6 sticky top-0 z-30 gap-3">
           <button onClick={()=>setMobileOpen(true)} className="md:hidden w-9 h-9 rounded-md hover:bg-muted flex items-center justify-center"><Menu className="w-5 h-5"/></button>
           <h1 className="text-lg font-bold text-foreground hidden md:block w-48">{title}</h1>
           <div className="flex-1 max-w-xl mx-auto relative">
@@ -235,7 +209,7 @@ export default function AppShell({ children }) {
             <NotificationBell />
           </div>
         </header>
-        <main ref={mainRef} className="p-6 bg-background min-h-[calc(100vh-4rem)]">{children}</main>
+        <main className="p-6 bg-background min-h-[calc(100vh-4rem)]">{children}</main>
       </div>
     </div>
   )

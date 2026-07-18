@@ -225,7 +225,7 @@ export default function ImportPatientsModal({ open, onOpenChange, onImportComple
 
               <div className="border rounded-lg overflow-hidden max-h-64 overflow-y-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-[#F8FAFC] text-left text-xs uppercase text-muted-foreground">
+                  <thead className="bg-muted text-left text-xs uppercase text-muted-foreground">
                     <tr>
                       {parsedData.headers.map((h, i) => (
                         <th key={i} className="px-4 py-2 font-medium">{h}</th>

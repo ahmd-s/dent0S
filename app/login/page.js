@@ -46,7 +46,7 @@ function App() {
 
   return (
     <AuthSplit>
-      <h1 className="text-3xl font-bold text-[#0F172A]">Welcome back</h1>
+      <h1 className="text-3xl font-bold text-foreground">Welcome back</h1>
       <p className="text-muted-foreground mt-1">Sign in to your clinic</p>
       <form onSubmit={submit} className="mt-8 space-y-4">
         <div className="space-y-2">

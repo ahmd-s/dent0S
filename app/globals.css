@@ -71,6 +71,6 @@ html, body {
 @layer utilities {
   .sidebar-bg { background-color: #0F172A; }
   .sidebar-fg { color: #FFFFFF; }
-  .text-success { color: #22C55E; }
-  .bg-success { background-color: #22C55E; }
+  .text-success { color: hsl(var(--success)); }
+  .bg-success { background-color: hsl(var(--success)); }
 }

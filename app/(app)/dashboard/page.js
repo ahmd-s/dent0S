@@ -22,11 +22,14 @@ const inr = n => '₹' + (n||0).toLocaleString('en-IN')
 
 const statusBadge = s => {
   const map = {
-    scheduled:'bg-slate-100 text-slate-700', arrived:'bg-blue-50 text-blue-700',
-    in_progress:'bg-orange-50 text-orange-700', completed:'bg-green-50 text-green-700',
-    cancelled:'bg-red-50 text-red-600', no_show:'bg-slate-200 text-slate-600',
+    scheduled:'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+    arrived:'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300',
+    in_progress:'bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300',
+    completed:'bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-300',
+    cancelled:'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400',
+    no_show:'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400',
   }
-  return <span className={`text-xs px-2 py-1 rounded-full capitalize whitespace-nowrap ${map[s]||'bg-slate-100'}`}>{s.replace('_',' ')}</span>
+  return <span className={`text-xs px-2 py-1 rounded-full capitalize whitespace-nowrap ${map[s]||'bg-slate-100 dark:bg-slate-800'}`}>{s.replace('_',' ')}</span>
 }
 
 function App() {
@@ -71,7 +74,7 @@ function App() {
         {cards.map(c => {
           const Icon = c.icon
           const inner = (
-            <Card className={`p-5 bg-white border-border rounded-lg h-full ${c.href?'hover:border-[#0D9488]/40 transition-colors cursor-pointer':''}`}>
+            <Card className={`p-5 bg-card border-border rounded-lg h-full ${c.href?'hover:border-[#0D9488]/40 transition-colors cursor-pointer':''}`}>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="text-sm text-muted-foreground">{c.label}</div>
@@ -89,9 +92,9 @@ function App() {
       <QuickSearchBar onBook={()=>setBookOpen(true)} canStartVisit={canStartVisit} />
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-        <Card className="lg:col-span-3 p-6 bg-white border-border rounded-lg">
+        <Card className="lg:col-span-3 p-6 bg-card border-border rounded-lg">
           <div className="flex items-center justify-between mb-1">
-            <h3 className="font-semibold text-[#0F172A]">Today&apos;s Appointment Queue</h3>
+            <h3 className="font-semibold text-foreground">Today&apos;s Appointment Queue</h3>
             <span className="text-xs text-muted-foreground">{fmtDate(new Date())}</span>
           </div>
           {!stats && <div className="text-sm text-muted-foreground py-6">Loading…</div>}
@@ -137,9 +140,9 @@ function App() {
             </table>
           )}
         </Card>
-        <Card className="lg:col-span-2 p-6 bg-white border-border rounded-lg">
+        <Card className="lg:col-span-2 p-6 bg-card border-border rounded-lg">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-[#0F172A]">Pending Follow-ups</h3>
+            <h3 className="font-semibold text-foreground">Pending Follow-ups</h3>
             {stats?.followups?.length>0 && <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">Due Now</span>}
           </div>
           {stats?.followups?.length === 0 && <div className="text-sm text-muted-foreground py-6 text-center">No follow-ups pending</div>}
@@ -185,16 +188,16 @@ function QuickSearchBar({ onBook, canStartVisit }) {
   }, [q])
   return (
     <>
-      <Card className="p-5 bg-white border-border rounded-lg">
+      <Card className="p-5 bg-card border-border rounded-lg">
         <div className="flex items-center gap-3">
           <div className="flex-1 relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"/>
             <Input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search by name or phone number…" className="pl-9 h-11 text-base"/>
             {q && (
-              <div className="absolute top-12 left-0 right-0 bg-white border border-border rounded-md shadow-lg z-10">
+              <div className="absolute top-12 left-0 right-0 bg-card border border-border rounded-md shadow-lg z-10">
                 {results.length===0 ? <div className="p-3 text-sm flex items-center justify-between"><span className="text-muted-foreground">No patient found.</span>{canStartVisit && <Link href="/patients" className="text-[#0D9488] hover:underline flex items-center gap-1"><Plus className="w-3 h-3"/>Add New Patient</Link>}</div>
                  : results.map(p=>(
-                  <button key={p.id} onClick={()=>router.push(`/patients/${p.id}`)} className="w-full text-left px-4 py-2.5 hover:bg-[#F8FAFC] border-b border-border last:border-0 flex items-center justify-between">
+                  <button key={p.id} onClick={()=>router.push(`/patients/${p.id}`)} className="w-full text-left px-4 py-2.5 hover:bg-muted border-b border-border last:border-0 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div><div className="font-medium text-sm">{p.name}</div><div className="text-xs text-muted-foreground">+91 {p.phone}</div></div>
                       <BalanceBadge

@@ -101,7 +101,7 @@ export function ConsentFormsTab({ patientId, patientName, patientPhone }) {
       )}
 
       {!loading && consents.length === 0 && (
-        <Card className="p-12 text-center bg-white border-border rounded-lg">
+        <Card className="p-12 text-center bg-card border-border rounded-lg">
           <FileText className="w-12 h-12 mx-auto text-muted-foreground/40"/>
           <p className="mt-3 text-muted-foreground text-sm">No consent forms requested yet. Send a consent request to get started.</p>
         </Card>
@@ -110,7 +110,7 @@ export function ConsentFormsTab({ patientId, patientName, patientPhone }) {
       {!loading && consents.length > 0 && (
         <div className="space-y-3">
           {consents.map(c => (
-            <Card key={c.id} className="p-4 bg-white border-border rounded-lg">
+            <Card key={c.id} className="p-4 bg-card border-border rounded-lg">
               <div className="flex items-center justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-2">

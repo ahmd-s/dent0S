@@ -28,8 +28,8 @@ export function ClinicLogo({ logoUrl, size = 'w-9 h-9', iconSize = 'w-5 h-5', ro
     return <img src={logoUrl} alt="Clinic logo" className={`${size} ${rounded} object-cover shrink-0 ${className}`} />
   }
   return (
-    <div className={`${size} ${rounded} bg-[#0D9488] flex items-center justify-center shrink-0 ${className}`}>
-      <ToothIcon className={`${iconSize} text-white`} />
+    <div className={`${size} ${rounded} bg-primary flex items-center justify-center shrink-0 ${className}`}>
+      <ToothIcon className={`${iconSize} text-primary-foreground`} />
     </div>
   )
 }

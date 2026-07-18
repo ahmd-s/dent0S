@@ -36,7 +36,7 @@ function App() {
 
   return (
     <AuthSplit>
-      <h1 className="text-3xl font-bold text-[#0F172A]">Start your free trial</h1>
+      <h1 className="text-3xl font-bold text-foreground">Start your free trial</h1>
       <p className="text-muted-foreground mt-1">Set up your clinic in 2 minutes</p>
       <form onSubmit={submit} className="mt-6 space-y-3">
         <div className="space-y-1.5"><Label>Full Name</Label><Input value={f.full_name} onChange={e=>set('full_name',e.target.value)} placeholder="Dr. Priya Sharma" /></div>

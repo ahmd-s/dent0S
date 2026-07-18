@@ -32,7 +32,7 @@ function App() {
   return (
     <div className="max-w-4xl mx-auto">
       <Tabs defaultValue="clinic">
-        <TabsList className="bg-[#F8FAFC]"><TabsTrigger value="clinic">Clinic Profile</TabsTrigger><TabsTrigger value="team">Team</TabsTrigger><TabsTrigger value="availability">Doctor Availability</TabsTrigger><TabsTrigger value="consent">Consent Forms</TabsTrigger></TabsList>
+        <TabsList className="bg-muted"><TabsTrigger value="clinic">Clinic Profile</TabsTrigger><TabsTrigger value="team">Team</TabsTrigger><TabsTrigger value="availability">Doctor Availability</TabsTrigger><TabsTrigger value="consent">Consent Forms</TabsTrigger></TabsList>
         <TabsContent value="clinic" className="mt-4 space-y-5"><ClinicTab me={me} reload={()=>fetch('/api/auth/me').then(r=>r.json()).then(setMe)}/></TabsContent>
         <TabsContent value="team" className="mt-4"><TeamTab/></TabsContent>
         <TabsContent value="availability" className="mt-4"><DoctorAvailabilityTab me={me}/></TabsContent>
@@ -83,7 +83,7 @@ function ClinicTab({ me, reload }) {
 
   return (
     <>
-      <Card className="p-6 bg-white border-border rounded-lg">
+      <Card className="p-6 bg-card border-border rounded-lg">
         <h3 className="font-semibold mb-4">Clinic Profile</h3>
         <div className="space-y-1.5 mb-5">
           <Label>Clinic Logo</Label>
@@ -116,22 +116,22 @@ function ClinicTab({ me, reload }) {
         <div className="mt-4 flex justify-end"><Button onClick={save} disabled={saving} className="bg-[#0D9488] hover:bg-[#0B7E73]">{saving?<Loader2 className="w-4 h-4 animate-spin"/>:'Save Changes'}</Button></div>
       </Card>
 
-      <Card className="p-6 bg-white border-border rounded-lg mt-5">
+      <Card className="p-6 bg-card border-border rounded-lg mt-5">
         <h3 className="font-semibold mb-1">Public Booking Page</h3>
         <p className="text-sm text-muted-foreground mb-3">Share this link with patients to let them book online.</p>
-        <div className="flex items-center gap-2 p-3 bg-[#F8FAFC] rounded-md border border-border">
+        <div className="flex items-center gap-2 p-3 bg-muted rounded-md border border-border">
           <span className="flex-1 font-mono text-sm break-all">{bookingLink}</span>
-          <button onClick={()=>{navigator.clipboard.writeText(bookingLink); toast.success('Copied')}} className="px-2 py-1 hover:bg-white rounded"><Copy className="w-4 h-4 text-muted-foreground"/></button>
-          <a href={bookingLink} target="_blank" rel="noreferrer" className="px-2 py-1 hover:bg-white rounded"><ExternalLink className="w-4 h-4 text-muted-foreground"/></a>
+          <button onClick={()=>{navigator.clipboard.writeText(bookingLink); toast.success('Copied')}} className="px-2 py-1 hover:bg-card rounded"><Copy className="w-4 h-4 text-muted-foreground"/></button>
+          <a href={bookingLink} target="_blank" rel="noreferrer" className="px-2 py-1 hover:bg-card rounded"><ExternalLink className="w-4 h-4 text-muted-foreground"/></a>
         </div>
         <div className="mt-3 flex items-center gap-2">
           <Input value={c.slug} onChange={e=>setC({...c,slug:e.target.value})} className="font-mono text-sm" placeholder="clinic-slug"/>
           <Button variant="outline" size="sm" onClick={updateSlug}>Update Slug</Button>
         </div>
-        <p className="text-xs text-orange-600 mt-2">⚠️ Changing this will break existing shared links</p>
+        <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">⚠️ Changing this will break existing shared links</p>
       </Card>
 
-      <Card className="p-6 bg-white border-border rounded-lg mt-5">
+      <Card className="p-6 bg-card border-border rounded-lg mt-5">
         <div className="flex items-center justify-between mb-3"><h3 className="font-semibold">Treatment Templates</h3><Button size="sm" onClick={()=>{setTpl({id:null,name:'',category:'',default_notes:'',default_price:''}); setTplOpen(true)}}><Plus className="w-4 h-4 mr-1"/>Add Template</Button></div>
         {templates.length === 0 && <div className="text-sm text-muted-foreground py-2">No templates yet. Add common treatments to apply them quickly during visits.</div>}
         {templates.map(t => (
@@ -194,7 +194,7 @@ function TeamTab() {
   }
   const formatWhatsApp = (num) => num ? `+91 ${num}` : '—'
   return (
-    <Card className="p-6 bg-white border-border rounded-lg">
+    <Card className="p-6 bg-card border-border rounded-lg">
       <div className="flex items-center justify-between mb-3"><h3 className="font-semibold">Team Members ({team.length})</h3><Button size="sm" onClick={()=>setOpen(true)} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>Invite</Button></div>
       <table className="w-full text-sm">
         <thead className="text-xs uppercase text-muted-foreground tracking-wider border-b border-border">
@@ -288,7 +288,7 @@ function ConsentFormsTab() {
   }
 
   return (
-    <Card className="p-6 bg-white border-border rounded-lg">
+    <Card className="p-6 bg-card border-border rounded-lg">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold">Consent Form Templates</h3>
         <Button size="sm" onClick={() => { setTemplate({ id: null, name: '', category: 'General', content: '', active: true }); setOpen(true) }} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>Add Template</Button>
@@ -306,7 +306,7 @@ function ConsentFormsTab() {
       {!loading && templates.length > 0 && (
         <div className="space-y-3">
           {templates.map(t => (
-            <div key={t.id} className="flex items-center gap-3 p-4 border border-border rounded-lg hover:bg-[#F8FAFC]/50">
+            <div key={t.id} className="flex items-center gap-3 p-4 border border-border rounded-lg hover:bg-muted/50">
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <div className="font-medium">{t.name}</div>
@@ -421,7 +421,7 @@ function DoctorAvailabilityTab({ me }) {
   })()
 
   return (
-    <Card className="p-6 bg-white border-border rounded-lg">
+    <Card className="p-6 bg-card border-border rounded-lg">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold">Doctor Availability</h3>
         {canEdit && <Button size="sm" onClick={() => { setForm({ doctor_id: '', date: '', start_time: '', end_time: '', reason: '' }); setOpen(true) }} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>Add Block</Button>}
@@ -435,7 +435,7 @@ function DoctorAvailabilityTab({ me }) {
       {!loading && blocks.length > 0 && (
         <div className="space-y-3">
           {blocks.map(block => (
-            <div key={block.id} className="flex items-center gap-3 p-4 border border-border rounded-lg hover:bg-[#F8FAFC]/50">
+            <div key={block.id} className="flex items-center gap-3 p-4 border border-border rounded-lg hover:bg-muted/50">
               <div className="flex-1">
                 <div className="font-medium">{block.doctor_name || 'All Doctors'}</div>
                 <div className="text-sm text-muted-foreground">{block.date} · {block.start_time} - {block.end_time}</div>

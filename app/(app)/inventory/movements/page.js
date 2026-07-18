@@ -52,11 +52,11 @@ function App() {
   return (
     <div className="max-w-7xl mx-auto">
       <div>
-        <h1 className="text-2xl font-bold text-[#0F172A]">Stock Movement History</h1>
+        <h1 className="text-2xl font-bold text-foreground">Stock Movement History</h1>
         <p className="text-muted-foreground text-sm">Track all stock in, stock out, and adjustments</p>
       </div>
       
-      <Card className="mt-5 p-4 bg-white border-border rounded-lg flex items-center gap-3 flex-wrap">
+      <Card className="mt-5 p-4 bg-card border-border rounded-lg flex items-center gap-3 flex-wrap">
         <div className="flex-1 relative min-w-[200px]">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"/>
           <Input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search item name..." className="pl-9"/>
@@ -74,12 +74,12 @@ function App() {
 
       {loading && <div className="mt-6 flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]"/></div>}
       {!loading && movements.length === 0 && (
-        <Card className="mt-4 bg-white border-border rounded-lg py-16 text-center text-muted-foreground text-sm">
+        <Card className="mt-4 bg-card border-border rounded-lg py-16 text-center text-muted-foreground text-sm">
           No movements found.
         </Card>
       )}
       {!loading && movements.length > 0 && (
-        <div className="mt-4 bg-white border-border rounded-lg overflow-hidden">
+        <div className="mt-4 bg-card border-border rounded-lg overflow-hidden">
           <table className="w-full">
             <thead className="bg-muted border-b border-border">
               <tr>

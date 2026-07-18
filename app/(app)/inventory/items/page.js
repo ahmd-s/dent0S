@@ -86,13 +86,13 @@ function App() {
     <div className="max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#0F172A]">Inventory Items</h1>
+          <h1 className="text-2xl font-bold text-foreground">Inventory Items</h1>
           <p className="text-muted-foreground text-sm">Manage dental materials and supplies</p>
         </div>
         {canManageInventory() && <Button onClick={openNew} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>Add Item</Button>}
       </div>
       
-      <Card className="mt-5 p-4 bg-white border-border rounded-lg flex items-center gap-3 flex-wrap">
+      <Card className="mt-5 p-4 bg-card border-border rounded-lg flex items-center gap-3 flex-wrap">
         <div className="flex-1 relative min-w-[200px]">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"/>
           <Input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search by name..." className="pl-9"/>
@@ -111,12 +111,12 @@ function App() {
 
       {loading && <div className="mt-6 flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]"/></div>}
       {!loading && items.length === 0 && (
-        <Card className="mt-4 bg-white border-border rounded-lg py-16 text-center text-muted-foreground text-sm">
+        <Card className="mt-4 bg-card border-border rounded-lg py-16 text-center text-muted-foreground text-sm">
           No inventory items yet. {canManageInventory() && 'Add your first item to start tracking stock.'}
         </Card>
       )}
       {!loading && items.length > 0 && (
-        <div className="mt-4 bg-white border-border rounded-lg overflow-hidden">
+        <div className="mt-4 bg-card border-border rounded-lg overflow-hidden">
           <table className="w-full">
             <thead className="bg-muted border-b border-border">
               <tr>
@@ -254,7 +254,7 @@ function ItemDialog({ open, setOpen, editing, vendors, onSaved }) {
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs bg-[#0D9488] text-white px-2 py-0.5 rounded">from catalog</span>
               )}
               {showCatalogDropdown && catalogSearch.length >= 2 && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-border rounded-md shadow-lg max-h-64 overflow-y-auto">
+                <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-md shadow-lg max-h-64 overflow-y-auto">
                   {catalogLoading ? (
                     <div className="p-3 text-sm text-muted-foreground flex items-center gap-2">
                       <Loader2 className="w-4 h-4 animate-spin"/>Searching...

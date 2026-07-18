@@ -71,7 +71,7 @@ function App() {
         <Button onClick={()=>setOpen(true)} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>New Lab Case</Button>
       </div>
 
-      <Card className="mt-5 p-4 bg-white border-border rounded-lg flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+      <Card className="mt-5 p-4 bg-card border-border rounded-lg flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
         <div className="flex-1 relative">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"/>
           <Input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search by case #, patient, vendor…" className="pl-9"/>
@@ -84,13 +84,13 @@ function App() {
         <span className="text-sm text-muted-foreground whitespace-nowrap">{visible.length} cases</span>
       </Card>
 
-      <Card className="mt-4 bg-white border-border rounded-lg overflow-hidden">
+      <Card className="mt-4 bg-card border-border rounded-lg overflow-hidden">
         {loading && <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]"/></div>}
         {!loading && visible.length === 0 && <div className="py-16 text-center text-muted-foreground text-sm">No lab cases found</div>}
         {!loading && visible.length > 0 && (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-[#F8FAFC] text-left text-xs uppercase text-muted-foreground tracking-wider">
+              <thead className="bg-muted text-left text-xs uppercase text-muted-foreground tracking-wider">
                 <tr>
                   <th className="px-5 py-3 font-medium">Case #</th>
                   <th className="px-5 py-3 font-medium">Patient</th>
@@ -104,8 +104,8 @@ function App() {
               </thead>
               <tbody>
                 {visible.map(c => (
-                  <tr key={c.id} className="border-t border-border hover:bg-[#F8FAFC]/50 cursor-pointer" onClick={()=>window.location.href=`/lab-cases/${c.id}`}>
-                    <td className="px-5 py-3 font-medium text-[#0F172A]">{c.case_number}</td>
+                  <tr key={c.id} className="border-t border-border hover:bg-muted/50 cursor-pointer" onClick={()=>window.location.href=`/lab-cases/${c.id}`}>
+                    <td className="px-5 py-3 font-medium text-foreground">{c.case_number}</td>
                     <td className="px-5 py-3">{c.patient_name}</td>
                     <td className="px-5 py-3">{c.vendor_name}</td>
                     <td className="px-5 py-3 text-muted-foreground">{c.case_type}</td>
