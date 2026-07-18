@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { ToothIcon } from '@/components/dentos/Logo'
+import { ClinicLogo } from '@/components/dentos/Logo'
 import { toast } from 'sonner'
 
 const todayIso = () => new Date().toISOString().slice(0, 10)
@@ -227,10 +227,8 @@ export default function BookingPage() {
 
         {/* Clinic header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#0D9488] mx-auto">
-            {clinic.logo_url
-              ? <img src={clinic.logo_url} alt="" className="w-full h-full rounded-2xl object-cover" />
-              : <ToothIcon className="w-8 h-8 text-white" />}
+          <div className="inline-flex mx-auto">
+            <ClinicLogo logoUrl={clinic.logo_url} size="w-16 h-16" iconSize="w-8 h-8" rounded="rounded-2xl" />
           </div>
           <h1 className="mt-4 text-2xl font-bold text-[#0F172A]">{clinic.name}</h1>
           <div className="mt-2 text-sm text-muted-foreground flex items-center justify-center gap-3 flex-wrap">

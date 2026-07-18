@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { DentosLogo } from '@/components/dentos/Logo'
+import { DentosLogo, ToothIcon } from '@/components/dentos/Logo'
+import ImageUpload from '@/components/dentos/ImageUpload'
 import { toast } from 'sonner'
 
 const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
@@ -102,7 +103,16 @@ function App() {
                   <div className="space-y-1.5"><Label>Clinic Phone</Label><Input value={clinic.phone} onChange={e=>setClinic({...clinic,phone:e.target.value})} /></div>
                 </div>
                 <div className="space-y-1.5"><Label>GST Number <span className="text-muted-foreground text-xs">(optional)</span></Label><Input value={clinic.gstin} onChange={e=>setClinic({...clinic,gstin:e.target.value})} /></div>
-                <div className="space-y-1.5"><Label>Clinic Logo URL <span className="text-muted-foreground text-xs">(optional)</span></Label><Input value={clinic.logo_url} onChange={e=>setClinic({...clinic,logo_url:e.target.value})} placeholder="https://..." /></div>
+                <div className="space-y-1.5">
+                  <Label>Clinic Logo <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                  <ImageUpload
+                    value={clinic.logo_url}
+                    onChange={url => setClinic({ ...clinic, logo_url: url })}
+                    uploadUrl="/api/clinic/logo"
+                    fallback={<ToothIcon className="w-8 h-8 text-white" />}
+                    helperText="JPG, PNG or WEBP. Max 5MB."
+                  />
+                </div>
               </div>
               <div className="mt-8 flex justify-end">
                 <Button onClick={submitStep1} disabled={loading} className="bg-[#0D9488] hover:bg-[#0B7E73]">Continue {loading?<Loader2 className="w-4 h-4 animate-spin ml-2"/>:<ChevronRight className="w-4 h-4 ml-1"/>}</Button>

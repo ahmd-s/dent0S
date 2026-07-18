@@ -12,6 +12,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { canAccessSettings } from '@/lib/rbac'
+import { ToothIcon } from '@/components/dentos/Logo'
+import ImageUpload from '@/components/dentos/ImageUpload'
+import { useRole } from '@/components/dentos/RoleContext'
 
 const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 const TIMES = (() => { const arr = []; for (let h=6; h<=22; h++) for (let m=0;m<60;m+=30) { const hh=h%12===0?12:h%12, ap=h<12?'AM':'PM'; arr.push(`${String(hh).padStart(2,'0')}:${String(m).padStart(2,'0')} ${ap}`) } return arr })()
@@ -40,6 +43,7 @@ function App() {
 }
 
 function ClinicTab({ me, reload }) {
+  const { refresh: refreshRole } = useRole()
   const [c, setC] = useState(null)
   const [hours, setHours] = useState(DAYS.map(d => ({ day:d, open: d!=='Sun', start:'10:00 AM', end:'07:00 PM' })))
   const [saving, setSaving] = useState(false)
@@ -56,7 +60,7 @@ function ClinicTab({ me, reload }) {
     setSaving(true)
     const r = await fetch('/api/clinic', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name: c.name, phone: c.phone, address: c.address, city: c.city, gstin: c.gstin, logo_url: c.logo_url, working_hours: hours }) })
     setSaving(false)
-    if (r.ok) { toast.success('Saved'); reload() } else toast.error('Failed')
+    if (r.ok) { toast.success('Saved'); reload(); refreshRole() } else toast.error('Failed')
   }
   const updateSlug = async () => {
     const r = await fetch('/api/clinic', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ slug: c.slug }) })
@@ -81,13 +85,22 @@ function ClinicTab({ me, reload }) {
     <>
       <Card className="p-6 bg-white border-border rounded-lg">
         <h3 className="font-semibold mb-4">Clinic Profile</h3>
+        <div className="space-y-1.5 mb-5">
+          <Label>Clinic Logo</Label>
+          <ImageUpload
+            value={c.logo_url}
+            onChange={url => { setC({ ...c, logo_url: url }); reload(); refreshRole() }}
+            uploadUrl="/api/clinic/logo"
+            fallback={<ToothIcon className="w-8 h-8 text-white" />}
+            helperText="JPG, PNG or WEBP. Max 5MB. Appears in your sidebar and on invoices."
+          />
+        </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5 col-span-2"><Label>Clinic Name</Label><Input value={c.name||''} onChange={e=>setC({...c,name:e.target.value})}/></div>
           <div className="space-y-1.5"><Label>Phone</Label><Input value={c.phone||''} onChange={e=>setC({...c,phone:e.target.value})}/></div>
           <div className="space-y-1.5"><Label>City</Label><Input value={c.city||''} onChange={e=>setC({...c,city:e.target.value})}/></div>
           <div className="space-y-1.5 col-span-2"><Label>Address</Label><Textarea rows={2} value={c.address||''} onChange={e=>setC({...c,address:e.target.value})}/></div>
           <div className="space-y-1.5"><Label>GSTIN</Label><Input value={c.gstin||''} onChange={e=>setC({...c,gstin:e.target.value})}/></div>
-          <div className="space-y-1.5"><Label>Logo URL</Label><Input value={c.logo_url||''} onChange={e=>setC({...c,logo_url:e.target.value})} placeholder="https://…"/></div>
         </div>
         <h4 className="font-medium mt-6 mb-3">Working Hours</h4>
         {hours.map((h,i) => (

@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { LayoutDashboard, Users, Calendar, Receipt, Settings, LogOut, Search, Plus, Menu, X, Moon, Sun, FlaskConical, Building2, ChevronUp, CreditCard, Package } from 'lucide-react'
 import NotificationBell from './NotificationBell'
-import { ToothIcon } from './Logo'
+import { ClinicLogo } from './Logo'
 import { useRole } from './RoleContext'
 import { Badge } from '@/components/ui/badge'
 import { useTheme } from 'next-themes'
@@ -92,7 +92,7 @@ export default function AppShell({ children }) {
         <div className="p-5 border-b border-white/10 flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-lg bg-[#0D9488] flex items-center justify-center"><ToothIcon className="w-5 h-5 text-white"/></div>
+              <ClinicLogo logoUrl={me.clinic?.logo_url} />
               <div className="font-bold text-lg">DentOS</div>
             </div>
             <div className="text-xs text-[#5EEAD4] mt-1.5 truncate">{me.clinic?.name}</div>
