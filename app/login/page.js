@@ -12,13 +12,6 @@ import { toast } from 'sonner'
 function App() {
   const router = useRouter()
 
-  useEffect(() => {
-    const token = localStorage.getItem('token') || document.cookie.includes('token')
-    if (token) {
-      router.replace('/dashboard')
-    }
-  }, [])
-
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [show, setShow] = useState(false)
