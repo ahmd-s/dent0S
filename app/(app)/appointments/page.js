@@ -14,6 +14,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { toast } from 'sonner'
 import BalanceBadge from '@/components/dentos/BalanceBadge'
 import OutstandingBalanceModal from '@/components/dentos/OutstandingBalanceModal'
+import { useLiveRefresh } from '@/hooks/useLiveRefresh'
 
 const todayIso = () => new Date().toISOString().slice(0,10)
 const fmtFull = d => { const x = new Date(d+'T00:00:00'); return x.toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long', year:'numeric' }) }
@@ -59,14 +60,15 @@ function App() {
     if (pid) setOpen(true)
   }, [])
 
-  const load = async () => {
-    setLoading(true)
+  const load = async ({ silent } = {}) => {
+    if (!silent) setLoading(true)
     const r = await fetch(`/api/appointments?date=${date}`)
     const d = await r.json()
     setList(d.appointments||[])
-    setLoading(false)
+    if (!silent) setLoading(false)
   }
   useEffect(() => { load() }, [date])
+  useLiveRefresh(() => load({ silent: true }), [date])
 
   const setStatus = async (id, status) => { const r = await fetch(`/api/appointments/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({status}) }); if (r.ok) { toast.success('Updated'); load() } }
   const startVisit = async (a) => {

@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { NewLabCaseDialog } from '@/components/dentos/NewLabCaseDialog'
 import { LAB_CASE_STATUS_META, statusLabel } from '@/lib/lab-case-helpers'
+import { useLiveRefresh } from '@/hooks/useLiveRefresh'
 
 const fmtDate = d => d ? `${String(new Date(d).getDate()).padStart(2,'0')}/${String(new Date(d).getMonth()+1).padStart(2,'0')}/${new Date(d).getFullYear()}` : '—'
 
@@ -45,17 +46,18 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
 
-  const load = async () => {
-    setLoading(true)
+  const load = async ({ silent } = {}) => {
+    if (!silent) setLoading(true)
     const params = new URLSearchParams()
     // 'overdue' is a derived flag (not a stored status): fetch all and filter client-side.
     if (status !== 'all' && status !== 'overdue') params.set('status', status)
     const r = await fetch('/api/lab-cases?' + params)
     const d = await r.json()
     setList(d.lab_cases || [])
-    setLoading(false)
+    if (!silent) setLoading(false)
   }
   useEffect(() => { load() }, [status])
+  useLiveRefresh(() => load({ silent: true }), [status])
 
   const visible = useMemo(() => {
     let l = status === 'overdue' ? list.filter(c => c.overdue) : list

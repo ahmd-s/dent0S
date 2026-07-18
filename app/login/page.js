@@ -60,7 +60,7 @@ function App() {
         </Button>
         {err && <p className="text-sm text-[#EF4444]">{err}</p>}
         <div className="text-center">
-          <Link href="#" className="text-sm text-[#0D9488] hover:underline">Forgot password?</Link>
+          <Link href="/forgot-password" className="text-sm text-[#0D9488] hover:underline">Forgot password?</Link>
         </div>
       </form>
       <div className="flex items-center gap-3 my-6"><div className="flex-1 h-px bg-border"/><span className="text-xs text-muted-foreground">OR</span><div className="flex-1 h-px bg-border"/></div>

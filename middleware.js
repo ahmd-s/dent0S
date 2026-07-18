@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { canAccessRoute } from '@/lib/rbac'
 
-const PUBLIC_PATHS = ['/login', '/signup']
+const PUBLIC_PATHS = ['/login', '/signup', '/forgot-password', '/reset-password']
 const PROTECTED_PREFIXES = ['/dashboard', '/onboarding', '/patients', '/appointments', '/lab-cases', '/vendors', '/billing', '/settings', '/visits', '/inventory']
 
 function jwtPayload(token) {
@@ -38,6 +38,6 @@ export function middleware(req) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/onboarding', '/login', '/signup', '/book/:path*',
+  matcher: ['/dashboard/:path*', '/onboarding', '/login', '/signup', '/forgot-password', '/reset-password', '/book/:path*',
     '/patients/:path*', '/appointments/:path*', '/lab-cases/:path*', '/vendors/:path*', '/billing/:path*', '/settings/:path*', '/visits/:path*', '/inventory', '/inventory/:path*']
 }

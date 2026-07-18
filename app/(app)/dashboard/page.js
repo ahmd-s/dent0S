@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 import { useRole } from '@/components/dentos/RoleContext'
 import BalanceBadge from '@/components/dentos/BalanceBadge'
 import OutstandingBalanceModal from '@/components/dentos/OutstandingBalanceModal'
+import { useLiveRefresh } from '@/hooks/useLiveRefresh'
 
 const todayIso = () => new Date().toISOString().slice(0,10)
 const fmtDate = d => { const x = new Date(d); return `${String(x.getDate()).padStart(2,'0')}/${String(x.getMonth()+1).padStart(2,'0')}/${x.getFullYear()}` }
@@ -43,6 +44,7 @@ function App() {
 
   const load = () => fetch('/api/dashboard/stats').then(r=>r.json()).then(setStats)
   useEffect(() => { load() }, [])
+  useLiveRefresh(load)
 
   const setStatus = async (id, status) => {
     await fetch(`/api/appointments/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ status }) })

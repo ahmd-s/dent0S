@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { useRole } from '@/components/dentos/RoleContext'
+import { useLiveRefresh } from '@/hooks/useLiveRefresh'
 
 const inr = n => '₹' + (n||0).toLocaleString('en-IN')
 const fmtDate = d => d ? `${String(new Date(d+'T00:00:00').getDate()).padStart(2,'0')}/${String(new Date(d+'T00:00:00').getMonth()+1).padStart(2,'0')}/${new Date(d+'T00:00:00').getFullYear()}` : '—'
@@ -41,6 +42,7 @@ function App() {
     setList(d.invoices||[]); setSummary(d.summary||{collected:0,pending:0,total:0})
   }
   useEffect(() => { load() }, [from, to, status, q])
+  useLiveRefresh(load, [from, to, status, q])
 
   const handleSearchChange = useCallback((value) => {
     if (searchTimeoutRef.current) {
