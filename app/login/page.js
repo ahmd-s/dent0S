@@ -80,6 +80,11 @@ function App() {
         return
       }
 
+      if (d.is_platform_admin) {
+        setErr('Platform admin sign-in requires two-factor authentication.')
+        return
+      }
+
       toast.success('Welcome back!')
       if (d.onboarding_complete) router.push('/dashboard')
       else router.push('/onboarding')

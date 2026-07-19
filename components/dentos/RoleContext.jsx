@@ -4,6 +4,17 @@ import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { canManageBilling, canManageInventory, canManageStaff, canAccessClinical, canAccessSettings } from '@/lib/rbac'
 
+async function redirectPlatformAdmin(router, d) {
+  if (!d?.is_platform_admin) return false
+  if (d.platform_session_active) {
+    router.push('/platform-admin')
+    return true
+  }
+  await fetch('/api/auth/logout', { method: 'POST' })
+  router.push('/login')
+  return true
+}
+
 const RoleContext = createContext(null)
 
 export function RoleProvider({ children }) {
@@ -18,6 +29,7 @@ export function RoleProvider({ children }) {
       router.push('/login')
       return null
     }
+    if (await redirectPlatformAdmin(router, d)) return null
     if (!d.clinic?.onboarding_complete) {
       router.push('/onboarding')
       return null
@@ -35,6 +47,15 @@ export function RoleProvider({ children }) {
       if (cancelled) return
       if (!d?.user) {
         router.push('/login')
+        setLoading(false)
+        return
+      }
+      if (d.is_platform_admin) {
+        if (d.platform_session_active) router.push('/platform-admin')
+        else {
+          await fetch('/api/auth/logout', { method: 'POST' })
+          router.push('/login')
+        }
         setLoading(false)
         return
       }

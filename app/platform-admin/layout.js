@@ -13,22 +13,33 @@ export default function PlatformAdminLayout({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/auth/me')
-      .then(r => r.json())
-      .then(d => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const r = await fetch('/api/auth/me')
+        const d = await r.json()
+        if (cancelled) return
         if (!d?.user || !d.is_platform_admin) {
           setDenied(true)
           setLoading(false)
           return
         }
+        if (!d.platform_session_active) {
+          await fetch('/api/auth/logout', { method: 'POST' })
+          router.push('/login')
+          return
+        }
         setMe(d)
         setLoading(false)
-      })
-      .catch(() => {
-        setDenied(true)
-        setLoading(false)
-      })
-  }, [])
+      } catch {
+        if (!cancelled) {
+          setDenied(true)
+          setLoading(false)
+        }
+      }
+    })()
+    return () => { cancelled = true }
+  }, [router])
 
   const logout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' })

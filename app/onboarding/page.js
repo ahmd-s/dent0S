@@ -33,8 +33,16 @@ function App() {
   const [staff, setStaff] = useState({ full_name:'', email:'', role:'doctor', password:'' })
 
   useEffect(() => {
-    fetch('/api/auth/me').then(r => r.json()).then(d => {
+    fetch('/api/auth/me').then(r => r.json()).then(async d => {
       if (d?.user) {
+        if (d.is_platform_admin) {
+          if (d.platform_session_active) router.push('/platform-admin')
+          else {
+            await fetch('/api/auth/logout', { method: 'POST' })
+            router.push('/login')
+          }
+          return
+        }
         setUser(d.user)
         setClinic(c => ({ ...c, name: d.clinic?.name || '', phone: d.clinic?.phone || '' }))
         if (d.clinic?.onboarding_complete) router.push('/dashboard')

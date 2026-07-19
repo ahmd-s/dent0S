@@ -10,6 +10,7 @@ import {
   getClientIp,
   logPlatformAudit,
   AUDIT_ACTIONS,
+  isPlatformAdminProfile,
 } from '@/lib/platform-admin'
 import {
   checkLoginRateLimit,
@@ -36,12 +37,8 @@ export async function POST(request) {
     if (!b.code) return err('Verification code required')
 
     const db = await getDb()
-    const profile = await db.collection('profiles').findOne({
-      id: pending.uid,
-      is_platform_admin: true,
-      totp_enabled: true,
-    })
-    if (!profile) return notFound()
+    const profile = await db.collection('profiles').findOne({ id: pending.uid })
+    if (!profile || !isPlatformAdminProfile(profile) || !profile.totp_enabled) return notFound()
 
     const ip = getClientIp(request)
     const rate = await checkLoginRateLimit(db, profile.email, ip)

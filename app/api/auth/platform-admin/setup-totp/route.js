@@ -8,6 +8,7 @@ import {
   buildOtpAuthUri,
   buildQrDataUrl,
 } from '@/lib/platform-admin-auth'
+import { isPlatformAdminProfile } from '@/lib/platform-admin'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -26,11 +27,8 @@ export async function POST(request) {
     if (!pending) return notFound()
 
     const db = await getDb()
-    const profile = await db.collection('profiles').findOne({
-      id: pending.uid,
-      is_platform_admin: true,
-    })
-    if (!profile || profile.totp_enabled) return notFound()
+    const profile = await db.collection('profiles').findOne({ id: pending.uid })
+    if (!profile || !isPlatformAdminProfile(profile) || profile.totp_enabled) return notFound()
 
     let secret = decryptTotpSecret(profile.totp_pending_secret_enc)
     if (!secret) {

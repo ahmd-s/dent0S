@@ -15,6 +15,7 @@ import {
   getClientIp,
   logPlatformAudit,
   AUDIT_ACTIONS,
+  isPlatformAdminProfile,
 } from '@/lib/platform-admin'
 import { issuePendingToken } from '@/lib/platform-admin-auth'
 
@@ -39,7 +40,7 @@ export async function POST(request) {
     const rate = await checkLoginRateLimit(db, email, ip)
     if (rate.locked) {
       const profile = await db.collection('profiles').findOne({ email })
-      if (profile?.is_platform_admin) {
+      if (isPlatformAdminProfile(profile)) {
         await logPlatformAudit(db, {
           actor: profile,
           action: AUDIT_ACTIONS.LOGIN_LOCKED,
@@ -52,7 +53,7 @@ export async function POST(request) {
     const profile = await db.collection('profiles').findOne({ email })
     if (!profile || !profile.is_active || profile.deleted_at) {
       const failResult = await recordLoginFailure(db, email, ip)
-      if (profile?.is_platform_admin) {
+      if (isPlatformAdminProfile(profile)) {
         await logPlatformAudit(db, {
           actor: profile,
           action: AUDIT_ACTIONS.LOGIN_PASSWORD_FAILED,
@@ -60,7 +61,7 @@ export async function POST(request) {
         })
       }
       if (failResult.locked) {
-        if (profile?.is_platform_admin) {
+        if (isPlatformAdminProfile(profile)) {
           await logPlatformAudit(db, {
             actor: profile,
             action: AUDIT_ACTIONS.LOGIN_LOCKED,
@@ -74,7 +75,7 @@ export async function POST(request) {
 
     if (!await verifyPassword(b.password, profile.password_hash)) {
       const failResult = await recordLoginFailure(db, email, ip)
-      if (profile.is_platform_admin) {
+      if (isPlatformAdminProfile(profile)) {
         await logPlatformAudit(db, {
           actor: profile,
           action: AUDIT_ACTIONS.LOGIN_PASSWORD_FAILED,
@@ -82,7 +83,7 @@ export async function POST(request) {
         })
       }
       if (failResult.locked) {
-        if (profile.is_platform_admin) {
+        if (isPlatformAdminProfile(profile)) {
           await logPlatformAudit(db, {
             actor: profile,
             action: AUDIT_ACTIONS.LOGIN_LOCKED,
@@ -100,7 +101,7 @@ export async function POST(request) {
 
     await clearLoginRateLimit(db, email, ip)
 
-    if (profile.is_platform_admin) {
+    if (isPlatformAdminProfile(profile)) {
       await logPlatformAudit(db, {
         actor: profile,
         action: AUDIT_ACTIONS.LOGIN_PASSWORD_SUCCESS,

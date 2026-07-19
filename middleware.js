@@ -41,6 +41,10 @@ export function middleware(req) {
   if (PROTECTED_PREFIXES.some(p => pathname === p || pathname.startsWith(p + '/'))) {
     if (!token) return NextResponse.redirect(new URL('/login', req.url))
     if (isPlatformAdmin) return NextResponse.redirect(new URL('/platform-admin', req.url))
+    // Clinic-less session without platform 2FA — force re-login (platform admin stuck state)
+    if (payload?.cid == null && !payload?.pa) {
+      return NextResponse.redirect(new URL('/login', req.url))
+    }
     if (!canAccessRoute(payload?.role, pathname)) {
       return NextResponse.redirect(new URL('/dashboard?error=unauthorized', req.url))
     }
