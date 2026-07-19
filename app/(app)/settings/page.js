@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Loader2, Plus, Copy, ExternalLink, Trash2, Edit2, FileText } from 'lucide-react'
+import { Loader2, Plus, Copy, ExternalLink, Trash2, Edit2, FileText, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { canAccessSettings } from '@/lib/rbac'
@@ -160,8 +161,10 @@ function ClinicTab({ me, reload }) {
 }
 
 function TeamTab() {
+  const { me } = useRole()
   const [team, setTeam] = useState([])
   const [open, setOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState(null)
   const [f, setF] = useState({ full_name:'', email:'', role:'doctor', password:'', whatsapp_number:'' })
   const [editingWhatsApp, setEditingWhatsApp] = useState(null)
   const [whatsappValue, setWhatsappValue] = useState('')
@@ -179,6 +182,13 @@ function TeamTab() {
     const r = await fetch(`/api/team/${m.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ is_active: !m.is_active }) })
     if (r.ok) { toast.success('Updated'); load() }
   }
+  const deleteMember = async () => {
+    if (!deleteTarget) return
+    const r = await fetch(`/api/team/${deleteTarget.id}`, { method:'DELETE' })
+    const d = await r.json()
+    if (r.ok) { toast.success('Team member removed'); setDeleteTarget(null); load() }
+    else toast.error(d.error || 'Failed to delete')
+  }
   const updateRole = async (m, role) => {
     const r = await fetch(`/api/team/${m.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ role }) })
     if (r.ok) { toast.success('Role updated'); load() }
@@ -193,6 +203,9 @@ function TeamTab() {
     else toast.error('Failed')
   }
   const formatWhatsApp = (num) => num ? `+91 ${num}` : '—'
+  const currentUserId = me?.profile?.id
+  const ownerId = me?.clinic?.owner_id
+  const canDelete = (m) => m.id !== currentUserId && m.id !== ownerId
   return (
     <Card className="p-6 bg-card border-border rounded-lg">
       <div className="flex items-center justify-between mb-3"><h3 className="font-semibold">Team Members ({team.length})</h3><Button size="sm" onClick={()=>setOpen(true)} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>Invite</Button></div>
@@ -222,7 +235,14 @@ function TeamTab() {
               <td className="py-3"><Select value={m.role} onValueChange={v=>updateRole(m,v)}><SelectTrigger className="w-32 h-8"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="admin">Admin</SelectItem><SelectItem value="doctor">Doctor</SelectItem><SelectItem value="receptionist">Receptionist</SelectItem></SelectContent></Select></td>
               <td className="py-3 text-muted-foreground text-xs whitespace-nowrap">{fmtLastLogin(m.last_login_at)}</td>
               <td className="py-3">{m.is_active?<span className="text-xs px-2 py-1 rounded-full bg-green-50 text-green-700">Active</span>:<span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">Inactive</span>}</td>
-              <td className="py-3 text-right"><Button size="sm" variant="outline" onClick={()=>toggleActive(m)} className="h-8">{m.is_active?'Deactivate':'Activate'}</Button></td>
+              <td className="py-3 text-right">
+                <div className="flex items-center justify-end gap-2">
+                  <Button size="sm" variant="outline" onClick={()=>toggleActive(m)} className="h-8">{m.is_active?'Deactivate':'Activate'}</Button>
+                  {canDelete(m) && (
+                    <Button size="sm" variant="outline" onClick={()=>setDeleteTarget(m)} className="h-8 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700">Delete</Button>
+                  )}
+                </div>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -239,6 +259,20 @@ function TeamTab() {
           </div>
         </DialogContent>
       </Dialog>
+      <AlertDialog open={!!deleteTarget} onOpenChange={open => { if (!open) setDeleteTarget(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove team member?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove {deleteTarget?.full_name} from your team. Their past activity will be preserved for records. Continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={deleteMember} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   )
 }

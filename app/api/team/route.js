@@ -30,7 +30,7 @@ export async function GET() {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
     if (!hasPermission(profile.role, 'staff', 'read')) return err('Forbidden', 403)
-    const team = await db.collection('profiles').find({ clinic_id: cid }).toArray()
+    const team = await db.collection('profiles').find({ clinic_id: cid, deleted_at: { $exists: false } }).toArray()
     return json({ team: team.map(clean) })
   } catch (e) {
     console.error('Team GET error:', e)

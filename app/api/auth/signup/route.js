@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'
 import slugify from 'slugify'
 import { getDb } from '@/lib/mongo'
-import { hashPassword, signToken, setAuthCookie, getCurrentUser } from '@/lib/auth'
+import { hashPassword, generateResetToken, hashResetToken } from '@/lib/auth'
+import { sendEmailVerificationEmail } from '@/lib/invite-email'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -13,16 +14,6 @@ function cors(res) {
 }
 const json = (d, s=200) => cors(NextResponse.json(d, { status: s }))
 const err = (msg, s=400) => json({ error: msg }, s)
-const clean = o => { if (!o) return o; const { _id, password_hash, ...rest } = o; return rest }
-
-async function requireUser() {
-  const t = getCurrentUser(); if (!t) return null
-  const db = await getDb()
-  const profile = await db.collection('profiles').findOne({ id: t.uid })
-  if (!profile) return null
-  const clinic = await db.collection('clinics').findOne({ id: profile.clinic_id })
-  return { profile, clinic, db }
-}
 
 export async function POST(request) {
   try {
@@ -34,8 +25,22 @@ export async function POST(request) {
     if (await db.collection('profiles').findOne({ email })) return err('Email already registered')
     const userId = uuidv4(), clinicId = uuidv4()
     const slug = slugify(b.clinic_name, { lower: true, strict: true }) + '-' + Math.floor(1000+Math.random()*9000)
+    const verifyToken = generateResetToken()
     await db.collection('clinics').insertOne({ id: clinicId, name: b.clinic_name, slug, owner_id: userId, phone: b.phone, address:'', city:'', gstin:'', logo_url:'', working_hours:null, subscription_plan:'free', is_active:true, onboarding_complete:false, created_at:new Date() })
-    await db.collection('profiles').insertOne({ id: userId, clinic_id: clinicId, email, password_hash: await hashPassword(b.password), full_name: b.full_name, role:'admin', phone: b.phone, is_active:true, created_at:new Date() })
+    await db.collection('profiles').insertOne({
+      id: userId,
+      clinic_id: clinicId,
+      email,
+      password_hash: await hashPassword(b.password),
+      full_name: b.full_name,
+      role: 'admin',
+      phone: b.phone,
+      is_active: true,
+      email_verified: false,
+      email_verification_token_hash: hashResetToken(verifyToken),
+      email_verification_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      created_at: new Date(),
+    })
     const now = new Date()
     const trialEnd = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)
     await db.collection('subscriptions').insertOne({
@@ -57,8 +62,17 @@ export async function POST(request) {
       created_at: now,
       updated_at: now
     })
-    setAuthCookie(signToken({ uid: userId, cid: clinicId, role:'admin' }))
-    return json({ ok:true })
+    const origin = new URL(request.url).origin
+    const verifyUrl = `${origin}/verify-email?token=${encodeURIComponent(verifyToken)}`
+    const emailResult = await sendEmailVerificationEmail({
+      to: email,
+      verifyUrl,
+      clinicName: b.clinic_name,
+    })
+    if (!emailResult?.sent) {
+      console.error('Verification email not sent:', emailResult?.reason || 'unknown')
+    }
+    return json({ ok: true, verification_email_sent: !!emailResult?.sent })
   } catch (e) {
     console.error('Auth signup error:', e)
     return err('Internal server error', 500)

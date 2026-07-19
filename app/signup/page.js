@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AuthSplit } from '@/components/dentos/AuthSplit'
-import { toast } from 'sonner'
 
 function App() {
   const router = useRouter()
@@ -28,8 +27,8 @@ function App() {
       const r = await fetch('/api/auth/signup', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(f) })
       const d = await r.json()
       if (!r.ok) { setErr(d.error || 'Signup failed'); return }
-      toast.success('Clinic created! Let\'s set things up.')
-      router.push('/onboarding')
+      const sent = d.verification_email_sent !== false
+      router.push(`/verify-email-pending?email=${encodeURIComponent(f.email)}${sent ? '' : '&sent=0'}`)
     } catch { setErr('Network error') }
     finally { setLoading(false) }
   }
