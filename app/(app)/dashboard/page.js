@@ -195,7 +195,7 @@ function App() {
                 </div>
                 <div className="text-xs text-muted-foreground mt-0.5 truncate">{p.last_visit_reason || '—'}</div>
                 <div className="flex gap-2 mt-2">
-                  <a href={`https://wa.me/91${p.phone}?text=${encodeURIComponent(`Hello ${p.name}, this is a reminder for your follow-up appointment at ${stats.clinic_name}. Please call us to book your visit.`)}`} target="_blank" rel="noreferrer" className="text-xs px-3 py-2 h-9 rounded bg-green-50 text-green-700 hover:bg-green-100 flex items-center gap-1"><MessageCircle className="w-3 h-3"/>WhatsApp</a>
+                  <a href={`https://wa.me/91${p.phone}?text=${encodeURIComponent(`Hello ${p.name}, this is a reminder for your follow-up appointment at ${stats.clinic_name}. Please call us to book your visit.`)}`} target="_blank" rel="noreferrer" className="text-xs px-3 py-2 h-9 rounded bg-green-600 text-white hover:bg-green-700 flex items-center gap-1"><MessageCircle className="w-3 h-3"/>WhatsApp</a>
                   <button className="text-xs px-3 py-2 h-9 rounded bg-[#0D9488]/10 text-[#0D9488] hover:bg-[#0D9488]/20">Book Appointment</button>
                 </div>
               </div>

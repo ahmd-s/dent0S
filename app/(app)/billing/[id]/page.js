@@ -67,20 +67,20 @@ function App() {
         </div>
       </div>
 
-      <Card className="p-10 bg-white border-border rounded-lg print:shadow-none print:border-0">
+      <Card id="invoice-print" className="p-10 bg-card text-card-foreground border-border rounded-lg print:shadow-none print:border-0 print:bg-white print:text-black">
         <div className="flex items-start justify-between border-b-2 border-[#0D9488] pb-6">
           <div className="flex items-start gap-3">
             <ClinicLogo logoUrl={inv.clinic?.logo_url} size="w-12 h-12" iconSize="w-6 h-6" />
             <div>
-              <div className="text-xl font-bold text-[#0F172A]">{inv.clinic?.name}</div>
+              <div className="text-xl font-bold text-foreground">{inv.clinic?.name}</div>
               <div className="text-xs text-muted-foreground mt-0.5 max-w-xs">{inv.clinic?.address}</div>
               <div className="text-xs text-muted-foreground">{inv.clinic?.city}{inv.clinic?.phone?` · ${inv.clinic.phone}`:''}</div>
               {inv.clinic?.gstin && <div className="text-xs text-muted-foreground">GSTIN: {inv.clinic.gstin}</div>}
             </div>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold tracking-wider text-[#0F172A]">INVOICE</div>
-            <div className="font-mono text-sm text-muted-foreground mt-1">{inv.invoice_number}</div>
+            <div className="text-2xl font-bold tracking-wider text-foreground">INVOICE</div>
+            <div className="font-mono text-sm text-foreground mt-1">{inv.invoice_number}</div>
             <div className="text-sm text-muted-foreground">{fmtDate(inv.invoice_date)}</div>
           </div>
         </div>
@@ -88,13 +88,13 @@ function App() {
         <div className="grid grid-cols-2 gap-6 mt-6">
           <div>
             <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Bill To</div>
-            <div className="font-semibold text-lg">{inv.patient?.name}</div>
+            <div className="font-semibold text-lg text-foreground">{inv.patient?.name}</div>
             {inv.patient?.phone && <div className="text-sm text-muted-foreground">+91 {inv.patient.phone}</div>}
             {inv.patient?.address && <div className="text-sm text-muted-foreground">{inv.patient.address}</div>}
           </div>
           <div>
             <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Attending Doctor</div>
-            <div className="font-semibold">{inv.doctor_name ? (inv.doctor_name.toLowerCase().startsWith('dr.') ? inv.doctor_name : `Dr. ${inv.doctor_name}`) : '—'}</div>
+            <div className="font-semibold text-foreground">{inv.doctor_name ? (inv.doctor_name.toLowerCase().startsWith('dr.') ? inv.doctor_name : `Dr. ${inv.doctor_name}`) : '—'}</div>
             {inv.visit?.diagnosis && <div className="text-sm text-muted-foreground mt-1">Dx: {inv.visit.diagnosis}</div>}
           </div>
         </div>
@@ -135,7 +135,22 @@ function App() {
       </Card>
 
       <MarkPaidDialog open={payOpen} onClose={()=>setPayOpen(false)} invoice={inv} onSaved={load}/>
-      <style jsx global>{`@media print { aside, header, .print\\:hidden { display: none !important } main { padding: 0 !important; background: white !important } }`}</style>
+      <style jsx global>{`
+        @media print {
+          body * { visibility: hidden; }
+          #invoice-print, #invoice-print * { visibility: visible; }
+          #invoice-print {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            background: white !important;
+            color: black !important;
+            box-shadow: none !important;
+          }
+          .print\\:hidden { display: none !important; }
+        }
+      `}</style>
     </div>
   )
 }

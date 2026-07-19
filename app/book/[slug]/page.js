@@ -222,7 +222,7 @@ export default function BookingPage() {
   )
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC]">
+    <div className="light min-h-screen bg-[#F8FAFC]">
       <div className="max-w-xl mx-auto px-4 py-8">
 
         {/* Clinic header */}
