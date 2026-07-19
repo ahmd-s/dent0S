@@ -12,7 +12,7 @@ const STLCanvas = dynamic(
     const { Canvas, useLoader } = await import('@react-three/fiber')
     const { OrbitControls } = await import('@react-three/drei')
     // STLLoader lives in three.js (not drei). Path @react-three/drei/loaders/STLLoader does not exist.
-    const { STLLoader } = await import('three/examples/jsm/loaders/STLLoader.js')
+    const { STLLoader } = await import('three/examples/jsm/loaders/STLLoader')
     const THREE = await import('three')
 
     function STLModel({ url }) {
