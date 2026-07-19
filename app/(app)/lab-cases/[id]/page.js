@@ -5,11 +5,13 @@ import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, Phone, Mail, User, Building2, Loader2, AlertTriangle, Trash2, Clock, Paperclip, Link2, Copy, Check, MessageCircle, ScrollText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { useRole } from '@/components/dentos/RoleContext'
 import { LabCaseAttachments } from '@/components/dentos/LabCaseAttachments'
+import STLViewer from '@/components/STLViewer'
 import { LAB_CASE_STATUS_META, statusLabel } from '@/lib/lab-case-helpers'
 
 const fmtDate = d => d ? `${String(new Date(d).getDate()).padStart(2,'0')}/${String(new Date(d).getMonth()+1).padStart(2,'0')}/${new Date(d).getFullYear()}` : '—'
@@ -50,6 +52,8 @@ function App() {
   const [audit, setAudit] = useState([])
   const [copied, setCopied] = useState(false)
   const [sharing, setSharing] = useState(false)
+  const [stlLink, setStlLink] = useState(null)
+  const [generatingLink, setGeneratingLink] = useState(false)
 
   const load = async () => {
     const r = await fetch(`/api/lab-cases/${id}`)
@@ -96,6 +100,19 @@ function App() {
       window.open(`https://wa.me/${waPhone(lc.vendor_phone)}?text=${encodeURIComponent(msg)}`, '_blank')
       loadAudit()
     } finally { setSharing(false) }
+  }
+
+  const generateSTLLink = async () => {
+    setGeneratingLink(true)
+    try {
+      const res = await fetch(`/api/lab-cases/${id}/generate-stl-link`, { method: 'POST' })
+      const data = await res.json()
+      if (data.ok) setStlLink(data.upload_url)
+      else alert(data.error || 'Failed to generate link')
+    } catch (e) {
+      alert('Failed to generate link')
+    }
+    setGeneratingLink(false)
   }
 
   if (!lc) return <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]"/></div>
@@ -193,6 +210,36 @@ function App() {
                 <div className="text-sm mt-1 whitespace-pre-wrap text-[#0F172A]">{lc.description}</div>
               </div>
             )}
+          </Card>
+
+          <Card className="mt-4 p-4 bg-white border-border rounded-lg">
+            <h3 className="font-semibold text-sm mb-3">3D Scan File</h3>
+            {lc?.stl_file_url ? (
+              <STLViewer url={lc.stl_file_url} height="400px" />
+            ) : (
+              <div className="text-center py-8 text-muted-foreground text-sm border border-dashed rounded-lg">
+                No 3D scan uploaded yet.
+              </div>
+            )}
+            <div className="mt-4 flex items-center gap-3">
+              {!stlLink ? (
+                <Button size="sm" onClick={generateSTLLink} disabled={generatingLink}>
+                  {generatingLink ? 'Generating...' : 'Generate Lab Upload Link'}
+                </Button>
+              ) : (
+                <div className="flex items-center gap-2 w-full">
+                  <Input value={stlLink} readOnly className="text-xs h-8 flex-1" />
+                  <Button size="sm" variant="outline" onClick={() => navigator.clipboard.writeText(stlLink)}>Copy</Button>
+                  <Button
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700"
+                    onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent('Please upload the 3D scan file for your lab case here: ' + stlLink)}`, '_blank')}
+                  >
+                    Send via WhatsApp
+                  </Button>
+                </div>
+              )}
+            </div>
           </Card>
 
           {/* ATTACHMENTS */}
