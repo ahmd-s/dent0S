@@ -285,7 +285,7 @@ function App() {
       </div>
       <div className="mt-3 flex items-end justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#0F172A] flex items-center gap-3">{v.patient?.name}
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-3">{v.patient?.name}
             {v.patient?.age && <span className="text-base font-normal text-muted-foreground">· {v.patient.age} yrs</span>}
             {v.patient?.blood_group && <span className="text-xs px-2 py-0.5 rounded bg-red-50 text-red-700 font-medium">{v.patient.blood_group}</span>}
           </h1>
@@ -300,7 +300,7 @@ function App() {
         </div>
       )}
       {v.previous_visit && (
-        <Card className="mt-4 p-4 bg-[#F8FAFC] border-border rounded-lg">
+        <Card className="mt-4 p-4 bg-muted border-border rounded-lg">
           <button type="button" onClick={()=>setShowPrev(s=>!s)} className="w-full flex items-center justify-between text-sm font-medium">
             <span><FileText className="w-4 h-4 inline mr-2"/>Last Visit: {fmtDate(v.previous_visit.visit_date)} — {v.previous_visit.treatment_done?.slice(0,80) || v.previous_visit.diagnosis?.slice(0,80) || 'No notes'}</span>
             {showPrev ? <ChevronUp className="w-4 h-4"/> : <ChevronDown className="w-4 h-4"/>}
@@ -316,8 +316,8 @@ function App() {
 
       <VisitVoiceRecorder visitId={id} disabled={saving} onApplyExtraction={handleVoiceApply} />
 
-      <Card className="mt-5 bg-white border-border rounded-lg">
-        <button type="button" onClick={()=>setShowToothChart(s=>!s)} className="w-full flex items-center justify-between p-4 text-sm font-medium hover:bg-gray-50 transition-colors">
+      <Card className="mt-5 bg-card border-border rounded-lg">
+        <button type="button" onClick={()=>setShowToothChart(s=>!s)} className="w-full flex items-center justify-between p-4 text-sm font-medium hover:bg-muted transition-colors">
           <span className="flex items-center gap-2">🦷 Tooth Chart</span>
           {showToothChart ? <ChevronUp className="w-4 h-4"/> : <ChevronDown className="w-4 h-4"/>}
         </button>
@@ -326,7 +326,7 @@ function App() {
         </div>}
       </Card>
 
-      <Card className="mt-5 p-6 bg-white border-border rounded-lg space-y-5">
+      <Card className="mt-5 p-6 bg-card border-border rounded-lg space-y-5">
         <div className="space-y-1.5"><Label className="text-base">Chief Complaint <span className="text-[#EF4444]">*</span></Label><SmartTextarea value={v.chief_complaint||''} onChange={val=>set('chief_complaint',val)} category="chief_complaints" placeholder="What brings the patient in today?" rows={2}/></div>
         <div className="space-y-1.5"><Label className="text-base">Examination Findings</Label><SmartTextarea value={v.clinical_notes||''} onChange={val=>set('clinical_notes',val)} category="clinical_findings" placeholder="Document your examination findings…" rows={3}/></div>
         <div className="space-y-1.5"><Label className="text-base">Diagnosis</Label><Input value={v.diagnosis||''} onChange={e=>set('diagnosis',e.target.value)} placeholder="e.g. Deep caries 46, Gingivitis"/></div>
@@ -347,7 +347,7 @@ function App() {
         <div className="space-y-1.5"><Label className="text-base">Plan for Next Visit</Label><SmartTextarea value={v.treatment_plan||''} onChange={val=>set('treatment_plan',val)} category="treatment_plans" placeholder="What should be done on the next visit…" rows={2}/></div>
       </Card>
 
-      <Card className="mt-5 p-6 bg-white border-border rounded-lg">
+      <Card className="mt-5 p-6 bg-card border-border rounded-lg">
         <div className="flex items-center justify-between mb-3"><Label className="text-base">Prescriptions</Label><Button type="button" size="sm" variant="outline" onClick={addRx}><Plus className="w-4 h-4 mr-1"/>Add Medicine</Button></div>
         {rxs.length === 0 && <div className="text-sm text-muted-foreground py-2">No prescriptions added</div>}
         {rxs.map((r,i) => (
@@ -362,7 +362,7 @@ function App() {
         ))}
       </Card>
 
-      <Card className="mt-5 p-6 bg-white border-border rounded-lg">
+      <Card className="mt-5 p-6 bg-card border-border rounded-lg">
         <div className="flex items-center gap-3 mb-3">
           <Switch checked={!!v.next_visit_recommended} onCheckedChange={val=>set('next_visit_recommended', val)} />
           <Label className="!mt-0 text-base">Recommend follow-up visit?</Label>
@@ -375,7 +375,7 @@ function App() {
         )}
       </Card>
 
-      <Card className="mt-5 p-6 bg-white border-border rounded-lg">
+      <Card className="mt-5 p-6 bg-card border-border rounded-lg">
         <div className="flex items-center justify-between mb-3"><Label className="text-base">Invoice for This Visit</Label><Button type="button" size="sm" variant="outline" onClick={()=>addItem()}><Plus className="w-4 h-4 mr-1"/>Add Item</Button></div>
         {items.length === 0 && <div className="text-sm text-muted-foreground py-2">No items added. Click “Apply Template” above or add items manually.</div>}
         {items.length > 0 && (
@@ -407,7 +407,7 @@ function App() {
         </div>
       </Card>
 
-      <Card className="mt-5 p-6 bg-white border-border rounded-lg">
+      <Card className="mt-5 p-6 bg-card border-border rounded-lg">
         <Label className="text-base mb-3 block">Documents & Scans</Label>
         <VisitDocuments visitId={id} patientId={v.patient_id} onAddFindings={handleAddToFindings} />
       </Card>

@@ -54,7 +54,7 @@ function SubscriptionPage() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <Card className="p-6 bg-white border-border rounded-lg">
+      <Card className="p-6 bg-card border-border rounded-lg">
         <Script src="https://checkout.razorpay.com/v1/checkout.js" onLoad={() => setRzpLoaded(true)} />
         <h3 className="font-semibold mb-4">Subscription</h3>
         {loading ? (

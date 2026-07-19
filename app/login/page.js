@@ -12,13 +12,6 @@ import { toast } from 'sonner'
 function App() {
   const router = useRouter()
 
-  useEffect(() => {
-    const token = localStorage.getItem('token') || document.cookie.includes('token')
-    if (token) {
-      router.replace('/dashboard')
-    }
-  }, [])
-
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [show, setShow] = useState(false)
@@ -36,7 +29,13 @@ function App() {
         body: JSON.stringify({ email, password })
       })
       const d = await r.json()
-      if (!r.ok) { setErr(d.error || 'Login failed'); return }
+      if (!r.ok) {
+        if (r.status === 403 && d.error?.includes('verify your email')) {
+          setErr(d.error)
+          return
+        }
+        setErr(d.error || 'Login failed'); return
+      }
       toast.success('Welcome back!')
       if (d.onboarding_complete) router.push('/dashboard')
       else router.push('/onboarding')
@@ -46,7 +45,7 @@ function App() {
 
   return (
     <AuthSplit>
-      <h1 className="text-3xl font-bold text-[#0F172A]">Welcome back</h1>
+      <h1 className="text-3xl font-bold text-foreground">Welcome back</h1>
       <p className="text-muted-foreground mt-1">Sign in to your clinic</p>
       <form onSubmit={submit} className="mt-8 space-y-4">
         <div className="space-y-2">
@@ -65,9 +64,20 @@ function App() {
         <Button type="submit" disabled={loading} className="w-full bg-[#0D9488] hover:bg-[#0B7E73] h-11">
           {loading ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Sign In'}
         </Button>
-        {err && <p className="text-sm text-[#EF4444]">{err}</p>}
+        {err && (
+          <div className="space-y-2">
+            <p className="text-sm text-[#EF4444]">{err}</p>
+            {err.includes('verify your email') && email && (
+              <p className="text-sm text-center">
+                <Link href={`/verify-email-pending?email=${encodeURIComponent(email)}`} className="text-[#0D9488] hover:underline">
+                  Resend verification email
+                </Link>
+              </p>
+            )}
+          </div>
+        )}
         <div className="text-center">
-          <Link href="#" className="text-sm text-[#0D9488] hover:underline">Forgot password?</Link>
+          <Link href="/forgot-password" className="text-sm text-[#0D9488] hover:underline">Forgot password?</Link>
         </div>
       </form>
       <div className="flex items-center gap-3 my-6"><div className="flex-1 h-px bg-border"/><span className="text-xs text-muted-foreground">OR</span><div className="flex-1 h-px bg-border"/></div>

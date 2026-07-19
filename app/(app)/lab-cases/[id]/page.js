@@ -36,7 +36,7 @@ function Field({ label, value }) {
   return (
     <div>
       <div className="text-xs uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className="text-sm mt-0.5 text-[#0F172A]">{value || '—'}</div>
+      <div className="text-sm mt-0.5 text-foreground">{value || '—'}</div>
     </div>
   )
 }
@@ -126,7 +126,7 @@ function App() {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-[#0F172A]">{lc.case_number}</h1>
+            <h1 className="text-2xl font-bold text-foreground">{lc.case_number}</h1>
             {statusBadge(lc.status)}
             {lc.overdue && <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-700 font-medium flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5"/>Overdue</span>}
           </div>
@@ -138,9 +138,9 @@ function App() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1 space-y-6">
           {/* PROMINENT VENDOR CONTACT — primary value: call the lab fast */}
-          <Card className="p-5 bg-white border-2 border-[#0D9488]/30 rounded-lg">
+          <Card className="p-5 bg-card border-2 border-[#0D9488]/30 rounded-lg">
             <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-[#0D9488] font-semibold mb-3"><Building2 className="w-4 h-4"/>Vendor Contact</div>
-            <div className="text-lg font-bold text-[#0F172A]">{lc.vendor_name}</div>
+            <div className="text-lg font-bold text-foreground">{lc.vendor_name}</div>
             {lc.vendor_contact_person && <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2"><User className="w-4 h-4"/>Contact: {lc.vendor_contact_person}</div>}
             {lc.vendor_phone ? (
               <a href={`tel:${lc.vendor_phone}`} className="mt-3 flex items-center gap-2 text-base font-semibold text-[#0D9488] hover:underline">
@@ -166,7 +166,7 @@ function App() {
           </Card>
 
           {/* SECURE LAB PORTAL LINK */}
-          <Card className="p-5 bg-white border-border rounded-lg">
+          <Card className="p-5 bg-card border-border rounded-lg">
             <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-3"><Link2 className="w-4 h-4"/>Secure Lab Link</div>
             <p className="text-xs text-muted-foreground mb-2">Share this link so the lab can view the case and update status — no login required. Only this one case is exposed.</p>
             <div className="flex items-center gap-2">
@@ -177,8 +177,8 @@ function App() {
           </Card>
 
           {/* STATUS WORKFLOW */}
-          <Card className="p-5 bg-white border-border rounded-lg">
-            <h3 className="font-semibold text-[#0F172A] mb-3">Update Status</h3>
+          <Card className="p-5 bg-card border-border rounded-lg">
+            <h3 className="font-semibold text-foreground mb-3">Update Status</h3>
             <div className="space-y-3">
               <Select value={lc.status} onValueChange={changeStatus} disabled={saving}>
                 <SelectTrigger><SelectValue/></SelectTrigger>
@@ -192,8 +192,8 @@ function App() {
 
         <div className="lg:col-span-2 space-y-6">
           {/* CASE DETAILS */}
-          <Card className="p-6 bg-white border-border rounded-lg">
-            <h3 className="font-semibold text-[#0F172A] mb-4">Case Details</h3>
+          <Card className="p-6 bg-card border-border rounded-lg">
+            <h3 className="font-semibold text-foreground mb-4">Case Details</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               <Field label="Patient" value={lc.patient_name}/>
               <Field label="Case Type" value={lc.case_type}/>
@@ -207,7 +207,7 @@ function App() {
             {lc.description && (
               <div className="mt-4 pt-4 border-t border-border">
                 <div className="text-xs uppercase tracking-wider text-muted-foreground">Description / Instructions</div>
-                <div className="text-sm mt-1 whitespace-pre-wrap text-[#0F172A]">{lc.description}</div>
+                <div className="text-sm mt-1 whitespace-pre-wrap text-foreground">{lc.description}</div>
               </div>
             )}
           </Card>
@@ -243,14 +243,14 @@ function App() {
           </Card>
 
           {/* ATTACHMENTS */}
-          <Card className="p-6 bg-white border-border rounded-lg">
-            <h3 className="font-semibold text-[#0F172A] mb-4 flex items-center gap-2"><Paperclip className="w-4 h-4"/>Attachments</h3>
+          <Card className="p-6 bg-card border-border rounded-lg">
+            <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2"><Paperclip className="w-4 h-4"/>Attachments</h3>
             <LabCaseAttachments caseId={id} attachments={lc.attachments || []} onChange={load} />
           </Card>
 
           {/* TIMELINE */}
-          <Card className="p-6 bg-white border-border rounded-lg">
-            <h3 className="font-semibold text-[#0F172A] mb-4 flex items-center gap-2"><Clock className="w-4 h-4"/>Timeline</h3>
+          <Card className="p-6 bg-card border-border rounded-lg">
+            <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2"><Clock className="w-4 h-4"/>Timeline</h3>
             {timeline.length === 0 && <div className="text-sm text-muted-foreground">No activity yet</div>}
             <div className="space-y-4">
               {timeline.map((t, i) => (
@@ -261,7 +261,7 @@ function App() {
                   </div>
                   <div className="pb-1">
                     <div className="flex items-center gap-2 flex-wrap">{statusBadge(t.status)}<span className="text-xs text-muted-foreground">{fmtDateTime(t.at)}</span>{t.source && <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${t.source==='Lab Portal'?'bg-purple-50 text-purple-700':'bg-slate-100 text-slate-600'}`}>{t.source}</span>}</div>
-                    {t.note && <div className="text-sm mt-1 text-[#0F172A]">{t.note}</div>}
+                    {t.note && <div className="text-sm mt-1 text-foreground">{t.note}</div>}
                     {t.by_name && <div className="text-xs text-muted-foreground mt-0.5">by {t.by_name}</div>}
                   </div>
                 </div>
@@ -270,8 +270,8 @@ function App() {
           </Card>
 
           {/* AUDIT LOG */}
-          <Card className="p-6 bg-white border-border rounded-lg">
-            <h3 className="font-semibold text-[#0F172A] mb-4 flex items-center gap-2"><ScrollText className="w-4 h-4"/>Audit Log</h3>
+          <Card className="p-6 bg-card border-border rounded-lg">
+            <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2"><ScrollText className="w-4 h-4"/>Audit Log</h3>
             {audit.length === 0 && <div className="text-sm text-muted-foreground">No audit entries yet</div>}
             {audit.length > 0 && (
               <div className="overflow-x-auto">
@@ -283,9 +283,9 @@ function App() {
                     {audit.map(a => (
                       <tr key={a.id} className="border-b border-border last:border-0">
                         <td className="py-2 pr-4 whitespace-nowrap text-muted-foreground">{fmtDateTime(a.at)}</td>
-                        <td className="py-2 pr-4 text-[#0F172A]">{a.action}</td>
+                        <td className="py-2 pr-4 text-foreground">{a.action}</td>
                         <td className="py-2 pr-4 text-muted-foreground">{a.actor_name || '—'}</td>
-                        <td className="py-2"><span className={`text-[10px] px-1.5 py-0.5 rounded-full ${a.source==='Lab Portal'?'bg-purple-50 text-purple-700':a.source==='System'?'bg-slate-100 text-slate-500':'bg-slate-100 text-slate-600'}`}>{a.source}</span></td>
+                        <td className="py-2"><span className={`text-[10px] px-1.5 py-0.5 rounded-full ${a.source==='Lab Portal'?'bg-purple-50 text-purple-700 dark:bg-purple-950/30 dark:text-purple-300':a.source==='System'?'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400':'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}`}>{a.source}</span></td>
                       </tr>
                     ))}
                   </tbody>

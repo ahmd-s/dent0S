@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AuthSplit } from '@/components/dentos/AuthSplit'
-import { toast } from 'sonner'
 
 function App() {
   const router = useRouter()
@@ -28,15 +27,15 @@ function App() {
       const r = await fetch('/api/auth/signup', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(f) })
       const d = await r.json()
       if (!r.ok) { setErr(d.error || 'Signup failed'); return }
-      toast.success('Clinic created! Let\'s set things up.')
-      router.push('/onboarding')
+      const sent = d.verification_email_sent !== false
+      router.push(`/verify-email-pending?email=${encodeURIComponent(f.email)}${sent ? '' : '&sent=0'}`)
     } catch { setErr('Network error') }
     finally { setLoading(false) }
   }
 
   return (
     <AuthSplit>
-      <h1 className="text-3xl font-bold text-[#0F172A]">Start your free trial</h1>
+      <h1 className="text-3xl font-bold text-foreground">Start your free trial</h1>
       <p className="text-muted-foreground mt-1">Set up your clinic in 2 minutes</p>
       <form onSubmit={submit} className="mt-6 space-y-3">
         <div className="space-y-1.5"><Label>Full Name</Label><Input value={f.full_name} onChange={e=>set('full_name',e.target.value)} placeholder="Dr. Priya Sharma" /></div>

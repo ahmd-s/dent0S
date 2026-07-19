@@ -65,14 +65,14 @@ function App() {
           </div>
         )}
       </div>
-      <Card className="mt-5 p-4 bg-white border-border rounded-lg flex items-center gap-3">
-        <div className="flex-1 relative">
+      <Card className="mt-5 p-4 bg-card border-border rounded-lg flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <div className="flex-1 relative min-w-0">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"/>
           <Input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search by name or phone…" className="pl-9"/>
           {q && <button onClick={()=>setQ('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X className="w-4 h-4 text-muted-foreground"/></button>}
         </div>
         <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-56"><SelectValue/></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-56"><SelectValue/></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Patients</SelectItem>
             <SelectItem value="week">Visited This Week</SelectItem>
@@ -82,7 +82,7 @@ function App() {
         </Select>
         <span className="text-sm text-muted-foreground whitespace-nowrap">{list.length} patients</span>
       </Card>
-      <Card className="mt-4 bg-white border-border rounded-lg overflow-hidden">
+      <Card className="mt-4 bg-card border-border rounded-lg overflow-hidden">
         {loading && (
           <div className="p-5 space-y-3">
             {[...Array(5)].map((_, i) => (
@@ -103,58 +103,104 @@ function App() {
         )}
         {!loading && visible.length===0 && <div className="py-16 text-center text-muted-foreground text-sm">No patients match your search</div>}
         {!loading && visible.length>0 && (
-          <table className="w-full text-sm">
-            <thead className="bg-[#F8FAFC] text-left text-xs uppercase text-muted-foreground tracking-wider">
-              <tr><th className="px-5 py-3 font-medium">Name</th><th className="px-5 py-3 font-medium">Phone</th><th className="px-5 py-3 font-medium">Age</th><th className="px-5 py-3 font-medium">Gender</th><th className="px-5 py-3 font-medium">Last Visit</th><th className="px-5 py-3 font-medium">Follow-up Due</th><th className="px-5 py-3 text-right font-medium">Actions</th></tr>
-            </thead>
-            <tbody>
+          <>
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted text-left text-xs uppercase text-muted-foreground tracking-wider">
+                  <tr><th className="px-5 py-3 font-medium">Name</th><th className="px-5 py-3 font-medium">Phone</th><th className="px-5 py-3 font-medium">Age</th><th className="px-5 py-3 font-medium">Gender</th><th className="px-5 py-3 font-medium">Last Visit</th><th className="px-5 py-3 font-medium">Follow-up Due</th><th className="px-5 py-3 text-right font-medium">Actions</th></tr>
+                </thead>
+                <tbody>
+                  {visible.map(p => {
+                    const fudate = p.next_followup_date ? new Date(p.next_followup_date) : null
+                    const overdue = fudate && fudate < new Date()
+                    return (
+                      <tr key={p.id} className="border-t border-border hover:bg-muted/50 cursor-pointer" onClick={()=>window.location.href=`/patients/${p.id}`}>
+                        <td className="px-5 py-3"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-full bg-[#0D9488]/10 flex items-center justify-center text-sm font-semibold text-[#0D9488]">{p.name?.[0]?.toUpperCase()}</div><div><div className="font-medium text-foreground">{p.name}</div><div className="text-xs text-muted-foreground">{p.patient_code}</div></div></div></td>
+                        <td className="px-5 py-3 text-muted-foreground"><div className="flex items-center gap-1.5"><Phone className="w-3 h-3"/>+91 {p.phone}</div></td>
+                        <td className="px-5 py-3 text-muted-foreground">{p.age||'—'}</td>
+                        <td className="px-5 py-3 text-muted-foreground capitalize">{p.gender||'—'}</td>
+                        <td className="px-5 py-3 text-muted-foreground">{fmtDate(p.last_visit_date)}</td>
+                        <td className="px-5 py-3">{fudate ? <span className={overdue?'text-[#EF4444] font-medium':'text-success font-medium'}>{fmtDate(p.next_followup_date)}</span> : <span className="text-muted-foreground">—</span>}</td>
+                        <td className="px-5 py-3" onClick={e=>e.stopPropagation()}>
+                          <div className="flex justify-end gap-2">
+                            <Link href={`/patients/${p.id}`}><Button size="sm" variant="outline" className="h-8"><Eye className="w-3.5 h-3.5 mr-1"/>View</Button></Link>
+                            <Link href={`/appointments?patient=${p.id}`}><Button size="sm" className="h-8 bg-[#0D9488] hover:bg-[#0B7E73]"><CalendarPlus className="w-3.5 h-3.5 mr-1"/>Book</Button></Link>
+                            <Button
+              size="sm"
+              variant="destructive"
+              onClick={async (e) => {
+                e.stopPropagation()
+                const ok = confirm('Delete this patient permanently?')
+                if (!ok) return
+                const r = await fetch(`/api/patients/${p.id}`, { method: 'DELETE' })
+                if (r.ok) {
+                  toast.success('Patient deleted')
+                  load()
+                } else {
+                  toast.error('Failed to delete patient')
+                }
+              }}
+            >
+              Delete
+            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-3 p-4">
               {visible.map(p => {
                 const fudate = p.next_followup_date ? new Date(p.next_followup_date) : null
                 const overdue = fudate && fudate < new Date()
                 return (
-                  <tr key={p.id} className="border-t border-border hover:bg-[#F8FAFC]/50 cursor-pointer" onClick={()=>window.location.href=`/patients/${p.id}`}>
-                    <td className="px-5 py-3"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-full bg-[#0D9488]/10 flex items-center justify-center text-sm font-semibold text-[#0D9488]">{p.name?.[0]?.toUpperCase()}</div><div><div className="font-medium text-[#0F172A]">{p.name}</div><div className="text-xs text-muted-foreground">{p.patient_code}</div></div></div></td>
-                    <td className="px-5 py-3 text-muted-foreground"><div className="flex items-center gap-1.5"><Phone className="w-3 h-3"/>+91 {p.phone}</div></td>
-                    <td className="px-5 py-3 text-muted-foreground">{p.age||'—'}</td>
-                    <td className="px-5 py-3 text-muted-foreground capitalize">{p.gender||'—'}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{fmtDate(p.last_visit_date)}</td>
-                    <td className="px-5 py-3">{fudate ? <span className={overdue?'text-[#EF4444] font-medium':'text-success font-medium'}>{fmtDate(p.next_followup_date)}</span> : <span className="text-muted-foreground">—</span>}</td>
-                    <td className="px-5 py-3" onClick={e=>e.stopPropagation()}>
-                      <div className="flex justify-end gap-2">
-                        <Link href={`/patients/${p.id}`}><Button size="sm" variant="outline" className="h-8"><Eye className="w-3.5 h-3.5 mr-1"/>View</Button></Link>
-                        <Link href={`/appointments?patient=${p.id}`}><Button size="sm" className="h-8 bg-[#0D9488] hover:bg-[#0B7E73]"><CalendarPlus className="w-3.5 h-3.5 mr-1"/>Book</Button></Link>
-                        <Button
-  size="sm"
-  variant="destructive"
-  onClick={async (e) => {
-
-    e.stopPropagation()
-
-    const ok = confirm('Delete this patient permanently?')
-
-    if (!ok) return
-
-    const r = await fetch(`/api/patients/${p.id}`, {
-      method: 'DELETE'
-    })
-
-    if (r.ok) {
-      toast.success('Patient deleted')
-      load()
-    } else {
-      toast.error('Failed to delete patient')
-    }
-  }}
->
-  Delete
-</Button>
+                  <div key={p.id} className="border border-border rounded-lg p-4 bg-card">
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="w-10 h-10 rounded-full bg-[#0D9488]/10 flex items-center justify-center text-sm font-semibold text-[#0D9488] flex-shrink-0">{p.name?.[0]?.toUpperCase()}</div>
+                      <div className="flex-1 min-w-0">
+                        <Link href={`/patients/${p.id}`} className="font-medium text-foreground hover:text-[#0D9488] block truncate">{p.name}</Link>
+                        <div className="text-xs text-muted-foreground">{p.patient_code}</div>
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1"><Phone className="w-3 h-3"/>+91 {p.phone}</div>
                       </div>
-                    </td>
-                  </tr>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs mb-3">
+                      <div><span className="text-muted-foreground">Age:</span> {p.age||'—'}</div>
+                      <div><span className="text-muted-foreground">Gender:</span> {p.gender||'—'}</div>
+                      <div><span className="text-muted-foreground">Last Visit:</span> {fmtDate(p.last_visit_date)}</div>
+                      <div><span className="text-muted-foreground">Follow-up:</span> {fudate ? <span className={overdue?'text-[#EF4444] font-medium':'text-success font-medium'}>{fmtDate(p.next_followup_date)}</span> : '—'}</div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Link href={`/patients/${p.id}`} className="flex-1"><Button size="sm" variant="outline" className="h-10 w-full"><Eye className="w-3.5 h-3.5 mr-1"/>View</Button></Link>
+                      <Link href={`/appointments?patient=${p.id}`} className="flex-1"><Button size="sm" className="h-10 w-full bg-[#0D9488] hover:bg-[#0B7E73]"><CalendarPlus className="w-3.5 h-3.5 mr-1"/>Book</Button></Link>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={async (e) => {
+                          e.stopPropagation()
+                          const ok = confirm('Delete this patient permanently?')
+                          if (!ok) return
+                          const r = await fetch(`/api/patients/${p.id}`, { method: 'DELETE' })
+                          if (r.ok) {
+                            toast.success('Patient deleted')
+                            load()
+                          } else {
+                            toast.error('Failed to delete patient')
+                          }
+                        }}
+                        className="h-10 px-3"
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
                 )
               })}
-            </tbody>
-          </table>
+            </div>
+          </>
         )}
       </Card>
       {totalPages>1 && (

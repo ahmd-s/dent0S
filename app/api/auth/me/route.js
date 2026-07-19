@@ -11,7 +11,7 @@ function cors(res) {
 }
 const json = (d, s=200) => cors(NextResponse.json(d, { status: s }))
 const err = (msg, s=400) => json({ error: msg }, s)
-const clean = o => { if (!o) return o; const { _id, password_hash, ...rest } = o; return rest }
+const clean = o => { if (!o) return o; const { _id, password_hash, email_verification_token_hash, ...rest } = o; return rest }
 
 async function requireUser() {
   const t = getCurrentUser(); if (!t) return null

@@ -77,8 +77,8 @@ export function RoleProvider({ children }) {
 
   if (loading || !me) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <Loader2 className="w-6 h-6 animate-spin text-[#0D9488]" />
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
       </div>
     )
   }

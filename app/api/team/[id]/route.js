@@ -28,6 +28,9 @@ export async function PUT(request, { params }) {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
     if (!canManageStaff(profile.role)) return err('Forbidden', 403)
+    const target = await db.collection('profiles').findOne({ id: params.id, clinic_id: cid })
+    if (!target) return err('Team member not found', 404)
+    if (target.deleted_at) return err('Cannot update a deleted team member', 400)
     const b = await request.json(); const update = {}
     if ('role' in b) {
       if (!['admin', 'doctor', 'receptionist'].includes(b.role)) return err('Invalid role', 400)
@@ -39,6 +42,27 @@ export async function PUT(request, { params }) {
     return json({ ok:true })
   } catch (e) {
     console.error('Team PUT error:', e)
+    return err('Internal server error', 500)
+  }
+}
+
+export async function DELETE(request, { params }) {
+  try {
+    const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
+    const { profile, clinic, db } = ctx; const cid = profile.clinic_id
+    if (!canManageStaff(profile.role)) return err('Forbidden', 403)
+    if (params.id === profile.id) return err('Cannot delete your own account', 400)
+    if (clinic?.owner_id === params.id) return err('Cannot delete the clinic owner', 400)
+    const target = await db.collection('profiles').findOne({ id: params.id, clinic_id: cid })
+    if (!target) return err('Team member not found', 404)
+    if (target.deleted_at) return err('Team member already deleted', 400)
+    await db.collection('profiles').updateOne(
+      { id: params.id, clinic_id: cid },
+      { $set: { deleted_at: new Date(), is_active: false } }
+    )
+    return json({ ok: true })
+  } catch (e) {
+    console.error('Team DELETE error:', e)
     return err('Internal server error', 500)
   }
 }

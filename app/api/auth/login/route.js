@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
-import { verifyPassword, signToken, setAuthCookie, getCurrentUser } from '@/lib/auth'
+import { verifyPassword, signToken, setAuthCookie, getCurrentUser, requiresEmailVerification } from '@/lib/auth'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -28,8 +28,11 @@ export async function POST(request) {
     const b = await request.json()
     if (!b.email || !b.password) return err('Email and password required')
     const profile = await db.collection('profiles').findOne({ email: b.email.toLowerCase().trim() })
-    if (!profile || !profile.is_active) return err('Invalid credentials', 401)
+    if (!profile || !profile.is_active || profile.deleted_at) return err('Invalid credentials', 401)
     if (!await verifyPassword(b.password, profile.password_hash)) return err('Invalid credentials', 401)
+    if (requiresEmailVerification(profile)) {
+      return err('Please verify your email before logging in. Check your inbox for the verification link.', 403)
+    }
     const c = await db.collection('clinics').findOne({ id: profile.clinic_id })
     await db.collection('profiles').updateOne({ id: profile.id }, { $set: { last_login_at: new Date() } })
     setAuthCookie(signToken({ uid: profile.id, cid: profile.clinic_id, role: profile.role }))

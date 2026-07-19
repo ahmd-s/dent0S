@@ -14,33 +14,32 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { toast } from 'sonner'
 import BalanceBadge from '@/components/dentos/BalanceBadge'
 import OutstandingBalanceModal from '@/components/dentos/OutstandingBalanceModal'
+import { useLiveRefresh } from '@/hooks/useLiveRefresh'
 
 const todayIso = () => new Date().toISOString().slice(0,10)
 const fmtFull = d => { const x = new Date(d+'T00:00:00'); return x.toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long', year:'numeric' }) }
 const shiftDate = (iso, days) => { const d = new Date(iso+'T00:00:00'); d.setDate(d.getDate()+days); return d.toISOString().slice(0,10) }
 const STATUS = ['scheduled','arrived','in_progress','completed','cancelled','no_show']
 const TYPES = ['new_patient','follow_up','emergency','consultation','procedure']
-const typeColor = t => ({ new_patient:'bg-purple-100 text-purple-700', follow_up:'bg-blue-100 text-blue-700', emergency:'bg-red-100 text-red-700', consultation:'bg-[#0D9488]/15 text-[#0D9488]', procedure:'bg-orange-100 text-orange-700' }[t] || 'bg-slate-100 text-slate-700')
-const statusColor = s => ({ scheduled:'bg-slate-100 text-slate-700', arrived:'bg-blue-50 text-blue-700', in_progress:'bg-orange-50 text-orange-700', completed:'bg-green-50 text-green-700', cancelled:'bg-red-50 text-red-600', no_show:'bg-slate-200 text-slate-600' }[s] || 'bg-slate-100')
+const typeColor = t => ({ new_patient:'bg-purple-100 text-purple-700 dark:bg-purple-950/30 dark:text-purple-300', follow_up:'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300', emergency:'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-300', consultation:'bg-[#0D9488]/15 text-[#0D9488]', procedure:'bg-orange-100 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300' }[t] || 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300')
+const statusColor = s => ({ scheduled:'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300', arrived:'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300', in_progress:'bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300', completed:'bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-300', cancelled:'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400', no_show:'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400' }[s] || 'bg-slate-100 dark:bg-slate-800')
 const patientStatusBadge = (a) => {
-  // Handle visitor_type based badges
   if (a.visitor_type === 'returning' && a.patient_id) {
-    return { text: 'Returning Patient', className: 'bg-green-100 text-green-700' }
+    return { text: 'Returning Patient', className: 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-300' }
   }
   if (a.visitor_type === 'new') {
-    return { text: 'New Patient', className: 'bg-blue-100 text-blue-700' }
+    return { text: 'New Patient', className: 'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300' }
   }
   if (a.visitor_type === 'returning_unmatched') {
-    return { text: 'Returning — Verify Records', className: 'bg-orange-100 text-orange-700' }
+    return { text: 'Returning — Verify Records', className: 'bg-orange-100 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300' }
   }
-  // visitor_type is null (in-clinic or old bookings) - use existing logic
   if (!a.patient_id) {
-    return { text: 'Online Booking — Verify Identity', className: 'bg-slate-100 text-slate-600' }
+    return { text: 'Online Booking — Verify Identity', className: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400' }
   }
   if (a.patient_total_visits > 0) {
-    return { text: 'Returning Patient', className: 'bg-green-100 text-green-700' }
+    return { text: 'Returning Patient', className: 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-300' }
   }
-  return { text: 'New Patient', className: 'bg-blue-100 text-blue-700' }
+  return { text: 'New Patient', className: 'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300' }
 }
 
 function App() {
@@ -61,14 +60,15 @@ function App() {
     if (pid) setOpen(true)
   }, [])
 
-  const load = async () => {
-    setLoading(true)
+  const load = async ({ silent } = {}) => {
+    if (!silent) setLoading(true)
     const r = await fetch(`/api/appointments?date=${date}`)
     const d = await r.json()
     setList(d.appointments||[])
-    setLoading(false)
+    if (!silent) setLoading(false)
   }
   useEffect(() => { load() }, [date])
+  useLiveRefresh(() => load({ silent: true }), [date])
 
   const setStatus = async (id, status) => { const r = await fetch(`/api/appointments/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({status}) }); if (r.ok) { toast.success('Updated'); load() } }
   const startVisit = async (a) => {
@@ -106,25 +106,25 @@ function App() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button size="icon" variant="outline" onClick={()=>setDate(shiftDate(date,-1))}><ChevronLeft className="w-4 h-4"/></Button>
-          <input type="date" value={date} onChange={e=>setDate(e.target.value)} className="px-3 py-1.5 border border-input rounded-md text-sm font-medium"/>
-          <Button size="icon" variant="outline" onClick={()=>setDate(shiftDate(date, 1))}><ChevronRight className="w-4 h-4"/></Button>
-          <Button size="sm" variant="ghost" onClick={()=>setDate(todayIso())} className="text-[#0D9488]">Today</Button>
-          <span className="ml-2 text-sm text-muted-foreground">{fmtFull(date)}</span>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+          <Button size="icon" variant="outline" onClick={()=>setDate(shiftDate(date,-1))} className="h-10 w-10"><ChevronLeft className="w-4 h-4"/></Button>
+          <input type="date" value={date} onChange={e=>setDate(e.target.value)} className="px-3 py-2 border border-input rounded-md text-sm font-medium h-10"/>
+          <Button size="icon" variant="outline" onClick={()=>setDate(shiftDate(date, 1))} className="h-10 w-10"><ChevronRight className="w-4 h-4"/></Button>
+          <Button size="sm" variant="ghost" onClick={()=>setDate(todayIso())} className="text-[#0D9488] h-10">Today</Button>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex bg-[#F8FAFC] border border-border rounded-md p-0.5">
-            <button onClick={()=>setView('list')} className={`px-3 py-1 text-xs rounded ${view==='list'?'bg-white shadow-sm font-medium':'text-muted-foreground'}`}>List</button>
-            <button onClick={()=>setView('doctor')} className={`px-3 py-1 text-xs rounded ${view==='doctor'?'bg-white shadow-sm font-medium':'text-muted-foreground'}`}>By Doctor</button>
+        <span className="text-sm text-muted-foreground sm:ml-2">{fmtFull(date)}</span>
+        <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto mt-2 sm:mt-0">
+          <div className="flex bg-muted border border-border rounded-md p-0.5">
+            <button onClick={()=>setView('list')} className={`px-3 py-2 text-xs rounded ${view==='list'?'bg-card shadow-sm font-medium':'text-muted-foreground'}`}>List</button>
+            <button onClick={()=>setView('doctor')} className={`px-3 py-2 text-xs rounded ${view==='doctor'?'bg-card shadow-sm font-medium':'text-muted-foreground'}`}>By Doctor</button>
           </div>
-          <Button onClick={()=>setOpen(true)} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>New Appointment</Button>
+          <Button onClick={()=>setOpen(true)} className="bg-[#0D9488] hover:bg-[#0B7E73] h-10 w-full sm:w-auto"><Plus className="w-4 h-4 mr-1"/>New Appointment</Button>
         </div>
       </div>
 
       {view==='list' ? (
-        <Card className="mt-5 bg-white border-border rounded-lg overflow-hidden">
+        <Card className="mt-5 bg-card border-border rounded-lg overflow-hidden">
           {loading && (
             <div className="p-5 space-y-3">
               {[...Array(5)].map((_, i) => (
@@ -155,12 +155,12 @@ function App() {
             {!loading && (
               <>
               <table className="w-full text-sm">
-                <thead className="bg-[#F8FAFC] text-left text-xs uppercase text-muted-foreground tracking-wider">
+                <thead className="bg-muted text-left text-xs uppercase text-muted-foreground tracking-wider">
                   <tr><th className="px-5 py-3 font-medium">Time</th><th className="px-5 py-3 font-medium">Patient</th><th className="px-5 py-3 font-medium">Phone</th><th className="px-5 py-3 font-medium">Type</th><th className="px-5 py-3 font-medium">Doctor</th><th className="px-5 py-3 font-medium">Chief Complaint</th><th className="px-5 py-3 font-medium">Status</th><th className="px-5 py-3 text-right font-medium">Actions</th></tr>
                 </thead>
                 <tbody>
                   {list.map(a => (
-                    <tr key={a.id} className="border-t border-border hover:bg-[#F8FAFC]/50">
+                    <tr key={a.id} className="border-t border-border hover:bg-muted/50">
                       <td className="px-5 py-3 font-semibold text-[#0D9488] whitespace-nowrap">{a.appointment_time}</td>
                       <td className="px-5 py-3">
                         <div className="flex flex-col gap-1">
@@ -211,7 +211,7 @@ function App() {
                   ))}
                 </tbody>
               </table>
-              <div className="px-5 py-3 bg-[#F8FAFC] border-t border-border text-xs text-muted-foreground">{summary.scheduled} scheduled · {summary.completed} completed · {summary.cancelled} cancelled</div>
+              <div className="px-5 py-3 bg-muted border-t border-border text-xs text-muted-foreground">{summary.scheduled} scheduled · {summary.completed} completed · {summary.cancelled} cancelled</div>
               </>
             )}
             </>
@@ -219,9 +219,9 @@ function App() {
         </Card>
       ) : (
         <div className="mt-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Object.values(byDoctor).length===0 && <Card className="col-span-full p-12 text-center text-muted-foreground bg-white border-border rounded-lg">No appointments today</Card>}
+          {Object.values(byDoctor).length===0 && <Card className="col-span-full p-12 text-center text-muted-foreground bg-card border-border rounded-lg">No appointments today</Card>}
           {Object.values(byDoctor).map((g,i) => (
-            <Card key={i} className="p-4 bg-white border-border rounded-lg">
+            <Card key={i} className="p-4 bg-card border-border rounded-lg">
               <div className="flex items-center gap-2 mb-3 pb-3 border-b border-border">
                 <div className="w-9 h-9 rounded-full bg-[#0D9488]/10 flex items-center justify-center text-sm font-semibold text-[#0D9488]">{g.name?.[0]?.toUpperCase()}</div>
                 <div><div className="font-medium text-sm">{g.name}</div><div className="text-xs text-muted-foreground">{g.items.length} appointments</div></div>
@@ -301,16 +301,16 @@ function NewAppointmentModal({ open, setOpen, initialDate, onCreated }) {
           <div className="space-y-1.5">
             <Label>Patient</Label>
             {picked ? (
-              <div className="flex items-center justify-between p-2 px-3 border border-border rounded-md bg-[#F8FAFC]"><div><div className="font-medium text-sm">{picked.name}</div><div className="text-xs text-muted-foreground">+91 {picked.phone}</div></div><button type="button" onClick={()=>setPicked(null)} className="text-xs text-[#0D9488] hover:underline">Change</button></div>
+              <div className="flex items-center justify-between p-2 px-3 border border-border rounded-md bg-muted"><div><div className="font-medium text-sm">{picked.name}</div><div className="text-xs text-muted-foreground">+91 {picked.phone}</div></div><button type="button" onClick={()=>setPicked(null)} className="text-xs text-[#0D9488] hover:underline">Change</button></div>
             ) : walkin ? (
               <div className="grid grid-cols-2 gap-2"><Input placeholder="Patient name" value={walkinForm.name} onChange={e=>setWalkinForm({...walkinForm,name:e.target.value})}/><Input placeholder="Phone (10 digits)" value={walkinForm.phone} onChange={e=>setWalkinForm({...walkinForm,phone:e.target.value.replace(/\D/g,'').slice(0,10)})}/><button type="button" onClick={()=>setWalkin(false)} className="col-span-2 text-xs text-[#0D9488] hover:underline text-left">← Search existing patient instead</button></div>
             ) : (
               <div className="relative">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"/>
                 <Input value={pq} onChange={e=>setPq(e.target.value)} placeholder="Type name or phone…" className="pl-9"/>
-                {pq && <div className="absolute top-11 left-0 right-0 bg-white border border-border rounded-md shadow z-10 max-h-60 overflow-y-auto">
+                {pq && <div className="absolute top-11 left-0 right-0 bg-card border border-border rounded-md shadow z-10 max-h-60 overflow-y-auto">
                   {pResults.map(p => (
-                    <button key={p.id} type="button" onClick={()=>{setPicked(p); setPq('')}} className="w-full text-left px-3 py-2 hover:bg-[#F8FAFC] border-b border-border"><div className="font-medium text-sm">{p.name}</div><div className="text-xs text-muted-foreground">+91 {p.phone}</div></button>
+                    <button key={p.id} type="button" onClick={()=>{setPicked(p); setPq('')}} className="w-full text-left px-3 py-2 hover:bg-muted border-b border-border"><div className="font-medium text-sm">{p.name}</div><div className="text-xs text-muted-foreground">+91 {p.phone}</div></button>
                   ))}
                   <button type="button" onClick={()=>{setWalkin(true); setPq('')}} className="w-full text-left px-3 py-2 hover:bg-[#0D9488]/5 text-[#0D9488] text-sm flex items-center gap-1"><Plus className="w-3 h-3"/>Create New Patient</button>
                 </div>}
@@ -435,15 +435,15 @@ function VerifyPatientModal({ open, setOpen, appointment, onVerified }) {
               <div className="relative">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"/>
                 <Input value={pq} onChange={e=>setPq(e.target.value)} placeholder="Type name or phone…" className="pl-9"/>
-                {pq && <div className="absolute top-11 left-0 right-0 bg-white border border-border rounded-md shadow z-10 max-h-60 overflow-y-auto">
+                {pq && <div className="absolute top-11 left-0 right-0 bg-card border border-border rounded-md shadow z-10 max-h-60 overflow-y-auto">
                   {pResults.map(p => (
-                    <button key={p.id} type="button" onClick={()=>{setPicked(p); setPq('')}} className="w-full text-left px-3 py-2 hover:bg-[#F8FAFC] border-b border-border"><div className="font-medium text-sm">{p.name}</div><div className="text-xs text-muted-foreground">+91 {p.phone}</div></button>
+                    <button key={p.id} type="button" onClick={()=>{setPicked(p); setPq('')}} className="w-full text-left px-3 py-2 hover:bg-muted border-b border-border"><div className="font-medium text-sm">{p.name}</div><div className="text-xs text-muted-foreground">+91 {p.phone}</div></button>
                   ))}
                 </div>}
               </div>
             </div>
             {picked && (
-              <div className="p-3 bg-[#F8FAFC] border border-border rounded-md">
+              <div className="p-3 bg-muted border border-border rounded-md">
                 <div className="font-medium text-sm">Selected: {picked.name}</div>
                 <div className="text-xs text-muted-foreground">+91 {picked.phone}</div>
               </div>
