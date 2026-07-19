@@ -24,7 +24,7 @@ const fmtDateTime = d => {
 
 // Curated clinic-facing status order (includes legacy values so any stored
 // status still renders correctly in the dropdown).
-const STATUS_OPTIONS = ['pending', 'sent', 'lab_received', 'in_production', 'ready', 'delivered', 'received', 'in_progress', 'completed', 'cancelled']
+const STATUS_OPTIONS = ['pending', 'sent', 'lab_received', 'in_production', 'ready', 'delivered', 'received', 'in_progress', 'approved', 'revision_requested', 'completed', 'cancelled']
 
 const statusBadge = (s) => {
   const cls = LAB_CASE_STATUS_META[s]?.badge || 'bg-slate-100 text-slate-700'
@@ -54,6 +54,7 @@ function App() {
   const [sharing, setSharing] = useState(false)
   const [stlLink, setStlLink] = useState(null)
   const [generatingLink, setGeneratingLink] = useState(false)
+  const [approvalLoading, setApprovalLoading] = useState(false)
 
   const load = async () => {
     const r = await fetch(`/api/lab-cases/${id}`)
@@ -113,6 +114,28 @@ function App() {
       alert('Failed to generate link')
     }
     setGeneratingLink(false)
+  }
+
+  const handleStlApproval = async (newStatus, message) => {
+    setApprovalLoading(true)
+    try {
+      await fetch(`/api/lab-cases/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      })
+
+      const labPhone = waPhone(lc.vendor_phone)
+      if (labPhone) {
+        const text = `Case ${lc.case_number} has been updated to: ${newStatus}. ${message} Please check DentOS for details.`
+        window.open(`https://wa.me/${labPhone}?text=${encodeURIComponent(text)}`, '_blank')
+      }
+
+      window.location.reload()
+    } catch (e) {
+      alert('Failed to update status')
+    }
+    setApprovalLoading(false)
   }
 
   if (!lc) return <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]"/></div>
@@ -240,6 +263,27 @@ function App() {
                 </div>
               )}
             </div>
+            {lc?.stl_file_url && !['completed', 'cancelled', 'delivered'].includes(lc.status) && (
+              <div className="mt-4 pt-4 border-t flex gap-3">
+                <Button
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700 flex-1"
+                  onClick={() => handleStlApproval('approved', '3D Design is approved. Please begin manufacturing.')}
+                  disabled={approvalLoading}
+                >
+                  ✓ Approve Design
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 border-red-300 text-red-600 hover:bg-red-50"
+                  onClick={() => handleStlApproval('revision_requested', 'Revision requested for the 3D scan.')}
+                  disabled={approvalLoading}
+                >
+                  📝 Request Revision
+                </Button>
+              </div>
+            )}
           </Card>
 
           {/* ATTACHMENTS */}
