@@ -145,73 +145,125 @@ function App() {
             </div>
           )}
           {!loading && list.length===0 ? (
-            <div className="py-16 text-center">
-              <Calendar className="w-10 h-10 mx-auto text-muted-foreground/40"/>
+            <div className="py-12 md:py-16 text-center">
+              <Calendar className="w-8 h-8 md:w-10 md:h-10 mx-auto text-muted-foreground/40"/>
               <p className="mt-3 text-muted-foreground">No appointments for this date</p>
-              <Button onClick={()=>setOpen(true)} className="mt-3 bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>Add First Appointment</Button>
+              <Button onClick={()=>setOpen(true)} className="mt-3 bg-[#0D9488] hover:bg-[#0B7E73] h-11"><Plus className="w-4 h-4 mr-1"/>Add First Appointment</Button>
             </div>
           ) : (
             <>
             {!loading && (
               <>
-              <table className="w-full text-sm">
-                <thead className="bg-muted text-left text-xs uppercase text-muted-foreground tracking-wider">
-                  <tr><th className="px-5 py-3 font-medium">Time</th><th className="px-5 py-3 font-medium">Patient</th><th className="px-5 py-3 font-medium">Phone</th><th className="px-5 py-3 font-medium">Type</th><th className="px-5 py-3 font-medium">Doctor</th><th className="px-5 py-3 font-medium">Chief Complaint</th><th className="px-5 py-3 font-medium">Status</th><th className="px-5 py-3 text-right font-medium">Actions</th></tr>
-                </thead>
-                <tbody>
-                  {list.map(a => (
-                    <tr key={a.id} className="border-t border-border hover:bg-muted/50">
-                      <td className="px-5 py-3 font-semibold text-[#0D9488] whitespace-nowrap">{a.appointment_time}</td>
-                      <td className="px-5 py-3">
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-2">
-                            {a.patient_id ? <Link href={`/patients/${a.patient_id}`} className="font-medium hover:text-[#0D9488]">{a.patient_name}</Link> : <span className="font-medium">{a.patient_name_temp} <span className="text-xs text-orange-600">(walk-in)</span></span>}
-                            {a.patient_id && (
-                              <BalanceBadge
-                                patientId={a.patient_id}
-                                onClick={() => {
-                                  setSelectedPatientId(a.patient_id)
-                                  setBalanceModalOpen(true)
-                                }}
-                              />
-                            )}
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted text-left text-xs uppercase text-muted-foreground tracking-wider">
+                    <tr><th className="px-5 py-3 font-medium">Time</th><th className="px-5 py-3 font-medium">Patient</th><th className="px-5 py-3 font-medium">Phone</th><th className="px-5 py-3 font-medium">Type</th><th className="px-5 py-3 font-medium">Doctor</th><th className="px-5 py-3 font-medium">Chief Complaint</th><th className="px-5 py-3 font-medium">Status</th><th className="px-5 py-3 text-right font-medium">Actions</th></tr>
+                  </thead>
+                  <tbody>
+                    {list.map(a => (
+                      <tr key={a.id} className="border-t border-border hover:bg-muted/50">
+                        <td className="px-5 py-3 font-semibold text-[#0D9488] whitespace-nowrap">{a.appointment_time}</td>
+                        <td className="px-5 py-3">
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2">
+                              {a.patient_id ? <Link href={`/patients/${a.patient_id}`} className="font-medium hover:text-[#0D9488]">{a.patient_name}</Link> : <span className="font-medium">{a.patient_name_temp} <span className="text-xs text-orange-600">(walk-in)</span></span>}
+                              {a.patient_id && (
+                                <BalanceBadge
+                                  patientId={a.patient_id}
+                                  onClick={() => {
+                                    setSelectedPatientId(a.patient_id)
+                                    setBalanceModalOpen(true)
+                                  }}
+                                />
+                              )}
+                            </div>
+                            <span className={`text-xs px-2 py-0.5 rounded-full w-fit ${patientStatusBadge(a).className}`}>{patientStatusBadge(a).text}</span>
                           </div>
-                          <span className={`text-xs px-2 py-0.5 rounded-full w-fit ${patientStatusBadge(a).className}`}>{patientStatusBadge(a).text}</span>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3 text-muted-foreground text-xs">+91 {a.patient_phone||a.patient_phone_temp||'—'}</td>
-                      <td className="px-5 py-3"><span className={`text-xs px-2 py-1 rounded-full capitalize ${typeColor(a.appointment_type)}`}>{a.appointment_type?.replace('_',' ')}</span></td>
-                      <td className="px-5 py-3 text-muted-foreground">{a.doctor_name||'—'}</td>
-                      <td className="px-5 py-3 text-muted-foreground max-w-[200px] truncate">{a.chief_complaint||'—'}</td>
-                      <td className="px-5 py-3"><span className={`text-xs px-2 py-1 rounded-full capitalize whitespace-nowrap ${statusColor(a.status)}`}>{a.status?.replace('_',' ')}</span></td>
-                      <td className="px-5 py-3">
-                        <div className="flex justify-end items-center gap-1">
-                        {a.status==='scheduled' && (
-    <Button
-      size="sm"
-      onClick={()=>startVisit(a)}
-      className="h-7 text-xs bg-[#0D9488] hover:bg-[#0B7E73]"
-    >
-      Check In
-    </Button>
-  )}
+                        </td>
+                        <td className="px-5 py-3 text-muted-foreground text-xs">+91 {a.patient_phone||a.patient_phone_temp||'—'}</td>
+                        <td className="px-5 py-3"><span className={`text-xs px-2 py-1 rounded-full capitalize ${typeColor(a.appointment_type)}`}>{a.appointment_type?.replace('_',' ')}</span></td>
+                        <td className="px-5 py-3 text-muted-foreground">{a.doctor_name||'—'}</td>
+                        <td className="px-5 py-3 text-muted-foreground max-w-[200px] truncate">{a.chief_complaint||'—'}</td>
+                        <td className="px-5 py-3"><span className={`text-xs px-2 py-1 rounded-full capitalize whitespace-nowrap ${statusColor(a.status)}`}>{a.status?.replace('_',' ')}</span></td>
+                        <td className="px-5 py-3">
+                          <div className="flex justify-end items-center gap-1">
+                          {a.status==='scheduled' && (
+              <Button
+                size="sm"
+                onClick={()=>startVisit(a)}
+                className="h-8 text-xs bg-[#0D9488] hover:bg-[#0B7E73]"
+              >
+                Check In
+              </Button>
+            )}
                           
-                          {a.status==='in_progress' && a.visit_id && <Button size="sm" onClick={()=>router.push(`/visits/${a.visit_id}`)} className="h-7 text-xs bg-orange-500 hover:bg-orange-600">Continue</Button>}
-                          {a.status==='completed' && a.visit_id && <Button size="sm" variant="outline" onClick={()=>router.push(`/visits/${a.visit_id}`)} className="h-7 text-xs">View</Button>}
+                          {a.status==='in_progress' && a.visit_id && <Button size="sm" onClick={()=>router.push(`/visits/${a.visit_id}`)} className="h-8 text-xs bg-orange-500 hover:bg-orange-600">Continue</Button>}
+                          {a.status==='completed' && a.visit_id && <Button size="sm" variant="outline" onClick={()=>router.push(`/visits/${a.visit_id}`)} className="h-8 text-xs">View</Button>}
                           <DropdownMenu>
-                            <DropdownMenuTrigger asChild><button className="w-7 h-7 hover:bg-muted rounded flex items-center justify-center"><MoreVertical className="w-3.5 h-3.5"/></button></DropdownMenuTrigger>
+                            <DropdownMenuTrigger asChild><button className="w-8 h-8 hover:bg-muted rounded flex items-center justify-center"><MoreVertical className="w-3.5 h-3.5"/></button></DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem onClick={()=>setStatus(a.id,'cancelled')}>Cancel</DropdownMenuItem>
                               <DropdownMenuItem onClick={()=>setStatus(a.id,'no_show')}>Mark No Show</DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="px-5 py-3 bg-muted border-t border-border text-xs text-muted-foreground">{summary.scheduled} scheduled · {summary.completed} completed · {summary.cancelled} cancelled</div>
+              </div>
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-3 p-4">
+                {list.map(a => (
+                  <div key={a.id} className="border border-border rounded-lg p-4 bg-card">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-semibold text-[#0D9488] text-sm">{a.appointment_time}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full capitalize whitespace-nowrap ${statusColor(a.status)}`}>{a.status?.replace('_',' ')}</span>
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="px-5 py-3 bg-muted border-t border-border text-xs text-muted-foreground">{summary.scheduled} scheduled · {summary.completed} completed · {summary.cancelled} cancelled</div>
+                        <div className="flex items-center gap-2">
+                          {a.patient_id ? <Link href={`/patients/${a.patient_id}`} className="font-medium text-sm hover:text-[#0D9488] truncate">{a.patient_name}</Link> : <span className="font-medium text-sm truncate">{a.patient_name_temp} <span className="text-xs text-orange-600">(walk-in)</span></span>}
+                          {a.patient_id && (
+                            <BalanceBadge
+                              patientId={a.patient_id}
+                              onClick={() => {
+                                setSelectedPatientId(a.patient_id)
+                                setBalanceModalOpen(true)
+                              }}
+                            />
+                          )}
+                        </div>
+                        <span className={`text-xs px-2 py-0.5 rounded-full w-fit inline-block mt-1 ${patientStatusBadge(a).className}`}>{patientStatusBadge(a).text}</span>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs mb-3">
+                      <div><span className="text-muted-foreground">Phone:</span> +91 {a.patient_phone||a.patient_phone_temp||'—'}</div>
+                      <div><span className="text-muted-foreground">Type:</span> <span className={`px-1.5 py-0.5 rounded capitalize ${typeColor(a.appointment_type)}`}>{a.appointment_type?.replace('_',' ')}</span></div>
+                      <div><span className="text-muted-foreground">Doctor:</span> {a.doctor_name||'—'}</div>
+                      <div className="col-span-2"><span className="text-muted-foreground">Chief Complaint:</span> {a.chief_complaint||'—'}</div>
+                    </div>
+                    <div className="flex gap-2">
+                      {a.status==='scheduled' && (
+                        <Button size="sm" onClick={()=>startVisit(a)} className="h-10 flex-1 text-xs bg-[#0D9488] hover:bg-[#0B7E73]">Check In</Button>
+                      )}
+                      {a.status==='in_progress' && a.visit_id && <Button size="sm" onClick={()=>router.push(`/visits/${a.visit_id}`)} className="h-10 flex-1 text-xs bg-orange-500 hover:bg-orange-600">Continue</Button>}
+                      {a.status==='completed' && a.visit_id && <Button size="sm" variant="outline" onClick={()=>router.push(`/visits/${a.visit_id}`)} className="h-10 flex-1 text-xs">View</Button>}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild><button className="w-10 h-10 hover:bg-muted rounded flex items-center justify-center flex-shrink-0"><MoreVertical className="w-4 h-4"/></button></DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={()=>setStatus(a.id,'cancelled')}>Cancel</DropdownMenuItem>
+                          <DropdownMenuItem onClick={()=>setStatus(a.id,'no_show')}>Mark No Show</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                ))}
+                <div className="px-4 py-3 bg-muted border-t border-border text-xs text-muted-foreground rounded-b-lg">{summary.scheduled} scheduled · {summary.completed} completed · {summary.cancelled} cancelled</div>
+              </div>
               </>
             )}
             </>

@@ -90,44 +90,72 @@ function App() {
         {loading && <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]"/></div>}
         {!loading && visible.length === 0 && <div className="py-16 text-center text-muted-foreground text-sm">No lab cases found</div>}
         {!loading && visible.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted text-left text-xs uppercase text-muted-foreground tracking-wider">
-                <tr>
-                  <th className="px-5 py-3 font-medium">Case #</th>
-                  <th className="px-5 py-3 font-medium">Patient</th>
-                  <th className="px-5 py-3 font-medium">Vendor</th>
-                  <th className="px-5 py-3 font-medium">Type</th>
-                  <th className="px-5 py-3 font-medium">Urgency</th>
-                  <th className="px-5 py-3 font-medium">Expected</th>
-                  <th className="px-5 py-3 font-medium">Status</th>
-                  <th className="px-5 py-3 text-right font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visible.map(c => (
-                  <tr key={c.id} className="border-t border-border hover:bg-muted/50 cursor-pointer" onClick={()=>window.location.href=`/lab-cases/${c.id}`}>
-                    <td className="px-5 py-3 font-medium text-foreground">{c.case_number}</td>
-                    <td className="px-5 py-3">{c.patient_name}</td>
-                    <td className="px-5 py-3">{c.vendor_name}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{c.case_type}</td>
-                    <td className="px-5 py-3">{urgencyBadge(c.urgency)}</td>
-                    <td className="px-5 py-3">
-                      {c.expected_delivery_date
-                        ? <span className={c.overdue ? 'text-[#EF4444] font-medium flex items-center gap-1' : 'text-muted-foreground'}>{c.overdue && <AlertTriangle className="w-3.5 h-3.5"/>}{fmtDate(c.expected_delivery_date)}</span>
-                        : <span className="text-muted-foreground">—</span>}
-                    </td>
-                    <td className="px-5 py-3">{statusBadge(c.status)}</td>
-                    <td className="px-5 py-3" onClick={e=>e.stopPropagation()}>
-                      <div className="flex justify-end">
-                        <Link href={`/lab-cases/${c.id}`}><Button size="sm" variant="outline" className="h-8"><Eye className="w-3.5 h-3.5 mr-1"/>View</Button></Link>
-                      </div>
-                    </td>
+          <>
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted text-left text-xs uppercase text-muted-foreground tracking-wider">
+                  <tr>
+                    <th className="px-5 py-3 font-medium">Case #</th>
+                    <th className="px-5 py-3 font-medium">Patient</th>
+                    <th className="px-5 py-3 font-medium">Vendor</th>
+                    <th className="px-5 py-3 font-medium">Type</th>
+                    <th className="px-5 py-3 font-medium">Urgency</th>
+                    <th className="px-5 py-3 font-medium">Expected</th>
+                    <th className="px-5 py-3 font-medium">Status</th>
+                    <th className="px-5 py-3 text-right font-medium">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {visible.map(c => (
+                    <tr key={c.id} className="border-t border-border hover:bg-muted/50 cursor-pointer" onClick={()=>window.location.href=`/lab-cases/${c.id}`}>
+                      <td className="px-5 py-3 font-medium text-foreground">{c.case_number}</td>
+                      <td className="px-5 py-3">{c.patient_name}</td>
+                      <td className="px-5 py-3">{c.vendor_name}</td>
+                      <td className="px-5 py-3 text-muted-foreground">{c.case_type}</td>
+                      <td className="px-5 py-3">{urgencyBadge(c.urgency)}</td>
+                      <td className="px-5 py-3">
+                        {c.expected_delivery_date
+                          ? <span className={c.overdue ? 'text-[#EF4444] font-medium flex items-center gap-1' : 'text-muted-foreground'}>{c.overdue && <AlertTriangle className="w-3.5 h-3.5"/>}{fmtDate(c.expected_delivery_date)}</span>
+                          : <span className="text-muted-foreground">—</span>}
+                      </td>
+                      <td className="px-5 py-3">{statusBadge(c.status)}</td>
+                      <td className="px-5 py-3" onClick={e=>e.stopPropagation()}>
+                        <div className="flex justify-end">
+                          <Link href={`/lab-cases/${c.id}`}><Button size="sm" variant="outline" className="h-8"><Eye className="w-3.5 h-3.5 mr-1"/>View</Button></Link>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-3 p-4">
+              {visible.map(c => (
+                <div key={c.id} className="border border-border rounded-lg p-4 bg-card">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm text-foreground">{c.case_number}</div>
+                      <div className="text-sm text-muted-foreground mt-1 truncate">{c.patient_name}</div>
+                    </div>
+                    {statusBadge(c.status)}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs mb-3">
+                    <div><span className="text-muted-foreground">Vendor:</span> {c.vendor_name||'—'}</div>
+                    <div><span className="text-muted-foreground">Type:</span> {c.case_type||'—'}</div>
+                    <div><span className="text-muted-foreground">Urgency:</span> {urgencyBadge(c.urgency)}</div>
+                    <div><span className="text-muted-foreground">Expected:</span> 
+                      {c.expected_delivery_date
+                        ? <span className={c.overdue ? 'text-[#EF4444] font-medium flex items-center gap-1' : 'text-muted-foreground'}>{c.overdue && <AlertTriangle className="w-3 h-3"/>}{fmtDate(c.expected_delivery_date)}</span>
+                        : <span className="text-muted-foreground">—</span>}
+                    </div>
+                  </div>
+                  <Link href={`/lab-cases/${c.id}`} className="block"><Button size="sm" variant="outline" className="h-10 w-full"><Eye className="w-3.5 h-3.5 mr-1"/>View Details</Button></Link>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </Card>
 

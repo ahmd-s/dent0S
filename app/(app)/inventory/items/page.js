@@ -92,13 +92,13 @@ function App() {
         {canManageInventory() && <Button onClick={openNew} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>Add Item</Button>}
       </div>
       
-      <Card className="mt-5 p-4 bg-card border-border rounded-lg flex items-center gap-3 flex-wrap">
+      <Card className="mt-5 p-4 bg-card border-border rounded-lg flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
         <div className="flex-1 relative min-w-[200px]">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"/>
           <Input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search by name..." className="pl-9"/>
           {q && <button onClick={()=>setQ('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X className="w-4 h-4 text-muted-foreground"/></button>}
         </div>
-        <select value={category} onChange={e=>setCategory(e.target.value)} className="border border-input rounded-md px-3 py-2 text-sm">
+        <select value={category} onChange={e=>setCategory(e.target.value)} className="border border-input rounded-md px-3 py-2 text-sm w-full sm:w-auto">
           <option value="">All Categories</option>
           {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
@@ -117,46 +117,80 @@ function App() {
       )}
       {!loading && items.length > 0 && (
         <div className="mt-4 bg-card border-border rounded-lg overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-muted border-b border-border">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Item Name</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Category</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Unit</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Current Stock</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Min Stock</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Vendor</th>
-                {canManageInventory() && <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase">Actions</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {items.map(item => {
-                const status = getStatus(item)
-                const vendor = vendors.find(v => v.id === item.vendor_id)
-                return (
-                  <tr key={item.id} className="border-b border-border hover:bg-muted/50 cursor-pointer" onClick={() => canManageInventory() && openEdit(item)}>
-                    <td className="px-4 py-3 text-sm font-medium">{item.item_name}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">{item.category}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">{item.unit}</td>
-                    <td className="px-4 py-3 text-sm font-medium">{item.current_stock}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">{item.minimum_stock}</td>
-                    <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded-full border ${status.color}`}>{status.label}</span></td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">{vendor?.name || '-'}</td>
-                    {canManageInventory() && (
-                      <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => openStockIn(item)} className="w-7 h-7 rounded hover:bg-green-50 flex items-center justify-center" title="Stock In"><ArrowUp className="w-3.5 h-3.5 text-green-600"/></button>
-                          <button onClick={() => openStockOut(item)} className="w-7 h-7 rounded hover:bg-red-50 flex items-center justify-center" title="Stock Out"><ArrowDown className="w-3.5 h-3.5 text-red-600"/></button>
-                          <button onClick={() => openEdit(item)} className="w-7 h-7 rounded hover:bg-muted flex items-center justify-center" title="Edit"><Edit2 className="w-3.5 h-3.5 text-muted-foreground"/></button>
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-muted border-b border-border">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Item Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Category</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Unit</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Current Stock</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Min Stock</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Vendor</th>
+                  {canManageInventory() && <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase">Actions</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {items.map(item => {
+                  const status = getStatus(item)
+                  const vendor = vendors.find(v => v.id === item.vendor_id)
+                  return (
+                    <tr key={item.id} className="border-b border-border hover:bg-muted/50 cursor-pointer" onClick={() => canManageInventory() && openEdit(item)}>
+                      <td className="px-4 py-3 text-sm font-medium">{item.item_name}</td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground">{item.category}</td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground">{item.unit}</td>
+                      <td className="px-4 py-3 text-sm font-medium">{item.current_stock}</td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground">{item.minimum_stock}</td>
+                      <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded-full border ${status.color}`}>{status.label}</span></td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground">{vendor?.name || '-'}</td>
+                      {canManageInventory() && (
+                        <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-1">
+                            <button onClick={() => openStockIn(item)} className="w-8 h-8 rounded hover:bg-green-50 flex items-center justify-center" title="Stock In"><ArrowUp className="w-3.5 h-3.5 text-green-600"/></button>
+                            <button onClick={() => openStockOut(item)} className="w-8 h-8 rounded hover:bg-red-50 flex items-center justify-center" title="Stock Out"><ArrowDown className="w-3.5 h-3.5 text-red-600"/></button>
+                            <button onClick={() => openEdit(item)} className="w-8 h-8 rounded hover:bg-muted flex items-center justify-center" title="Edit"><Edit2 className="w-3.5 h-3.5 text-muted-foreground"/></button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-3 p-4">
+            {items.map(item => {
+              const status = getStatus(item)
+              const vendor = vendors.find(v => v.id === item.vendor_id)
+              return (
+                <div key={item.id} className="border border-border rounded-lg p-4 bg-card">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm">{item.item_name}</div>
+                      <div className="text-xs text-muted-foreground mt-1">{item.category}</div>
+                    </div>
+                    <span className={`text-xs px-2 py-0.5 rounded-full border ${status.color} flex-shrink-0 ml-2`}>{status.label}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs mb-3">
+                    <div><span className="text-muted-foreground">Stock:</span> {item.current_stock} {item.unit}</div>
+                    <div><span className="text-muted-foreground">Min:</span> {item.minimum_stock}</div>
+                    <div><span className="text-muted-foreground">Vendor:</span> {vendor?.name||'—'}</div>
+                    <div><span className="text-muted-foreground">Unit:</span> {item.unit}</div>
+                  </div>
+                  {canManageInventory() && (
+                    <div className="flex gap-2">
+                      <button onClick={() => openStockIn(item)} className="flex-1 h-10 rounded bg-green-50 text-green-600 flex items-center justify-center gap-1 text-xs font-medium"><ArrowUp className="w-3.5 h-3.5"/>Stock In</button>
+                      <button onClick={() => openStockOut(item)} className="flex-1 h-10 rounded bg-red-50 text-red-600 flex items-center justify-center gap-1 text-xs font-medium"><ArrowDown className="w-3.5 h-3.5"/>Stock Out</button>
+                      <button onClick={() => openEdit(item)} className="w-10 h-10 rounded bg-muted flex items-center justify-center"><Edit2 className="w-3.5 h-3.5"/></button>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 
