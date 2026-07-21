@@ -2,7 +2,16 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
-import { canManageBilling, canManageInventory, canManageStaff, canAccessClinical, canAccessSettings } from '@/lib/rbac'
+import {
+  canManageBilling,
+  canManageInventory,
+  canManageStaff,
+  canAccessClinical,
+  canViewClinical,
+  canEditClinical,
+  canAccessSettings,
+} from '@/lib/rbac'
+import { getProfileRoles, hasRole } from '@/lib/profile-roles'
 
 async function redirectPlatformAdmin(router, d) {
   if (!d?.is_platform_admin) return false
@@ -71,28 +80,27 @@ export function RoleProvider({ children }) {
   }, [router])
 
   const value = useMemo(() => {
-    const role = me?.profile?.role ?? null
-    const isDoctor = () => role === 'doctor'
-    const isReceptionist = () => role === 'receptionist'
-    const isAdmin = () => role === 'admin'
-    const canAccessClinicalInternal = () => canAccessClinical(role)
-    const canAccessSettingsInternal = () => canAccessSettings(role)
-    const canManageBillingInternal = () => canManageBilling(role)
-    const canManageInventoryInternal = () => canManageInventory(role)
-    const canManageStaffInternal = () => canManageStaff(role)
+    const roles = getProfileRoles(me?.profile)
+    const roleCtx = roles.length === 1 ? roles[0] : roles
+
     return {
       me,
       loading,
       refresh,
-      currentRole: role,
-      isDoctor,
-      isReceptionist,
-      isAdmin,
-      canAccessClinical: canAccessClinicalInternal,
-      canAccessSettings: canAccessSettingsInternal,
-      canManageBilling: canManageBillingInternal,
-      canManageInventory: canManageInventoryInternal,
-      canManageStaff: canManageStaffInternal,
+      roles,
+      /** @deprecated use roles — first role for legacy UI */
+      currentRole: roles[0] ?? null,
+      hasRole: (role) => hasRole(roles, role),
+      isDoctor: () => hasRole(roles, 'doctor'),
+      isReceptionist: () => hasRole(roles, 'receptionist'),
+      isAdmin: () => hasRole(roles, 'admin'),
+      canAccessClinical: () => canAccessClinical(roleCtx),
+      canViewClinical: () => canViewClinical(roleCtx),
+      canEditClinical: () => canEditClinical(roleCtx),
+      canAccessSettings: () => canAccessSettings(roleCtx),
+      canManageBilling: () => canManageBilling(roleCtx),
+      canManageInventory: () => canManageInventory(roleCtx),
+      canManageStaff: () => canManageStaff(roleCtx),
     }
   }, [me, loading, refresh])
 

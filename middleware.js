@@ -45,7 +45,12 @@ export function middleware(req) {
     if (payload?.cid == null && !payload?.pa) {
       return NextResponse.redirect(new URL('/login', req.url))
     }
-    if (!canAccessRoute(payload?.role, pathname)) {
+    const roles = Array.isArray(payload?.roles)
+      ? payload.roles
+      : payload?.role
+        ? [payload.role]
+        : []
+    if (!canAccessRoute(roles, pathname)) {
       return NextResponse.redirect(new URL('/dashboard?error=unauthorized', req.url))
     }
   }

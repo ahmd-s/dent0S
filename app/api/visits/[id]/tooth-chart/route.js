@@ -42,7 +42,7 @@ export async function PUT(request, { params }) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
-    if (!hasPermission(profile.role, 'visits', 'update')) return err('Forbidden', 403)
+    if (!hasPermission(profile, 'visits', 'update')) return err('Forbidden', 403)
     const b = await request.json()
     const existing = await db.collection('tooth_charts').findOne({ 
       visit_id: params.id, clinic_id: cid 

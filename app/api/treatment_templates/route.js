@@ -28,7 +28,7 @@ export async function GET() {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
-    if (!hasPermission(profile.role, 'consent_templates', 'read')) return err('Forbidden', 403)
+    if (!hasPermission(profile, 'consent_templates', 'read')) return err('Forbidden', 403)
     const list = await db.collection('treatment_templates').find({ clinic_id: cid }).sort({ name: 1 }).toArray()
     return json({ templates: list.map(clean) })
   } catch (e) {
@@ -41,7 +41,7 @@ export async function POST(request) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
-    if (!hasPermission(profile.role, 'consent_templates', 'create')) return err('Forbidden', 403)
+    if (!hasPermission(profile, 'consent_templates', 'create')) return err('Forbidden', 403)
     const b = await request.json()
     if (!b.name) return err('Name required')
     const id = uuidv4()

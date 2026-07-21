@@ -11,8 +11,10 @@ import { Switch } from '@/components/ui/switch'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import { canAccessSettings } from '@/lib/rbac'
+import { getProfileRoles, VALID_ROLES } from '@/lib/profile-roles'
 import { ToothIcon } from '@/components/dentos/Logo'
 import ImageUpload from '@/components/dentos/ImageUpload'
 import { useRole } from '@/components/dentos/RoleContext'
@@ -160,22 +162,54 @@ function ClinicTab({ me, reload }) {
   )
 }
 
+function RoleCheckboxGroup({ value, onChange, disabled }) {
+  const labels = { admin: 'Admin', doctor: 'Doctor', receptionist: 'Receptionist' }
+  const toggle = (role) => {
+    if (disabled) return
+    const set = new Set(value || [])
+    if (set.has(role)) {
+      set.delete(role)
+    } else {
+      set.add(role)
+    }
+    const next = VALID_ROLES.filter(r => set.has(r))
+    if (next.length === 0) {
+      toast.error('At least one role is required')
+      return
+    }
+    onChange(next)
+  }
+  return (
+    <div className="flex flex-wrap gap-4">
+      {VALID_ROLES.map(role => (
+        <label key={role} className="flex items-center gap-2 text-sm cursor-pointer">
+          <Checkbox checked={(value || []).includes(role)} onCheckedChange={() => toggle(role)} disabled={disabled} />
+          {labels[role]}
+        </label>
+      ))}
+    </div>
+  )
+}
+
 function TeamTab() {
   const { me } = useRole()
   const [team, setTeam] = useState([])
   const [open, setOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
-  const [f, setF] = useState({ full_name:'', email:'', role:'doctor', password:'', whatsapp_number:'' })
+  const [f, setF] = useState({ full_name:'', email:'', roles:['doctor'], password:'', whatsapp_number:'', consultation_fee:'' })
   const [editingWhatsApp, setEditingWhatsApp] = useState(null)
   const [whatsappValue, setWhatsappValue] = useState('')
+  const [editingFee, setEditingFee] = useState(null)
+  const [feeValue, setFeeValue] = useState('')
   const load = () => fetch('/api/team').then(r=>r.json()).then(d=>setTeam(d.team||[]))
   useEffect(() => { load() }, [])
   const invite = async () => {
-    const r = await fetch('/api/team', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(f) })
+    if (!f.roles?.length) { toast.error('Select at least one role'); return }
+    const r = await fetch('/api/team', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ...f, roles: f.roles }) })
     const d = await r.json()
     if (r.ok) {
-      toast.success(d.invite_email_sent ? 'Invitation email sent with login details.' : 'Team member added. Set RESEND_API_KEY and RESEND_FROM_EMAIL to send invite emails automatically.')
-      setOpen(false); setF({full_name:'',email:'',role:'doctor',password:'',whatsapp_number:''}); load()
+      toast.success(d.invite_email_sent ? 'Invitation email sent with login details.' : 'Team member added.')
+      setOpen(false); setF({full_name:'',email:'',roles:['doctor'],password:'',whatsapp_number:'',consultation_fee:''}); load()
     } else toast.error(d.error||'Failed')
   }
   const toggleActive = async (m) => {
@@ -189,9 +223,15 @@ function TeamTab() {
     if (r.ok) { toast.success('Team member removed'); setDeleteTarget(null); load() }
     else toast.error(d.error || 'Failed to delete')
   }
-  const updateRole = async (m, role) => {
-    const r = await fetch(`/api/team/${m.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ role }) })
-    if (r.ok) { toast.success('Role updated'); load() }
+  const updateRoles = async (m, roles) => {
+    const r = await fetch(`/api/team/${m.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ roles }) })
+    if (r.ok) { toast.success('Roles updated'); load() }
+    else toast.error((await r.json()).error || 'Failed')
+  }
+  const updateConsultationFee = async (m) => {
+    const r = await fetch(`/api/team/${m.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ consultation_fee: feeValue === '' ? null : feeValue }) })
+    if (r.ok) { toast.success('Consultation fee updated'); setEditingFee(null); load() }
+    else toast.error('Failed')
   }
   const updateWhatsApp = async (m) => {
     if (!/^\d{10}$/.test(whatsappValue)) {
@@ -211,10 +251,13 @@ function TeamTab() {
       <div className="flex items-center justify-between mb-3"><h3 className="font-semibold">Team Members ({team.length})</h3><Button size="sm" onClick={()=>setOpen(true)} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>Invite</Button></div>
       <table className="w-full text-sm">
         <thead className="text-xs uppercase text-muted-foreground tracking-wider border-b border-border">
-          <tr><th className="text-left py-2 font-medium">Name</th><th className="text-left font-medium">Email</th><th className="text-left font-medium">WhatsApp</th><th className="text-left font-medium">Role</th><th className="text-left font-medium">Last login</th><th className="text-left font-medium">Status</th><th className="text-right font-medium">Actions</th></tr>
+          <tr><th className="text-left py-2 font-medium">Name</th><th className="text-left font-medium">Email</th><th className="text-left font-medium">WhatsApp</th><th className="text-left font-medium">Roles</th><th className="text-left font-medium">Consultation fee</th><th className="text-left font-medium">Last login</th><th className="text-left font-medium">Status</th><th className="text-right font-medium">Actions</th></tr>
         </thead>
         <tbody>
-          {team.map(m => (
+          {team.map(m => {
+            const memberRoles = getProfileRoles(m)
+            const isDoctorMember = memberRoles.includes('doctor')
+            return (
             <tr key={m.id} className="border-b border-border last:border-0">
               <td className="py-3 font-medium">{m.full_name}</td>
               <td className="py-3 text-muted-foreground">{m.email}</td>
@@ -227,12 +270,29 @@ function TeamTab() {
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <span className={m.role === 'doctor' ? '' : 'text-muted-foreground'}>{m.role === 'doctor' ? formatWhatsApp(m.whatsapp_number) : '—'}</span>
-                    {m.role === 'doctor' && <button onClick={()=>{setEditingWhatsApp(m.id); setWhatsappValue(m.whatsapp_number||'')}} className="text-muted-foreground hover:text-[#0D9488]"><Edit2 className="w-3.5 h-3.5"/></button>}
+                    <span className={isDoctorMember ? '' : 'text-muted-foreground'}>{isDoctorMember ? formatWhatsApp(m.whatsapp_number) : '—'}</span>
+                    {isDoctorMember && <button onClick={()=>{setEditingWhatsApp(m.id); setWhatsappValue(m.whatsapp_number||'')}} className="text-muted-foreground hover:text-[#0D9488]"><Edit2 className="w-3.5 h-3.5"/></button>}
                   </div>
                 )}
               </td>
-              <td className="py-3"><Select value={m.role} onValueChange={v=>updateRole(m,v)}><SelectTrigger className="w-32 h-8"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="admin">Admin</SelectItem><SelectItem value="doctor">Doctor</SelectItem><SelectItem value="receptionist">Receptionist</SelectItem></SelectContent></Select></td>
+              <td className="py-3 align-top">
+                <RoleCheckboxGroup value={memberRoles} onChange={roles => updateRoles(m, roles)} />
+              </td>
+              <td className="py-3">
+                {isDoctorMember ? (
+                  editingFee === m.id ? (
+                    <div className="flex items-center gap-2">
+                      <Input type="number" value={feeValue} onChange={e=>setFeeValue(e.target.value)} className="w-24 h-8" placeholder="₹" />
+                      <button onClick={()=>updateConsultationFee(m)} className="text-green-600"><Check className="w-4 h-4"/></button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span>{m.consultation_fee != null ? `₹${Number(m.consultation_fee).toLocaleString('en-IN')}` : '—'}</span>
+                      <button onClick={()=>{setEditingFee(m.id); setFeeValue(m.consultation_fee ?? '')}} className="text-muted-foreground hover:text-[#0D9488]"><Edit2 className="w-3.5 h-3.5"/></button>
+                    </div>
+                  )
+                ) : '—'}
+              </td>
               <td className="py-3 text-muted-foreground text-xs whitespace-nowrap">{fmtLastLogin(m.last_login_at)}</td>
               <td className="py-3">{m.is_active?<span className="text-xs px-2 py-1 rounded-full bg-green-50 text-green-700">Active</span>:<span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">Inactive</span>}</td>
               <td className="py-3 text-right">
@@ -244,7 +304,7 @@ function TeamTab() {
                 </div>
               </td>
             </tr>
-          ))}
+          )})}
         </tbody>
       </table>
       <Dialog open={open} onOpenChange={setOpen}>
@@ -252,8 +312,9 @@ function TeamTab() {
           <div className="space-y-3">
             <div className="space-y-1.5"><Label>Full Name</Label><Input value={f.full_name} onChange={e=>setF({...f,full_name:e.target.value})}/></div>
             <div className="space-y-1.5"><Label>Email</Label><Input type="email" value={f.email} onChange={e=>setF({...f,email:e.target.value})}/></div>
-            <div className="space-y-1.5"><Label>Role</Label><Select value={f.role} onValueChange={v=>setF({...f,role:v})}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="doctor">Doctor</SelectItem><SelectItem value="receptionist">Receptionist</SelectItem></SelectContent></Select></div>
-            {f.role === 'doctor' && <div className="space-y-1.5"><Label>WhatsApp Number (for daily schedule)</Label><Input type="text" value={f.whatsapp_number} onChange={e=>setF({...f,whatsapp_number:e.target.value.replace(/\D/g,'').slice(0,10)})} placeholder="10-digit mobile number" maxLength={10}/></div>}
+            <div className="space-y-1.5"><Label>Roles</Label><RoleCheckboxGroup value={f.roles} onChange={roles => setF({ ...f, roles })} /></div>
+            {f.roles?.includes('doctor') && <div className="space-y-1.5"><Label>WhatsApp Number (for daily schedule)</Label><Input type="text" value={f.whatsapp_number} onChange={e=>setF({...f,whatsapp_number:e.target.value.replace(/\D/g,'').slice(0,10)})} placeholder="10-digit mobile number" maxLength={10}/></div>}
+            {f.roles?.includes('doctor') && <div className="space-y-1.5"><Label>Consultation fee (₹)</Label><Input type="number" value={f.consultation_fee} onChange={e=>setF({...f,consultation_fee:e.target.value})} placeholder="Default per visit"/></div>}
             <div className="space-y-1.5"><Label>Temporary Password</Label><Input type="password" value={f.password} onChange={e=>setF({...f,password:e.target.value})} placeholder="min 8 characters"/></div>
             <Button onClick={invite} className="w-full bg-[#0D9488] hover:bg-[#0B7E73]">Add Member</Button>
           </div>

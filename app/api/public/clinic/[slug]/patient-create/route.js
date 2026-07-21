@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
 import { v4 as uuidv4 } from 'uuid'
+import { nextPatientCode } from '@/lib/patient-code'
 
 /**
  * POST /api/public/clinic/:slug/patient-create
@@ -65,15 +66,7 @@ export async function POST(request, { params }) {
     }
 
     // ── Generate patient code via atomic counter ────────────────────────────
-    const lastPatient = await db.collection('patients')
-  .find({ clinic_id: clinic.id, patient_code: { $regex: /^PT\d+$/ } })
-  .sort({ patient_code: -1 })
-  .limit(1)
-  .toArray()
-const lastNum = lastPatient.length > 0
-  ? parseInt(lastPatient[0].patient_code.replace('PT', '')) 
-  : 0
-const patientCode = 'PT' + String(lastNum + 1).padStart(5, '0')
+    const patientCode = await nextPatientCode(db, clinic.id)
 
     // ── Create new patient ─────────────────────────────────────────────────
     const id = uuidv4()

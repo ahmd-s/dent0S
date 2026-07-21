@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
+import { canAccessSettings } from '@/lib/rbac'
 
 const json = (d, s=200) => NextResponse.json(d, { status: s })
 const err = (msg, s=400) => json({ error: msg }, s)
@@ -33,7 +34,7 @@ export async function POST(request) {
   const ctx = await requireUser()
   if (!ctx) return err('Unauthorized', 401)
   const { profile, db } = ctx
-  if (profile.role !== 'admin') return err('Admins only', 403)
+  if (!canAccessSettings(profile)) return err('Admins only', 403)
   const { plan_type, razorpay_subscription_id, razorpay_plan_id } = await request.json()
   if (!plan_type || !['monthly', 'yearly'].includes(plan_type)) return err('Invalid plan_type')
   const now = new Date()

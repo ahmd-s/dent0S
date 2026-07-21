@@ -17,6 +17,7 @@ import { VisitDocuments } from '@/components/dentos/VisitDocuments'
 import ToothChart from '@/components/dentos/ToothChart'
 import SmartTextarea from '@/components/SmartTextarea'
 import { toast } from 'sonner'
+import { useRole } from '@/components/dentos/RoleContext'
 
 const fmtDate = d => d ? `${String(new Date(d).getDate()).padStart(2,'0')}/${String(new Date(d).getMonth()+1).padStart(2,'0')}/${new Date(d).getFullYear()}` : ''
 const FREQS = ['OD','BD','TDS','QID','SOS','1-0-1','1-1-1','1-0-0','0-0-1']
@@ -40,6 +41,8 @@ function mergeSingleLine(prev, next) {
 function App() {
   const { id } = useParams()
   const router = useRouter()
+  const { canEditClinical, canManageBilling, isReceptionist } = useRole()
+  const clinicalReadOnly = !canEditClinical()
   const [v, setV] = useState(null)
   const [rxs, setRxs] = useState([])
   const [items, setItems] = useState([])
@@ -96,93 +99,102 @@ function App() {
     if (r.ok) { if (!silent) toast.success('Draft saved'); setAutosaveAt(new Date()) }
     else if (!silent) toast.error('Save failed')
   }
-  const completeVisit = async () => {
+
+  const saveClinicalStep = async () => {
     if (!stateRef.current.v?.chief_complaint?.trim()) { toast.error('Chief complaint is required'); return }
-    
-    // Use selected template materials if available, otherwise show empty modal
-    if (selectedTemplateMaterials.length > 0) {
-      const suggestedItems = selectedTemplateMaterials.map(item => ({
-        item_id: item.item_id,
-        item_name: item.item_name,
-        suggested_quantity: item.suggested_quantity,
-        actual_quantity: item.suggested_quantity,
-        unit: item.unit
-      }))
-      setConsumeItems(suggestedItems)
-    } else {
-      setConsumeItems([])
-    }
-    setConsumeModalOpen(true)
-  }
-  
-  const confirmCompleteVisit = async (skipConsumption = false) => {
     setSaving(true)
     const cur = stateRef.current
-    
+    const r = await fetch(`/api/visits/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ ...cur.v, prescriptions: cur.rxs, save_clinical: true }) })
+    setSaving(false)
+    if (r.ok) {
+      toast.success('Clinical notes saved')
+      load()
+    } else toast.error((await r.json()).error || 'Save failed')
+  }
+
+  const runInventoryAction = async (action) => {
+    if (action === 'done') {
+      if (selectedTemplateMaterials.length > 0) {
+        setConsumeItems(selectedTemplateMaterials.map(item => ({
+          item_id: item.item_id, item_name: item.item_name,
+          suggested_quantity: item.suggested_quantity, actual_quantity: item.suggested_quantity, unit: item.unit,
+        })))
+      } else {
+        setConsumeItems([])
+      }
+      setConsumeModalOpen(true)
+      return
+    }
+    setSaving(true)
+    const r = await fetch(`/api/visits/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ inventory_action: action }) })
+    setSaving(false)
+    if (r.ok) { toast.success(action === 'assign' ? 'Assigned to receptionist' : 'Inventory skipped'); load() }
+    else toast.error('Failed')
+  }
+
+  const runInvoiceAction = async (action) => {
+    setSaving(true)
+    const cur = stateRef.current
+    const r = await fetch(`/api/visits/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        ...cur.v, prescriptions: cur.rxs, invoice_items: cur.items, discount: cur.discount,
+        gst_enabled: cur.gstOn, payment_mode: cur.paymentMode, payment_status: cur.paymentStatus,
+        invoice_action: action,
+      }) })
+    setSaving(false)
+    if (r.ok) {
+      toast.success(action === 'assign' ? 'Invoice assigned to receptionist' : 'Invoice saved')
+      if (action === 'done') load()
+    } else toast.error('Failed')
+  }
+
+  const completeVisitFlow = async () => {
+    setSaving(true)
+    const cur = stateRef.current
+    const r = await fetch(`/api/visits/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        ...cur.v, prescriptions: cur.rxs, invoice_items: cur.items, discount: cur.discount,
+        gst_enabled: cur.gstOn, payment_mode: cur.paymentMode, payment_status: cur.paymentStatus, complete: true,
+      }) })
+    setSaving(false)
+    if (r.ok) {
+      toast.success('Visit completed!')
+      setTimeout(() => router.push(`/patients/${cur.v.patient_id}`), 500)
+    } else toast.error((await r.json()).error || 'Failed to complete')
+  }
+  // autosave every 90s during clinical step only
+  useEffect(() => {
+    if (!v || v.workflow_status !== 'clinical') return
+    const i = setInterval(() => saveDraft(true), 90000)
+    return () => clearInterval(i)
+  }, [v])
+
+  const confirmInventoryDone = async (skipConsumption = false) => {
+    setSaving(true)
+    const cur = stateRef.current
     try {
-      // If not skipping and has items, consume inventory
       if (!skipConsumption && consumeItems.length > 0) {
         const itemsToConsume = consumeItems.filter(i => i.actual_quantity > 0).map(i => ({
-          item_id: i.item_id,
-          quantity: i.actual_quantity
+          item_id: i.item_id, quantity: i.actual_quantity,
         }))
-        
         if (itemsToConsume.length > 0) {
-          try {
-            const consumeRes = await fetch('/api/inventory/consume', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                visit_id: id,
-                patient_name: cur.v.patient?.name || 'Unknown',
-                items: itemsToConsume
-              })
-            })
-            if (consumeRes.ok) {
-              toast.success('Stock deducted successfully')
-            } else {
-              toast.warning('Stock deduction failed, but visit will complete')
-            }
-          } catch (consumeError) {
-            console.error('Consume API error:', consumeError)
-            toast.warning('Stock deduction failed, but visit will complete')
-          }
+          await fetch('/api/inventory/consume', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ visit_id: id, patient_name: cur.v.patient?.name || 'Unknown', items: itemsToConsume }),
+          })
         }
       }
-      
-      // Always complete the visit regardless of consume result
       const r = await fetch(`/api/visits/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ ...cur.v, prescriptions: cur.rxs, invoice_items: cur.items, discount: cur.discount, gst_enabled: cur.gstOn, payment_mode: cur.paymentMode, payment_status: cur.paymentStatus, complete: true }) })
-      if (r.ok) { 
-        toast.success('Visit completed!', {
-          description: 'Send visit summary to patient on WhatsApp?',
-          action: {
-            label: 'Send WhatsApp',
-            onClick: () => {
-              const summaryUrl = `https://www.dent-os.in/visit-summary/${id}`
-              const treatment = cur.v.treatment_done || 'Dental treatment'
-              const msg = `Hello ${cur.v.patient?.name || 'Patient'}! 🦷\n\nThank you for visiting ${cur.clinicName}.\n\nTreatment: ${treatment}\n\n💊 Prescription & Invoice:\n${summaryUrl}\n\n— ${cur.clinicName}`
-              const waUrl = `https://wa.me/91${cur.v.patient?.phone}?text=${encodeURIComponent(msg)}`
-              window.open(waUrl, '_blank')
-            }
-          },
-          duration: 10000
-        })
-        setTimeout(() => router.push(`/patients/${cur.v.patient_id}`), 500)
-      } else {
-        toast.error('Failed to complete visit')
-      }
+        body: JSON.stringify({ inventory_action: skipConsumption ? 'skip' : 'done' }) })
+      if (r.ok) { toast.success('Inventory step saved'); load() }
+      else toast.error('Failed')
     } finally {
       setSaving(false)
       setConsumeModalOpen(false)
     }
   }
-  // autosave every 90s
-  useEffect(() => {
-    if (!v) return
-    const i = setInterval(() => saveDraft(true), 90000)
-    return () => clearInterval(i)
-  }, [v])
 
   const addRx = () => setRxs(p => [...p, { id:'tmp_'+Date.now(), medicine_name:'', dosage:'', frequency:'OD', duration:'', instructions:'' }])
   const updateRx = (i,k,val) => setRxs(p => p.map((r,j) => j===i?{...r,[k]:val}:r))
@@ -273,15 +285,56 @@ function App() {
 
   if (!v) return <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]"/></div>
 
+  const workflow = v.workflow_status || (v.clinical_saved_at ? 'inventory' : 'clinical')
+  const invStatus = v.inventory_step?.status || 'pending'
+  const invcStatus = v.invoice_step?.status || 'pending'
+  const showClinical = workflow === 'clinical' || !v.clinical_saved_at
+  const showInventory = workflow === 'inventory' && v.clinical_saved_at && invStatus === 'pending'
+  const showInvoice = (workflow === 'invoice' || (invStatus === 'done' || invStatus === 'skipped')) && invcStatus === 'pending'
+  const showComplete = (invStatus === 'done' || invStatus === 'skipped' || invStatus === 'assigned') && (invcStatus === 'done' || invcStatus === 'assigned')
+  const assignedInventory = invStatus === 'assigned' && isReceptionist()
+  const assignedInvoice = invcStatus === 'assigned' && (isReceptionist() || canManageBilling())
+
   return (
     <div className="max-w-5xl mx-auto pb-12">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <Link href={`/patients/${v.patient_id}`} className="text-sm text-muted-foreground hover:text-[#0D9488] flex items-center gap-1"><ArrowLeft className="w-4 h-4"/>{v.patient?.name || 'Patient'}</Link>
-        <div className="flex items-center gap-2">
-          {autosaveAt && <span className="text-xs text-muted-foreground mr-1">Auto-saved {autosaveAt.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' })}</span>}
-          <Button variant="outline" onClick={()=>saveDraft(false)} disabled={saving}>{saving?<Loader2 className="w-4 h-4 animate-spin"/>:<><Save className="w-4 h-4 mr-2"/>Save Draft</>}</Button>
-          <Button onClick={completeVisit} disabled={saving} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Check className="w-4 h-4 mr-2"/>Complete Visit</Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {clinicalReadOnly && <span className="text-xs text-muted-foreground">View only</span>}
+          {showClinical && !clinicalReadOnly && (
+            <>
+              {autosaveAt && <span className="text-xs text-muted-foreground mr-1">Auto-saved {autosaveAt.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' })}</span>}
+              <Button variant="outline" onClick={()=>saveDraft(false)} disabled={saving}>{saving?<Loader2 className="w-4 h-4 animate-spin"/>:<><Save className="w-4 h-4 mr-2"/>Save Draft</>}</Button>
+              <Button onClick={saveClinicalStep} disabled={saving} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Check className="w-4 h-4 mr-2"/>Save Clinical & Continue</Button>
+            </>
+          )}
+          {showInventory && !clinicalReadOnly && (
+            <>
+              <Button variant="outline" onClick={()=>runInventoryAction('skip')} disabled={saving}>Skip Inventory</Button>
+              <Button variant="outline" onClick={()=>runInventoryAction('assign')} disabled={saving}>Assign to Receptionist</Button>
+              <Button onClick={()=>runInventoryAction('done')} disabled={saving} className="bg-[#0D9488] hover:bg-[#0B7E73]">Do Inventory Now</Button>
+            </>
+          )}
+          {(showInvoice || assignedInvoice) && (canManageBilling() || assignedInvoice) && (
+            <>
+              {!assignedInvoice && !clinicalReadOnly && <Button variant="outline" onClick={()=>runInvoiceAction('assign')} disabled={saving}>Assign Invoice</Button>}
+              <Button onClick={()=>runInvoiceAction('done')} disabled={saving} className="bg-[#0D9488] hover:bg-[#0B7E73]">Save Invoice</Button>
+            </>
+          )}
+          {showComplete && invcStatus === 'done' && !clinicalReadOnly && (
+            <Button onClick={completeVisitFlow} disabled={saving} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Check className="w-4 h-4 mr-2"/>Complete Visit</Button>
+          )}
+          {assignedInventory && (
+            <Button onClick={()=>runInventoryAction('done')} disabled={saving} className="bg-[#0D9488] hover:bg-[#0B7E73]">Complete Inventory Task</Button>
+          )}
         </div>
+      </div>
+      <div className="mt-2 flex gap-2 text-xs flex-wrap">
+        {['clinical','inventory','invoice','completed'].map((step, i) => (
+          <span key={step} className={`px-2 py-1 rounded-full capitalize ${workflow === step || (step === 'completed' && v.workflow_status === 'completed') ? 'bg-[#0D9488] text-white' : 'bg-muted text-muted-foreground'}`}>
+            {i + 1}. {step}
+          </span>
+        ))}
       </div>
       <div className="mt-3 flex items-end justify-between">
         <div>
@@ -314,26 +367,28 @@ function App() {
         </Card>
       )}
 
-      <VisitVoiceRecorder visitId={id} disabled={saving} onApplyExtraction={handleVoiceApply} />
+      {!clinicalReadOnly && showClinical && <VisitVoiceRecorder visitId={id} disabled={saving} onApplyExtraction={handleVoiceApply} />}
 
+      {!clinicalReadOnly && showClinical && (
       <Card className="mt-5 bg-card border-border rounded-lg">
         <button type="button" onClick={()=>setShowToothChart(s=>!s)} className="w-full flex items-center justify-between p-4 text-sm font-medium hover:bg-muted transition-colors">
           <span className="flex items-center gap-2">🦷 Tooth Chart</span>
           {showToothChart ? <ChevronUp className="w-4 h-4"/> : <ChevronDown className="w-4 h-4"/>}
         </button>
         {showToothChart && <div className="px-4 pb-4">
-          <ToothChart visitId={id} patientId={v.patient_id} readOnly={saving} />
+          <ToothChart visitId={id} patientId={v.patient_id} readOnly={saving || clinicalReadOnly} />
         </div>}
       </Card>
+      )}
 
       <Card className="mt-5 p-6 bg-card border-border rounded-lg space-y-5">
-        <div className="space-y-1.5"><Label className="text-base">Chief Complaint <span className="text-[#EF4444]">*</span></Label><SmartTextarea value={v.chief_complaint||''} onChange={val=>set('chief_complaint',val)} category="chief_complaints" placeholder="What brings the patient in today?" rows={2}/></div>
-        <div className="space-y-1.5"><Label className="text-base">Examination Findings</Label><SmartTextarea value={v.clinical_notes||''} onChange={val=>set('clinical_notes',val)} category="clinical_findings" placeholder="Document your examination findings…" rows={3}/></div>
-        <div className="space-y-1.5"><Label className="text-base">Diagnosis</Label><Input value={v.diagnosis||''} onChange={e=>set('diagnosis',e.target.value)} placeholder="e.g. Deep caries 46, Gingivitis"/></div>
+        <div className="space-y-1.5"><Label className="text-base">Chief Complaint <span className="text-[#EF4444]">*</span></Label><SmartTextarea value={v.chief_complaint||''} onChange={val=>set('chief_complaint',val)} category="chief_complaints" placeholder="What brings the patient in today?" rows={2} disabled={clinicalReadOnly}/></div>
+        <div className="space-y-1.5"><Label className="text-base">Examination Findings</Label><SmartTextarea value={v.clinical_notes||''} onChange={val=>set('clinical_notes',val)} category="clinical_findings" placeholder="Document your examination findings…" rows={3} disabled={clinicalReadOnly}/></div>
+        <div className="space-y-1.5"><Label className="text-base">Diagnosis</Label><Input value={v.diagnosis||''} onChange={e=>set('diagnosis',e.target.value)} placeholder="e.g. Deep caries 46, Gingivitis" readOnly={clinicalReadOnly}/></div>
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <Label className="text-base">Treatment Done</Label>
-            {inventoryTemplates.length > 0 && (
+            {!clinicalReadOnly && inventoryTemplates.length > 0 && showClinical && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild><Button type="button" size="sm" variant="outline" className="h-7 text-xs">Apply Template</Button></DropdownMenuTrigger>
                 <DropdownMenuContent>
@@ -342,17 +397,17 @@ function App() {
               </DropdownMenu>
             )}
           </div>
-          <Textarea value={v.treatment_done||''} onChange={e=>set('treatment_done',e.target.value)} placeholder="Describe the treatment performed..." rows={3}/>
+          <Textarea value={v.treatment_done||''} onChange={e=>set('treatment_done',e.target.value)} placeholder="Describe the treatment performed..." rows={3} readOnly={clinicalReadOnly}/>
         </div>
-        <div className="space-y-1.5"><Label className="text-base">Plan for Next Visit</Label><SmartTextarea value={v.treatment_plan||''} onChange={val=>set('treatment_plan',val)} category="treatment_plans" placeholder="What should be done on the next visit…" rows={2}/></div>
+        <div className="space-y-1.5"><Label className="text-base">Plan for Next Visit</Label><SmartTextarea value={v.treatment_plan||''} onChange={val=>set('treatment_plan',val)} category="treatment_plans" placeholder="What should be done on the next visit…" rows={2} disabled={clinicalReadOnly}/></div>
       </Card>
 
       <Card className="mt-5 p-6 bg-card border-border rounded-lg">
-        <div className="flex items-center justify-between mb-3"><Label className="text-base">Prescriptions</Label><Button type="button" size="sm" variant="outline" onClick={addRx}><Plus className="w-4 h-4 mr-1"/>Add Medicine</Button></div>
+        <div className="flex items-center justify-between mb-3"><Label className="text-base">Prescriptions</Label>{!clinicalReadOnly && <Button type="button" size="sm" variant="outline" onClick={addRx}><Plus className="w-4 h-4 mr-1"/>Add Medicine</Button>}</div>
         {rxs.length === 0 && <div className="text-sm text-muted-foreground py-2">No prescriptions added</div>}
         {rxs.map((r,i) => (
           <div key={r.id} className="grid grid-cols-12 gap-2 mb-2">
-            <Input className="col-span-3" placeholder="Medicine" value={r.medicine_name} onChange={e=>updateRx(i,'medicine_name',e.target.value)}/>
+            <Input className="col-span-3" placeholder="Medicine" value={r.medicine_name} onChange={e=>updateRx(i,'medicine_name',e.target.value)} readOnly={clinicalReadOnly}/>
             <Input className="col-span-2" placeholder="500mg" value={r.dosage} onChange={e=>updateRx(i,'dosage',e.target.value)}/>
             <Select value={r.frequency} onValueChange={v=>updateRx(i,'frequency',v)}><SelectTrigger className="col-span-2"><SelectValue/></SelectTrigger><SelectContent>{FREQS.map(fr=><SelectItem key={fr} value={fr}>{fr}</SelectItem>)}</SelectContent></Select>
             <Input className="col-span-2" placeholder="5 days" value={r.duration} onChange={e=>updateRx(i,'duration',e.target.value)}/>
@@ -362,6 +417,7 @@ function App() {
         ))}
       </Card>
 
+      {!clinicalReadOnly && showClinical && (
       <Card className="mt-5 p-6 bg-card border-border rounded-lg">
         <div className="flex items-center gap-3 mb-3">
           <Switch checked={!!v.next_visit_recommended} onCheckedChange={val=>set('next_visit_recommended', val)} />
@@ -374,9 +430,11 @@ function App() {
           </div>
         )}
       </Card>
+      )}
 
+      {(showInvoice || assignedInvoice || invcStatus === 'done') && (canManageBilling() || assignedInvoice || clinicalReadOnly) && (
       <Card className="mt-5 p-6 bg-card border-border rounded-lg">
-        <div className="flex items-center justify-between mb-3"><Label className="text-base">Invoice for This Visit</Label><Button type="button" size="sm" variant="outline" onClick={()=>addItem()}><Plus className="w-4 h-4 mr-1"/>Add Item</Button></div>
+        <div className="flex items-center justify-between mb-3"><Label className="text-base">Invoice for This Visit</Label>{(canManageBilling() || assignedInvoice) && <Button type="button" size="sm" variant="outline" onClick={()=>addItem()}><Plus className="w-4 h-4 mr-1"/>Add Item</Button>}</div>
         {items.length === 0 && <div className="text-sm text-muted-foreground py-2">No items added. Click “Apply Template” above or add items manually.</div>}
         {items.length > 0 && (
           <div className="space-y-2">
@@ -406,11 +464,14 @@ function App() {
           <div className="space-y-1.5"><Label>Payment Status</Label><Select value={paymentStatus} onValueChange={setPaymentStatus}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="pending">Pending</SelectItem><SelectItem value="paid">Paid</SelectItem><SelectItem value="partial">Partial</SelectItem><SelectItem value="waived">Waived</SelectItem></SelectContent></Select></div>
         </div>
       </Card>
+      )}
 
+      {!clinicalReadOnly && showClinical && (
       <Card className="mt-5 p-6 bg-card border-border rounded-lg">
         <Label className="text-base mb-3 block">Documents & Scans</Label>
         <VisitDocuments visitId={id} patientId={v.patient_id} onAddFindings={handleAddToFindings} />
       </Card>
+      )}
 
       <ConsumptionModal 
         open={consumeModalOpen} 
@@ -418,8 +479,8 @@ function App() {
         items={consumeItems} 
         setItems={setConsumeItems}
         inventoryItems={inventoryItems}
-        onConfirm={() => confirmCompleteVisit(false)}
-        onSkip={() => confirmCompleteVisit(true)}
+        onConfirm={() => confirmInventoryDone(false)}
+        onSkip={() => confirmInventoryDone(true)}
       />
     </div>
   )

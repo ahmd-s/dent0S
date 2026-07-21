@@ -16,6 +16,10 @@ import { useRole } from '@/components/dentos/RoleContext'
 import BalanceBadge from '@/components/dentos/BalanceBadge'
 import OutstandingBalanceModal from '@/components/dentos/OutstandingBalanceModal'
 import { useLiveRefresh } from '@/hooks/useLiveRefresh'
+import { Switch } from '@/components/ui/switch'
+import ReceptionistPendingTasks from '@/components/dentos/ReceptionistPendingTasks'
+
+const QUEUE_TOGGLE_KEY = 'dentos_show_booking_queue'
 
 const todayIso = () => new Date().toISOString().slice(0,10)
 const fmtDate = d => { const x = new Date(d); return `${String(x.getDate()).padStart(2,'0')}/${String(x.getMonth()+1).padStart(2,'0')}/${x.getFullYear()}` }
@@ -35,8 +39,10 @@ const statusBadge = s => {
 
 function App() {
   const router = useRouter()
-  const { canAccessClinical } = useRole()
+  const { canAccessClinical, isDoctor } = useRole()
   const canStartVisit = canAccessClinical()
+  const showQueueToggle = isDoctor()
+  const [showQueue, setShowQueue] = useState(true)
   const [stats, setStats] = useState(null)
   const [bookOpen, setBookOpen] = useState(false)
   const [balanceModalOpen, setBalanceModalOpen] = useState(false)
@@ -44,7 +50,17 @@ function App() {
 
   const load = () => fetch('/api/dashboard/stats').then(r=>r.json()).then(setStats)
   useEffect(() => { load() }, [])
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const stored = localStorage.getItem(QUEUE_TOGGLE_KEY)
+    if (stored !== null) setShowQueue(stored === 'true')
+  }, [])
   useLiveRefresh(load)
+
+  const toggleQueue = (v) => {
+    setShowQueue(v)
+    if (typeof window !== 'undefined') localStorage.setItem(QUEUE_TOGGLE_KEY, String(v))
+  }
 
   const setStatus = async (id, status) => {
     await fetch(`/api/appointments/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ status }) })
@@ -93,11 +109,22 @@ function App() {
 
       <QuickSearchBar onBook={()=>setBookOpen(true)} canStartVisit={canStartVisit} />
 
+      <ReceptionistPendingTasks />
+
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-5">
+        {(showQueue || !showQueueToggle) && (
         <Card className="lg:col-span-3 p-4 md:p-6 bg-card border-border rounded-lg">
-          <div className="flex items-center justify-between mb-2 md:mb-3">
+          <div className="flex items-center justify-between mb-2 md:mb-3 flex-wrap gap-2">
             <h3 className="font-semibold text-foreground text-base md:text-lg">Today&apos;s Appointment Queue</h3>
-            <span className="text-xs text-muted-foreground">{fmtDate(new Date())}</span>
+            <div className="flex items-center gap-3">
+              {showQueueToggle && (
+                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                  <Switch checked={showQueue} onCheckedChange={toggleQueue} />
+                  Show queue
+                </label>
+              )}
+              <span className="text-xs text-muted-foreground">{fmtDate(new Date())}</span>
+            </div>
           </div>
           {!stats && <div className="text-sm text-muted-foreground py-6">Loading…</div>}
           {stats && stats.today_queue.length === 0 && (
@@ -179,7 +206,8 @@ function App() {
             </>
           )}
         </Card>
-        <Card className="lg:col-span-2 p-4 md:p-6 bg-card border-border rounded-lg">
+        )}
+        <Card className={`${(showQueue || !showQueueToggle) ? 'lg:col-span-2' : 'lg:col-span-5'} p-4 md:p-6 bg-card border-border rounded-lg`}>
           <div className="flex items-center justify-between mb-2 md:mb-3">
             <h3 className="font-semibold text-foreground text-base md:text-lg">Pending Follow-ups</h3>
             {stats?.followups?.length>0 && <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">Due Now</span>}

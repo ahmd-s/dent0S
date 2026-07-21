@@ -107,6 +107,57 @@ Patients module completion (visit history/documents), Appointments (booking/queu
 
 ---
 
+## Phase 8 — Multi-Role RBAC, Doctor Scoping & Visit Completion
+
+**Goal:** Replace single `profile.role` with combinable `roles[]`, union-based permissions, doctor-level patient scoping, visit completion workflow, consultation fees, and clinic-wide patient codes.
+
+### Permission matrix (union across roles)
+
+| Resource | Admin | Doctor | Receptionist |
+|----------|-------|--------|--------------|
+| Patients | full | full (scoped when not admin) | full (all doctors); clinical fields read-only when receptionist-only |
+| Visits | full | full (scoped) | clinical read-only |
+| Appointments | full | scoped | full (all doctors) |
+| Billing | full | read-only | full |
+| Inventory / Lab | full | full | full |
+| Staff / Settings | full | no | no |
+
+**Route denials:** only `/settings` blocked for doctor and receptionist (admin always allowed via union).
+
+**Doctor scoping:** relationship-based — doctor sees patients/appointments/visits where `doctor_id` matches; bypassed when profile also has `admin`. Receptionist and admin see all clinic data.
+
+**Multi-role:** Admin combinable with doctor/receptionist (≥1 role required, no mutual exclusivity).
+
+### Visit completion workflow
+
+Clinical save → Inventory (skip / done / assign) → Invoice (done / assign) → `completed` when both steps resolved. Assigned steps surface as receptionist pending tasks on dashboard.
+
+### Other Phase 8 deliverables
+
+- `consultation_fee` on doctor profiles; auto first invoice line on visit (editable per invoice)
+- `clinics.next_patient_seq` — one shared PT counter per clinic
+- Settings Team: multi-select role checkboxes
+- Sidebar: union of modules across roles
+- Doctor dashboard: booking-queue visibility toggle (any profile with `doctor` role; localStorage)
+
+### Test plan
+
+**A. Roles migration** — Run `scripts/migrate-profile-roles.js`; login JWT includes `roles[]`; `/api/auth/me` lazy-migrates on read.
+
+**B. Receptionist clinical read-only** — Sees visit history and clinical fields; cannot edit visit clinical data or patient allergies/history.
+
+**C. Doctor scoping** — Doctor A cannot list Doctor B's patients/appointments/visits; admin+doctor sees all.
+
+**D. Multi-role team** — Assign `admin+doctor`; nav shows settings + clinical modules; queue toggle visible.
+
+**E. Visit workflow** — Save clinical → inventory skip/done/assign → invoice done/assign → visit completes; receptionist sees pending tasks.
+
+**F. Consultation fee & patient code** — Doctor fee auto-fills invoice line; `nextPatientCode` increments clinic-wide.
+
+**G. Queue toggle** — Doctor can hide/show today's booking queue; preference persists in localStorage.
+
+---
+
 ## How We Work Through This
 For each phase: verify remaining unknowns in code → resolve any open design questions together → implement in Cursor → review the diff/result → mark done in Memory.md → move to next phase. Don't advance to the next phase until the current one has a clear "done" state, even if that means a phase takes a few passes.
 

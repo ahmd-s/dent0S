@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
-import { hasPermission, canAccessClinical } from '@/lib/rbac'
+import { hasPermission, canAccessClinical, filterPatientFields } from '@/lib/rbac'
+import { getProfileRoles } from '@/lib/profile-roles'
+import { assertDoctorOwnsPatient } from '@/lib/doctor-scope'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -27,9 +29,12 @@ export async function GET(request, { params }) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
+    const roles = getProfileRoles(profile)
     const p = await db.collection('patients').findOne({ id: params.id, clinic_id: cid })
     if (!p) return err('Not found', 404)
-    return json({ patient: clean(p) })
+    const allowed = await assertDoctorOwnsPatient(db, cid, roles, profile.id, params.id)
+    if (!allowed) return err('Forbidden', 403)
+    return json({ patient: filterPatientFields(clean(p), roles) })
   } catch (e) {
     console.error('Patient GET error:', e)
     return err('Internal server error', 500)
@@ -40,11 +45,15 @@ export async function PUT(request, { params }) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
+    const roles = getProfileRoles(profile)
+    const allowed = await assertDoctorOwnsPatient(db, cid, roles, profile.id, params.id)
+    if (!allowed) return err('Forbidden', 403)
     const b = await request.json(); delete b.id; delete b.clinic_id; delete b.created_at; delete b._id
-    if (!hasPermission(profile.role, 'patients', 'update')) return err('Forbidden', 403)
-    if (!canAccessClinical(profile.role)) {
+    if (!hasPermission(profile, 'patients', 'update')) return err('Forbidden', 403)
+    if (!canAccessClinical(profile)) {
       delete b.allergies
       delete b.medical_history
+      delete b.blood_group
     }
     await db.collection('patients').updateOne({ id: params.id, clinic_id: cid }, { $set: b })
     return json({ ok:true })
@@ -58,10 +67,12 @@ export async function DELETE(request, { params }) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
-    if (!hasPermission(profile.role, 'patients', 'delete')) return err('Forbidden', 403)
+    const roles = getProfileRoles(profile)
+    if (!hasPermission(profile, 'patients', 'delete')) return err('Forbidden', 403)
+    const allowed = await assertDoctorOwnsPatient(db, cid, roles, profile.id, params.id)
+    if (!allowed) return err('Forbidden', 403)
     const p = await db.collection('patients').findOne({ id: params.id, clinic_id: cid })
     if (!p) return err('Not found', 404)
-    // Delete related records
     await db.collection('visits').deleteMany({ patient_id: params.id, clinic_id: cid })
     await db.collection('appointments').deleteMany({ patient_id: params.id, clinic_id: cid })
     await db.collection('prescriptions').deleteMany({ patient_id: params.id, clinic_id: cid })

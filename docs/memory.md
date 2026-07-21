@@ -54,6 +54,18 @@ Living document. Update this at the end of every work session so a new chat/AI t
 ## Session Log
 (Add new entries above this line as work happens — newest at top.)
 
+### 2026-07-22 — Phase 8 (continuation pass)
+**Phase worked on:** Phase 8 — Multi-Role RBAC rebuild (post–Checkpoint 1)
+**Changed:**
+- Completed API sweep (~32 routes): doctor scoping, field filtering, roles[] on team/onboarding
+- Visit completion workflow (API + visits UI), pending tasks widget, consultation fee, patient code counter
+- Frontend: dashboard queue toggle, settings team checkboxes, patients/visit pages, AccessDenied multi-role
+- Scripts: `migrate-profile-roles.js`, `init-patient-counters.js`
+- Docs: Phase 8 section added to `docs/phases.md`
+**Verified how:** Syntax check on key route/page files; full `npm run build` blocked by pre-existing missing `three` dependency in STLViewer (unrelated to Phase 8)
+**Still open:** Live manual test of visit workflow + multi-role team assignment (re-login after role change); run migration scripts on production DB
+**New decisions made this session:** Booking queue toggle shown for any profile with `doctor` in roles (including admin+doctor); doctor scoping bypassed when user also has admin
+
 ### [Template for next entry]
 **Date:**
 **Phase worked on:**

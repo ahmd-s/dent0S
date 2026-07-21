@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
+import { nextPatientCode } from '@/lib/patient-code'
 import { v4 as uuidv4 } from 'uuid'
 
 function cors(res) {
@@ -45,7 +47,7 @@ export async function POST(request) {
     const { profile, clinic, db } = user
     const cid = profile.clinic_id
 
-    if (profile.role === 'receptionist') return err('Forbidden', 403)
+    if (!hasPermission(profile, 'patients', 'create')) return err('Forbidden', 403)
 
     const { patients } = await request.json()
     if (!Array.isArray(patients)) return err('Invalid input: patients array required')
@@ -53,16 +55,6 @@ export async function POST(request) {
     let imported = 0
     let skipped = 0
     const errors = []
-
-    // Get last patient code for this clinic
-    const lastPatient = await db.collection('patients')
-      .find({ clinic_id: clinic.id, patient_code: { $regex: /^PT\d+$/ } })
-      .sort({ patient_code: -1 })
-      .limit(1)
-      .toArray()
-    const lastNum = lastPatient.length > 0
-      ? parseInt(lastPatient[0].patient_code.replace('PT', ''))
-      : 0
 
     for (let i = 0; i < patients.length; i++) {
       const p = patients[i]
@@ -112,7 +104,7 @@ export async function POST(request) {
         }
 
         // Generate patient code
-        const patientCode = 'PT' + String(lastNum + imported + 1).padStart(5, '0')
+        const patientCode = await nextPatientCode(db, cid)
 
         // Insert patient
         await db.collection('patients').insertOne({

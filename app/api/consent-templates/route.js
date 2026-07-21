@@ -60,7 +60,7 @@ export async function POST(request) {
     const { profile, db } = user
     const cid = profile.clinic_id
     
-    if (!hasPermission(profile.role, 'consent_templates', 'create')) return err('Forbidden', 403)
+    if (!hasPermission(profile, 'consent_templates', 'create')) return err('Forbidden', 403)
     
     const b = await request.json()
     if (!b.name || !b.content) return err('Name and content required')

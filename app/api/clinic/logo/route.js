@@ -37,7 +37,7 @@ export async function POST(request) {
     const ctx = await requireUser()
     if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx
-    if (!hasPermission(profile.role, 'settings', 'update')) return err('Forbidden', 403)
+    if (!hasPermission(profile, 'settings', 'update')) return err('Forbidden', 403)
 
     const formData = await request.formData()
     const file = formData.get('file')

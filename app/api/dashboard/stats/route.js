@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
 import { AWAITING_ACCEPTANCE_STATUSES, IN_PRODUCTION_STATUSES, READY_STATUSES, CLOSED_STATUSES } from '@/lib/lab-case-helpers'
+import { getProfileRoles } from '@/lib/profile-roles'
+import { doctorAppointmentFilter } from '@/lib/doctor-scope'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -29,11 +31,13 @@ export async function GET() {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, clinic, db } = ctx; const cid = profile.clinic_id
+    const roles = getProfileRoles(profile)
     const today = todayIso(); const yest = yIso()
+    const apptFilter = { clinic_id: cid, appointment_date: today, ...doctorAppointmentFilter(roles, profile.id) }
     const [todayAppts, doneToday, doneYest] = await Promise.all([
-      db.collection('appointments').find({ clinic_id: cid, appointment_date: today }).sort({ appointment_time: 1 }).toArray(),
-      db.collection('appointments').countDocuments({ clinic_id: cid, appointment_date: today, status: 'completed' }),
-      db.collection('appointments').countDocuments({ clinic_id: cid, appointment_date: yest, status: 'completed' })
+      db.collection('appointments').find(apptFilter).sort({ appointment_time: 1 }).toArray(),
+      db.collection('appointments').countDocuments({ ...apptFilter, status: 'completed' }),
+      db.collection('appointments').countDocuments({ clinic_id: cid, appointment_date: yest, status: 'completed', ...doctorAppointmentFilter(roles, profile.id) }),
     ])
     const pids = [...new Set(todayAppts.map(a=>a.patient_id).filter(Boolean))]
     const dids = [...new Set(todayAppts.map(a=>a.doctor_id).filter(Boolean))]

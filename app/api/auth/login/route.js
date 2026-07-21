@@ -18,6 +18,7 @@ import {
   isPlatformAdminProfile,
 } from '@/lib/platform-admin'
 import { issuePendingToken } from '@/lib/platform-admin-auth'
+import { ensureProfileRolesMigrated } from '@/lib/profile-roles'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -117,8 +118,9 @@ export async function POST(request) {
     }
 
     const c = await db.collection('clinics').findOne({ id: profile.clinic_id })
+    const roles = await ensureProfileRolesMigrated(db, profile)
     await db.collection('profiles').updateOne({ id: profile.id }, { $set: { last_login_at: new Date() } })
-    setAuthCookie(signToken({ uid: profile.id, cid: profile.clinic_id, role: profile.role }))
+    setAuthCookie(signToken({ uid: profile.id, cid: profile.clinic_id, roles, role: roles[0] || profile.role }))
     return json({ ok: true, onboarding_complete: !!c?.onboarding_complete })
   } catch (e) {
     console.error('Auth login error:', e)

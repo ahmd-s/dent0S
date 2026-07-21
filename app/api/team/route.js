@@ -4,6 +4,7 @@ import { getDb } from '@/lib/mongo'
 import { hashPassword, getCurrentUser } from '@/lib/auth'
 import { sendStaffInviteEmail } from '@/lib/invite-email'
 import { hasPermission, canManageStaff } from '@/lib/rbac'
+import { validateRolesArray, getProfileRoles } from '@/lib/profile-roles'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -29,9 +30,9 @@ export async function GET() {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
-    if (!hasPermission(profile.role, 'staff', 'read')) return err('Forbidden', 403)
+    if (!hasPermission(profile, 'staff', 'read')) return err('Forbidden', 403)
     const team = await db.collection('profiles').find({ clinic_id: cid, deleted_at: { $exists: false } }).toArray()
-    return json({ team: team.map(clean) })
+    return json({ team: team.map(m => clean({ ...m, roles: getProfileRoles(m) })) })
   } catch (e) {
     console.error('Team GET error:', e)
     return err('Internal server error', 500)
@@ -42,20 +43,29 @@ export async function POST(request) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, clinic, db } = ctx; const cid = profile.clinic_id
-    if (!canManageStaff(profile.role)) return err('Forbidden', 403)
+    if (!canManageStaff(profile)) return err('Forbidden', 403)
     const b = await request.json(); const email = (b.email||'').toLowerCase().trim()
-    if (!b.full_name || !email || !b.password || !b.role) return err('Missing fields')
-    if (!['doctor', 'receptionist'].includes(b.role)) return err('Role must be doctor or receptionist', 400)
+    const rolesInput = b.roles || (b.role ? [b.role] : null)
+    const validated = validateRolesArray(rolesInput)
+    if (!validated.ok) return err(validated.error, 400)
+    if (!b.full_name || !email || !b.password) return err('Missing fields', 400)
     if (await db.collection('profiles').findOne({ email })) return err('Email already registered')
     const id = uuidv4()
-    await db.collection('profiles').insertOne({ id, clinic_id: cid, email, password_hash: await hashPassword(b.password), full_name: b.full_name, role: b.role, phone:'', whatsapp_number: b.whatsapp_number || '', is_active:true, created_at:new Date() })
+    const roles = validated.roles
+    const fee = b.consultation_fee === null || b.consultation_fee === '' || b.consultation_fee === undefined
+      ? null
+      : parseFloat(b.consultation_fee)
+    await db.collection('profiles').insertOne({
+      id, clinic_id: cid, email, password_hash: await hashPassword(b.password),
+      full_name: b.full_name, roles, role: roles[0], phone:'',
+      whatsapp_number: b.whatsapp_number || '',
+      consultation_fee: Number.isFinite(fee) ? fee : null,
+      is_active:true, created_at:new Date(),
+    })
     const origin = new URL(request.url).origin
     const emailResult = await sendStaffInviteEmail({
-      to: email,
-      staffName: b.full_name,
-      clinicName: clinic?.name,
-      temporaryPassword: b.password,
-      loginUrl: `${origin}/login`,
+      to: email, staffName: b.full_name, clinicName: clinic?.name,
+      temporaryPassword: b.password, loginUrl: `${origin}/login`,
     })
     return json({ ok:true, id, invite_email_sent: !!emailResult?.sent })
   } catch (e) {

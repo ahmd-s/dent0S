@@ -46,24 +46,26 @@ function App() {
     <div className="max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
         <div><p className="text-muted-foreground text-sm">Manage all patients in your clinic</p></div>
-        {canImport && (
-          <div className="flex gap-2">
-            <ImportPatientsModal 
-              open={importModalOpen} 
-              onOpenChange={setImportModalOpen} 
-              onImportComplete={load} 
-            />
-            <Button 
-              variant="outline" 
-              className="gap-2"
-              onClick={() => setImportModalOpen(true)}
-            >
-              <Upload className="w-4 h-4" />
-              Import Patients
-            </Button>
-            <AddPatientButton onCreated={load} open={open} setOpen={setOpen} />
-          </div>
-        )}
+        <div className="flex gap-2">
+          {canImport && (
+            <>
+              <ImportPatientsModal
+                open={importModalOpen}
+                onOpenChange={setImportModalOpen}
+                onImportComplete={load}
+              />
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => setImportModalOpen(true)}
+              >
+                <Upload className="w-4 h-4" />
+                Import Patients
+              </Button>
+            </>
+          )}
+          <AddPatientButton onCreated={load} open={open} setOpen={setOpen} />
+        </div>
       </div>
       <Card className="mt-5 p-4 bg-card border-border rounded-lg flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
         <div className="flex-1 relative min-w-0">

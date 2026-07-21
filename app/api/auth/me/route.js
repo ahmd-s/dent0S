@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
 import { isPlatformAdminProfile } from '@/lib/platform-admin'
+import { ensureProfileRolesMigrated } from '@/lib/profile-roles'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -43,6 +44,10 @@ export async function GET() {
     const ctx = await requireUser()
     if (!ctx) return err('Unauthorized', 401)
     const isPA = isPlatformAdminProfile(ctx.profile)
+    if (!isPA && ctx.profile?.clinic_id) {
+      await ensureProfileRolesMigrated(ctx.db, ctx.profile)
+      ctx.profile = await ctx.db.collection('profiles').findOne({ id: ctx.profile.id })
+    }
     return json({
       user: { id: ctx.profile.id, email: ctx.profile.email },
       profile: clean(ctx.profile),

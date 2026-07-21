@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
 import { canAccessRoute } from '@/lib/rbac'
+import { getProfileRoles, roleBadgeLabel } from '@/lib/profile-roles'
 
 const NAV_ALL = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -42,28 +43,22 @@ const PAGE_TITLES = {
 }
 const fmtDate = d => d ? `${String(new Date(d).getDate()).padStart(2,'0')}/${String(new Date(d).getMonth()+1).padStart(2,'0')}/${new Date(d).getFullYear()}` : ''
 
-function roleBadgeVariant(role) {
-  if (role === 'doctor') return 'bg-teal-100 text-teal-800 hover:bg-teal-100 border-teal-200 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-800'
-  if (role === 'receptionist') return 'bg-purple-100 text-purple-800 hover:bg-purple-100 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800'
-  if (role === 'admin') return 'bg-slate-200 text-slate-700 hover:bg-slate-200 border-slate-300 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600'
+function roleBadgeVariant(roles) {
+  const list = getProfileRoles(roles)
+  if (list.includes('admin')) return 'bg-slate-200 text-slate-700 hover:bg-slate-200 border-slate-300 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600'
+  if (list.includes('doctor')) return 'bg-teal-100 text-teal-800 hover:bg-teal-100 border-teal-200 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-800'
+  if (list.includes('receptionist')) return 'bg-purple-100 text-purple-800 hover:bg-purple-100 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800'
   return 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-}
-
-function roleBadgeLabel(role) {
-  if (role === 'doctor') return 'Doctor'
-  if (role === 'receptionist') return 'Receptionist'
-  if (role === 'admin') return 'Admin'
-  return role || 'Staff'
 }
 
 export default function AppShell({ children }) {
   const pathname = usePathname()
   const router = useRouter()
-  const { me, currentRole } = useRole()
+  const { me, roles } = useRole()
   const { theme, setTheme } = useTheme()
   const navItems = useMemo(() => {
-    return NAV_ALL.filter(n => canAccessRoute(currentRole, n.href))
-  }, [currentRole])
+    return NAV_ALL.filter(n => canAccessRoute(roles, n.href))
+  }, [roles])
   const [q, setQ] = useState('')
   const [results, setResults] = useState([])
   const [showResults, setShowResults] = useState(false)
@@ -135,8 +130,8 @@ export default function AppShell({ children }) {
             <div className="w-9 h-9 rounded-full bg-[#0D9488] flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">{me.profile?.full_name?.split(' ').map(s=>s[0]).join('').slice(0,2).toUpperCase()}</div>
             <div className="min-w-0 flex-1 text-left">
               <div className="text-sm font-medium truncate">{me.profile?.full_name}</div>
-              <Badge className={`mt-1 text-[10px] px-1.5 py-0 h-5 font-semibold border capitalize ${roleBadgeVariant(me.profile?.role)}`}>
-                {roleBadgeLabel(me.profile?.role)}
+              <Badge className={`mt-1 text-[10px] px-1.5 py-0 h-5 font-semibold border ${roleBadgeVariant(me.profile)}`}>
+                {roleBadgeLabel(me.profile)}
               </Badge>
             </div>
             <ChevronUp className={`w-4 h-4 text-white/50 transition-transform ${profileOpen ? 'rotate-180' : ''}`} />
@@ -199,7 +194,7 @@ export default function AppShell({ children }) {
                 {results.length === 0 ? (
                   <div className="p-4 text-sm text-muted-foreground flex items-center justify-between">
                     <span>No patient found</span>
-                    {canAccessRoute(currentRole, '/patients') && <Link href="/patients" className="text-[#0D9488] hover:underline flex items-center gap-1"><Plus className="w-3 h-3"/>Add new</Link>}
+                    {canAccessRoute(roles, '/patients') && <Link href="/patients" className="text-[#0D9488] hover:underline flex items-center gap-1"><Plus className="w-3 h-3"/>Add new</Link>}
                   </div>
                 ) : results.map(p => (
                   <button key={p.id} onClick={()=>{router.push(`/patients/${p.id}`); setQ(''); setShowResults(false)}}
@@ -237,7 +232,7 @@ export default function AppShell({ children }) {
                   {results.length === 0 ? (
                     <div className="p-4 text-sm text-muted-foreground flex items-center justify-between">
                       <span>No patient found</span>
-                      {canAccessRoute(currentRole, '/patients') && <Link href="/patients" className="text-[#0D9488] hover:underline flex items-center gap-1"><Plus className="w-3 h-3"/>Add new</Link>}
+                      {canAccessRoute(roles, '/patients') && <Link href="/patients" className="text-[#0D9488] hover:underline flex items-center gap-1"><Plus className="w-3 h-3"/>Add new</Link>}
                     </div>
                   ) : results.map(p => (
                     <button key={p.id} onClick={()=>{router.push(`/patients/${p.id}`); setQ(''); setShowResults(false); setSearchExpanded(false)}}

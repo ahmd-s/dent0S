@@ -27,7 +27,7 @@ export async function PUT(request, { params }) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
-    if (!hasPermission(profile.role, 'consent_templates', 'update')) return err('Forbidden', 403)
+    if (!hasPermission(profile, 'consent_templates', 'update')) return err('Forbidden', 403)
     const b = await request.json(); const u = {}
     for (const k of ['name','default_notes','default_price','category']) if (k in b) u[k] = k==='default_price'?parseFloat(b[k])||0:b[k]
     await db.collection('treatment_templates').updateOne({ id: params.id, clinic_id: cid }, { $set: u })
@@ -42,7 +42,7 @@ export async function DELETE(request, { params }) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
-    if (!hasPermission(profile.role, 'consent_templates', 'delete')) return err('Forbidden', 403)
+    if (!hasPermission(profile, 'consent_templates', 'delete')) return err('Forbidden', 403)
     await db.collection('treatment_templates').deleteOne({ id: params.id, clinic_id: cid })
     return json({ ok:true })
   } catch (e) {

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
 import { canManageStaff } from '@/lib/rbac'
+import { validateRolesArray, getProfileRoles, hasRole } from '@/lib/profile-roles'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -12,7 +13,6 @@ function cors(res) {
 }
 const json = (d, s=200) => cors(NextResponse.json(d, { status: s }))
 const err = (msg, s=400) => json({ error: msg }, s)
-const clean = o => { if (!o) return o; const { _id, password_hash, ...rest } = o; return rest }
 
 async function requireUser() {
   const t = getCurrentUser(); if (!t) return null
@@ -27,17 +27,43 @@ export async function PUT(request, { params }) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
-    if (!canManageStaff(profile.role)) return err('Forbidden', 403)
     const target = await db.collection('profiles').findOne({ id: params.id, clinic_id: cid })
     if (!target) return err('Team member not found', 404)
     if (target.deleted_at) return err('Cannot update a deleted team member', 400)
-    const b = await request.json(); const update = {}
-    if ('role' in b) {
-      if (!['admin', 'doctor', 'receptionist'].includes(b.role)) return err('Invalid role', 400)
-      update.role = b.role
+
+    const b = await request.json()
+    const update = {}
+    const targetRoles = getProfileRoles(target)
+
+    if ('roles' in b || 'role' in b) {
+      if (!canManageStaff(profile)) return err('Forbidden', 403)
+      const rolesInput = b.roles || (b.role ? [b.role] : null)
+      const validated = validateRolesArray(rolesInput)
+      if (!validated.ok) return err(validated.error, 400)
+      update.roles = validated.roles
+      update.role = validated.roles[0]
     }
-    if ('is_active' in b) update.is_active = b.is_active
-    if ('whatsapp_number' in b) update.whatsapp_number = b.whatsapp_number
+
+    if ('consultation_fee' in b) {
+      const isSelf = profile.id === params.id
+      const canEditFee = canManageStaff(profile) || (isSelf && hasRole(targetRoles, 'doctor'))
+      if (!canEditFee) return err('Forbidden', 403)
+      const fee = b.consultation_fee === null || b.consultation_fee === ''
+        ? null
+        : parseFloat(b.consultation_fee)
+      update.consultation_fee = Number.isFinite(fee) ? fee : null
+    }
+
+    if ('is_active' in b) {
+      if (!canManageStaff(profile)) return err('Forbidden', 403)
+      update.is_active = b.is_active
+    }
+    if ('whatsapp_number' in b) {
+      if (!canManageStaff(profile)) return err('Forbidden', 403)
+      update.whatsapp_number = b.whatsapp_number
+    }
+
+    if (Object.keys(update).length === 0) return err('Nothing to update', 400)
     await db.collection('profiles').updateOne({ id: params.id, clinic_id: cid }, { $set: update })
     return json({ ok:true })
   } catch (e) {
@@ -50,7 +76,7 @@ export async function DELETE(request, { params }) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, clinic, db } = ctx; const cid = profile.clinic_id
-    if (!canManageStaff(profile.role)) return err('Forbidden', 403)
+    if (!canManageStaff(profile)) return err('Forbidden', 403)
     if (params.id === profile.id) return err('Cannot delete your own account', 400)
     if (clinic?.owner_id === params.id) return err('Cannot delete the clinic owner', 400)
     const target = await db.collection('profiles').findOne({ id: params.id, clinic_id: cid })

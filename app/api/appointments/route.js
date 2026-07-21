@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
-import { v4 as uuidv4 } from 'uuid'
 import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
+import { getProfileRoles } from '@/lib/profile-roles'
+import { doctorAppointmentFilter } from '@/lib/doctor-scope'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -23,24 +24,15 @@ async function requireUser() {
   return { profile, clinic, db }
 }
 
-async function checkAppointmentConflict(db, clinic_id, doctor_id, appointment_date, appointment_time) {
-  const conflict = await db.collection('appointments').findOne({
-    clinic_id,
-    doctor_id: doctor_id || null,
-    appointment_date,
-    appointment_time,
-    status: { $in: ['scheduled', 'arrived', 'in_progress'] }
-  })
-  return conflict !== null
-}
-
 export async function GET(request) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
+    const roles = getProfileRoles(profile)
     const url = new URL(request.url)
-    const date = url.searchParams.get('date'); const patient_id = url.searchParams.get('patient_id')
-    const f = { clinic_id: cid }
+    const date = url.searchParams.get('date')
+    const patient_id = url.searchParams.get('patient_id')
+    const f = { clinic_id: cid, ...doctorAppointmentFilter(roles, profile.id) }
     if (date) f.appointment_date = date
     if (patient_id) f.patient_id = patient_id
     const apps = await db.collection('appointments').find(f).sort({ appointment_date: -1, appointment_time: 1 }).toArray()
@@ -48,7 +40,7 @@ export async function GET(request) {
     const dids = [...new Set(apps.map(a=>a.doctor_id).filter(Boolean))]
     const [pts, docs] = await Promise.all([
       pids.length ? db.collection('patients').find({ id: { $in: pids }, clinic_id: cid }).toArray() : [],
-      dids.length ? db.collection('profiles').find({ id: { $in: dids }, clinic_id: cid }).toArray() : []
+      dids.length ? db.collection('profiles').find({ id: { $in: dids }, clinic_id: cid }).toArray() : [],
     ])
     const pmap = Object.fromEntries(pts.map(p=>[p.id,{name:p.name,phone:p.phone,total_visits:p.total_visits||0}]))
     const dmap = Object.fromEntries(docs.map(d=>[d.id,d.full_name]))
@@ -67,14 +59,22 @@ export async function POST(request) {
     const { profile, db } = ctx; const cid = profile.clinic_id
     const b = await request.json()
     if (!b.appointment_date || !b.appointment_time) return err('Date and time required')
-    // conflict check using shared helper
     const doctorToCheck = b.doctor_id || profile.id
-    const hasConflict = await checkAppointmentConflict(db, cid, doctorToCheck, b.appointment_date, b.appointment_time)
-    if (hasConflict) return json({ success: false, message: 'This slot is already booked.' }, 409)
+    const conflict = await db.collection('appointments').findOne({
+      clinic_id: cid, doctor_id: doctorToCheck || null, appointment_date: b.appointment_date,
+      appointment_time: b.appointment_time, status: { $in: ['scheduled', 'arrived', 'in_progress'] },
+    })
+    if (conflict) return json({ success: false, message: 'This slot is already booked.' }, 409)
     const id = uuidv4()
-    await db.collection('appointments').insertOne({ id, clinic_id: cid, patient_id: b.patient_id||null, doctor_id: b.doctor_id||profile.id, patient_name_temp: b.patient_name_temp||'', patient_phone_temp: b.patient_phone_temp||'', appointment_date: b.appointment_date, appointment_time: b.appointment_time, duration_minutes: b.duration_minutes||30, status:'scheduled', appointment_type: b.appointment_type||'consultation', chief_complaint: b.chief_complaint||'', notes: b.notes||'', booked_via: b.booked_via||'in_clinic', created_by: profile.id, created_at: new Date() })
-    
-    // WhatsApp notification (fire and forget)
+    await db.collection('appointments').insertOne({
+      id, clinic_id: cid, patient_id: b.patient_id||null, doctor_id: b.doctor_id||profile.id,
+      patient_name_temp: b.patient_name_temp||'', patient_phone_temp: b.patient_phone_temp||'',
+      appointment_date: b.appointment_date, appointment_time: b.appointment_time,
+      duration_minutes: b.duration_minutes||30, status:'scheduled',
+      appointment_type: b.appointment_type||'consultation', chief_complaint: b.chief_complaint||'',
+      notes: b.notes||'', booked_via: b.booked_via||'in_clinic', created_by: profile.id, created_at: new Date(),
+    })
+
     ;(async () => {
       try {
         if (!process.env.WHATSAPP_SERVICE_URL) return
@@ -87,24 +87,17 @@ export async function POST(request) {
         }
         if (!patientPhone) return
         const clinicDoc = await db.collection('clinics').findOne({ id: cid })
-        const msg = `Hello ${patientName}! ✅\n\nYour appointment at ${clinicDoc?.name} is confirmed.\n\n📅 Date: ${b.appointment_date}\n⏰ Time: ${b.appointment_time}\n\nSee you soon!\n— ${clinicDoc?.name}` 
+        const msg = `Hello ${patientName}! ✅\n\nYour appointment at ${clinicDoc?.name} is confirmed.\n\n📅 Date: ${b.appointment_date}\n⏰ Time: ${b.appointment_time}\n\nSee you soon!\n— ${clinicDoc?.name}`
         await fetch(`${process.env.WHATSAPP_SERVICE_URL}/send`, {
           method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'x-api-key': process.env.WHATSAPP_SERVICE_API_KEY 
-          },
-          body: JSON.stringify({ 
-            sessionId: 'dentos_main', 
-            to: patientPhone, 
-            message: msg 
-          })
+          headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.WHATSAPP_SERVICE_API_KEY },
+          body: JSON.stringify({ sessionId: 'dentos_main', to: patientPhone, message: msg }),
         })
       } catch (e) {
         console.error('WhatsApp notification failed:', e.message)
       }
     })()
-    
+
     return json({ ok:true, id })
   } catch (e) {
     console.error('Appointments POST error:', e)

@@ -43,7 +43,7 @@ export async function POST(request) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
-    if (!canManageInventory(profile.role)) return err('Forbidden', 403)
+    if (!canManageInventory(profile)) return err('Forbidden', 403)
     const b = await request.json()
     if (!b.name || !b.name.trim()) return err('Vendor name is required')
     if (b.phone && !/^\d{7,15}$/.test(String(b.phone).replace(/\D/g, ''))) return err('Phone must be 7-15 digits')

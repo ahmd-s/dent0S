@@ -85,7 +85,7 @@ export async function DELETE(request, { params }) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
-    if (!canManageBilling(profile.role)) return err('Forbidden', 403)
+    if (!canManageBilling(profile)) return err('Forbidden', 403)
     const inv = await db.collection('invoices').findOne({ id: params.id, clinic_id: cid })
     if (!inv) return err('Not found', 404)
     await db.collection('invoice_items').deleteMany({ invoice_id: inv.id, clinic_id: cid })

@@ -10,7 +10,7 @@ export async function POST(request, { params }) {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
 
-    if (!canManageInventory(profile.role)) return err('Forbidden', 403)
+    if (!canManageInventory(profile)) return err('Forbidden', 403)
 
     const lc = await db.collection('lab_cases').findOne({ id: params.id, clinic_id: cid })
     if (!lc) return err('Lab case not found', 404)

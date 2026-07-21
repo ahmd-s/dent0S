@@ -10,7 +10,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { useRole } from '@/components/dentos/RoleContext'
 
 const fmtDate = d => d ? `${String(new Date(d).getDate()).padStart(2,'0')}/${String(new Date(d).getMonth()+1).padStart(2,'0')}/${new Date(d).getFullYear()}` : '—'
 const PAGE_SIZE = 20
@@ -24,8 +23,6 @@ function App() {
   const [loading, setLoading] = useState(true)
   // OPTIMIZATION: Added pagination state
   const [pagination, setPagination] = useState({ total_count: 0, total_pages: 1, has_next: false, has_prev: false })
-  const { isReceptionist } = useRole()
-  const receptionist = isReceptionist()
 
   const load = async () => {
     setLoading(true)
@@ -52,7 +49,7 @@ function App() {
     <div className="max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
         <div><p className="text-muted-foreground text-sm">Manage all patients in your clinic</p></div>
-        {!receptionist && <AddPatientButton onCreated={load} open={open} setOpen={setOpen} />}
+        <AddPatientButton onCreated={load} open={open} setOpen={setOpen} />
       </div>
       <Card className="mt-5 p-4 bg-card border-border rounded-lg flex items-center gap-3">
         <div className="flex-1 relative">

@@ -31,9 +31,9 @@ const todayIso = () => new Date().toISOString().slice(0,10)
 function App() {
   const { id } = useParams()
   const router = useRouter()
-  const { isReceptionist, canAccessClinical } = useRole()
-  const receptionist = isReceptionist()
-  const clinical = canAccessClinical()
+  const { canViewClinical, canEditClinical } = useRole()
+  const canStartWalkin = canEditClinical()
+  const clinicalLocked = !canEditClinical()
   const [patient, setPatient] = useState(null)
   const [visits, setVisits] = useState([])
   const [appts, setAppts] = useState([])
@@ -121,27 +121,27 @@ const loadLabCases = async () => {
             </dl>
             <div className="mt-6 space-y-2">
               <Button onClick={()=>setBookOpen(true)} className="w-full bg-[#0D9488] hover:bg-[#0B7E73]"><CalendarPlus className="w-4 h-4 mr-2"/>Book Appointment</Button>
-              {!receptionist && <Button onClick={startWalkin} variant="outline" className="w-full"><FilePlus className="w-4 h-4 mr-2"/>New Walk-in Visit</Button>}
+              {canStartWalkin && <Button onClick={startWalkin} variant="outline" className="w-full"><FilePlus className="w-4 h-4 mr-2"/>New Walk-in Visit</Button>}
             </div>
           </Card>
         </div>
 
         <div className="lg:col-span-7">
-          <Tabs defaultValue={receptionist ? "appointments" : "visits"}>
+          <Tabs defaultValue={canViewClinical() ? "visits" : "appointments"}>
             <TabsList className="bg-muted">
-              {!receptionist && <TabsTrigger value="visits">Visit History</TabsTrigger>}
+              {canViewClinical() && <TabsTrigger value="visits">Visit History</TabsTrigger>}
               <TabsTrigger value="appointments">Appointments</TabsTrigger>
-              {!receptionist && <TabsTrigger value="documents">Documents</TabsTrigger>}
-              {!receptionist && <TabsTrigger value="lab-cases">Lab Cases</TabsTrigger>}
+              {canEditClinical() && <TabsTrigger value="documents">Documents</TabsTrigger>}
+              {canEditClinical() && <TabsTrigger value="lab-cases">Lab Cases</TabsTrigger>}
               <TabsTrigger value="consents">Consent Forms</TabsTrigger>
-              {!receptionist && <TabsTrigger value="ai">AI Summary</TabsTrigger>}
+              {canEditClinical() && <TabsTrigger value="ai">AI Summary</TabsTrigger>}
             </TabsList>
             <TabsContent value="visits" className="mt-4">
               {visits.length===0 && (
                 <Card className="p-12 text-center bg-card border-border rounded-lg">
                   <FileText className="w-12 h-12 mx-auto text-muted-foreground/40"/>
                   <p className="mt-3 text-muted-foreground">No visits recorded yet</p>
-                  {!receptionist && <Button onClick={startWalkin} className="mt-4 bg-[#0D9488] hover:bg-[#0B7E73]"><FilePlus className="w-4 h-4 mr-2"/>Record First Visit</Button>}
+                  {canStartWalkin && <Button onClick={startWalkin} className="mt-4 bg-[#0D9488] hover:bg-[#0B7E73]"><FilePlus className="w-4 h-4 mr-2"/>Record First Visit</Button>}
                 </Card>
               )}
               {visits.length>0 && (
@@ -153,11 +153,7 @@ const loadLabCases = async () => {
                       <Card className="p-5 bg-card border-border rounded-lg">
                         <div className="flex items-center justify-between">
                           <div><div className="font-semibold text-foreground">{fmtDate(v.visit_date)}</div><div className="text-xs text-muted-foreground">Dr. {v.doctor_name||'—'}</div></div>
-                          {clinical ? (
-                            <Link href={`/visits/${v.id}`}><Button size="sm" variant="outline" className="h-8"><ExternalLink className="w-3.5 h-3.5 mr-1"/>Open</Button></Link>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">Doctor only</span>
-                          )}
+                          <Link href={`/visits/${v.id}`}><Button size="sm" variant="outline" className="h-8"><ExternalLink className="w-3.5 h-3.5 mr-1"/>Open</Button></Link>
                         </div>
                         <div className="mt-3 space-y-2 text-sm">
                           {v.chief_complaint && <div><span className="text-xs text-muted-foreground">Chief Complaint</span><div>{v.chief_complaint}</div></div>}
@@ -255,7 +251,7 @@ const loadLabCases = async () => {
             <TabsContent value="consents" className="mt-4">
               {patient && <ConsentFormsTab patientId={id} patientName={patient.name} patientPhone={patient.phone} />}
             </TabsContent>
-            {!receptionist && (
+            {canEditClinical() && (
             <TabsContent value="ai" className="mt-4">
               <AISummaryPanel patient={patient} visits={visits} onUpdated={load}/>
             </TabsContent>
@@ -263,7 +259,7 @@ const loadLabCases = async () => {
           </Tabs>
         </div>
       </div>
-      <EditPatientModal open={editOpen} setOpen={setEditOpen} patient={patient} onSaved={load} clinicalLocked={receptionist} />
+      <EditPatientModal open={editOpen} setOpen={setEditOpen} patient={patient} onSaved={load} clinicalLocked={clinicalLocked} />
       <BookForPatient open={bookOpen} setOpen={setBookOpen} patient={patient} onCreated={load} />
 <NewLabCaseDialog open={newLabOpen} setOpen={setNewLabOpen} lockedPatient={patient} navigateOnCreate={false} onCreated={loadLabCases} />
 <OutstandingBalanceModal open={balanceModalOpen} onOpenChange={setBalanceModalOpen} patientId={id} />

@@ -28,7 +28,7 @@ export async function POST(request) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
-    if (!canAccessClinical(profile.role)) return err('Forbidden', 403)
+    if (!canAccessClinical(profile)) return err('Forbidden', 403)
     const b = await request.json()
     if (!b.patient_id) return err('patient_id required')
     const p = await db.collection('patients').findOne({ id: b.patient_id, clinic_id: cid })

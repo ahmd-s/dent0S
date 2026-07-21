@@ -36,7 +36,7 @@ export async function POST(request) {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
     
-    if (!canManageInventory(profile.role)) return err('Forbidden', 403)
+    if (!canManageInventory(profile)) return err('Forbidden', 403)
     
     const b = await request.json()
     // Validation
