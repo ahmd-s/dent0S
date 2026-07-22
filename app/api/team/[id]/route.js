@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser, hashPassword } from '@/lib/auth'
 import { canManageStaff } from '@/lib/rbac'
 import { validateRolesArray, getProfileRoles, hasRole } from '@/lib/profile-roles'
 
@@ -61,6 +61,34 @@ export async function PUT(request, { params }) {
     if ('whatsapp_number' in b) {
       if (!canManageStaff(profile)) return err('Forbidden', 403)
       update.whatsapp_number = b.whatsapp_number
+    }
+
+    const targetIsAdmin = hasRole(targetRoles, 'admin')
+
+    if ('full_name' in b) {
+      if (!canManageStaff(profile)) return err('Forbidden', 403)
+      if (targetIsAdmin) return err('Cannot edit admin credentials from team table', 403)
+      const name = (b.full_name || '').trim()
+      if (!name) return err('Name is required', 400)
+      update.full_name = name
+    }
+
+    if ('email' in b) {
+      if (!canManageStaff(profile)) return err('Forbidden', 403)
+      if (targetIsAdmin) return err('Cannot edit admin credentials from team table', 403)
+      const email = (b.email || '').toLowerCase().trim()
+      if (!email) return err('Email is required', 400)
+      if (await db.collection('profiles').findOne({ email, id: { $ne: params.id } })) {
+        return err('Email already registered', 400)
+      }
+      update.email = email
+    }
+
+    if ('password' in b && b.password) {
+      if (!canManageStaff(profile)) return err('Forbidden', 403)
+      if (targetIsAdmin) return err('Cannot edit admin credentials from team table', 403)
+      if (b.password.length < 8) return err('Password must be at least 8 characters', 400)
+      update.password_hash = await hashPassword(b.password)
     }
 
     if (Object.keys(update).length === 0) return err('Nothing to update', 400)

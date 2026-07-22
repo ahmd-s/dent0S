@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { toast } from 'sonner'
 import { canAccessSettings } from '@/lib/rbac'
 import { getProfileRoles, VALID_ROLES } from '@/lib/profile-roles'
@@ -162,7 +163,7 @@ function ClinicTab({ me, reload }) {
   )
 }
 
-function RoleCheckboxGroup({ value, onChange, disabled }) {
+function RoleCheckboxGroup({ value, onChange, disabled, className }) {
   const labels = { admin: 'Admin', doctor: 'Doctor', receptionist: 'Receptionist' }
   const toggle = (role) => {
     if (disabled) return
@@ -180,7 +181,7 @@ function RoleCheckboxGroup({ value, onChange, disabled }) {
     onChange(next)
   }
   return (
-    <div className="flex flex-wrap gap-4">
+    <div className={className || 'flex flex-wrap gap-4'}>
       {VALID_ROLES.map(role => (
         <label key={role} className="flex items-center gap-2 text-sm cursor-pointer">
           <Checkbox checked={(value || []).includes(role)} onCheckedChange={() => toggle(role)} disabled={disabled} />
@@ -201,6 +202,8 @@ function TeamTab() {
   const [whatsappValue, setWhatsappValue] = useState('')
   const [editingFee, setEditingFee] = useState(null)
   const [feeValue, setFeeValue] = useState('')
+  const [editMember, setEditMember] = useState(null)
+  const [editForm, setEditForm] = useState({ full_name: '', email: '', password: '' })
   const load = () => fetch('/api/team').then(r=>r.json()).then(d=>setTeam(d.team||[]))
   useEffect(() => { load() }, [])
   const invite = async () => {
@@ -242,26 +245,59 @@ function TeamTab() {
     if (r.ok) { toast.success('WhatsApp number updated'); setEditingWhatsApp(null); setWhatsappValue(''); load() }
     else toast.error('Failed')
   }
+  const openEditMember = (m) => {
+    setEditMember(m)
+    setEditForm({ full_name: m.full_name || '', email: m.email || '', password: '' })
+  }
+  const saveMemberEdit = async () => {
+    if (!editMember) return
+    if (!editForm.full_name.trim()) { toast.error('Name is required'); return }
+    if (!editForm.email.trim()) { toast.error('Email is required'); return }
+    const body = { full_name: editForm.full_name.trim(), email: editForm.email.trim() }
+    if (editForm.password) body.password = editForm.password
+    const r = await fetch(`/api/team/${editMember.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const d = await r.json()
+    if (r.ok) {
+      toast.success('Team member updated')
+      setEditMember(null)
+      setEditForm({ full_name: '', email: '', password: '' })
+      load()
+    } else toast.error(d.error || 'Failed')
+  }
   const formatWhatsApp = (num) => num ? `+91 ${num}` : '—'
   const currentUserId = me?.profile?.id
   const ownerId = me?.clinic?.owner_id
   const canDelete = (m) => m.id !== currentUserId && m.id !== ownerId
   return (
-    <Card className="p-6 bg-card border-border rounded-lg">
+    <Card className="p-6 bg-card border-border rounded-lg max-w-6xl">
       <div className="flex items-center justify-between mb-3"><h3 className="font-semibold">Team Members ({team.length})</h3><Button size="sm" onClick={()=>setOpen(true)} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>Invite</Button></div>
-      <table className="w-full text-sm">
-        <thead className="text-xs uppercase text-muted-foreground tracking-wider border-b border-border">
-          <tr><th className="text-left py-2 font-medium">Name</th><th className="text-left font-medium">Email</th><th className="text-left font-medium">WhatsApp</th><th className="text-left font-medium">Roles</th><th className="text-left font-medium">Consultation fee</th><th className="text-left font-medium">Last login</th><th className="text-left font-medium">Status</th><th className="text-right font-medium">Actions</th></tr>
-        </thead>
-        <tbody>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="min-w-[140px]">Name</TableHead>
+            <TableHead className="min-w-[180px]">Email</TableHead>
+            <TableHead className="w-[130px]">WhatsApp</TableHead>
+            <TableHead className="min-w-[240px]">Roles</TableHead>
+            <TableHead className="w-[130px]">Consultation fee</TableHead>
+            <TableHead className="w-[120px]">Last login</TableHead>
+            <TableHead className="w-[90px]">Status</TableHead>
+            <TableHead className="w-[200px] text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {team.map(m => {
             const memberRoles = getProfileRoles(m)
             const isDoctorMember = memberRoles.includes('doctor')
+            const isAdminMember = memberRoles.includes('admin')
             return (
-            <tr key={m.id} className="border-b border-border last:border-0">
-              <td className="py-3 font-medium">{m.full_name}</td>
-              <td className="py-3 text-muted-foreground">{m.email}</td>
-              <td className="py-3">
+            <TableRow key={m.id}>
+              <TableCell className="font-medium min-w-[140px]">{m.full_name}</TableCell>
+              <TableCell className="text-muted-foreground min-w-[180px] max-w-[220px] truncate">{m.email}</TableCell>
+              <TableCell className="w-[130px]">
                 {editingWhatsApp === m.id ? (
                   <div className="flex items-center gap-2">
                     <Input type="text" value={whatsappValue} onChange={e=>setWhatsappValue(e.target.value)} placeholder="10 digits" className="w-28 h-8" maxLength={10}/>
@@ -274,11 +310,15 @@ function TeamTab() {
                     {isDoctorMember && <button onClick={()=>{setEditingWhatsApp(m.id); setWhatsappValue(m.whatsapp_number||'')}} className="text-muted-foreground hover:text-[#0D9488]"><Edit2 className="w-3.5 h-3.5"/></button>}
                   </div>
                 )}
-              </td>
-              <td className="py-3 align-top">
-                <RoleCheckboxGroup value={memberRoles} onChange={roles => updateRoles(m, roles)} />
-              </td>
-              <td className="py-3">
+              </TableCell>
+              <TableCell className="min-w-[240px]">
+                <RoleCheckboxGroup
+                  value={memberRoles}
+                  onChange={roles => updateRoles(m, roles)}
+                  className="flex flex-nowrap items-center gap-x-4"
+                />
+              </TableCell>
+              <TableCell className="w-[130px] whitespace-nowrap">
                 {isDoctorMember ? (
                   editingFee === m.id ? (
                     <div className="flex items-center gap-2">
@@ -292,21 +332,26 @@ function TeamTab() {
                     </div>
                   )
                 ) : '—'}
-              </td>
-              <td className="py-3 text-muted-foreground text-xs whitespace-nowrap">{fmtLastLogin(m.last_login_at)}</td>
-              <td className="py-3">{m.is_active?<span className="text-xs px-2 py-1 rounded-full bg-green-50 text-green-700">Active</span>:<span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">Inactive</span>}</td>
-              <td className="py-3 text-right">
+              </TableCell>
+              <TableCell className="w-[120px] text-muted-foreground text-xs whitespace-nowrap">{fmtLastLogin(m.last_login_at)}</TableCell>
+              <TableCell className="w-[90px]">{m.is_active?<span className="text-xs px-2 py-1 rounded-full bg-green-50 text-green-700">Active</span>:<span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">Inactive</span>}</TableCell>
+              <TableCell className="w-[200px] text-right">
                 <div className="flex items-center justify-end gap-2">
+                  {!isAdminMember && (
+                    <Button size="sm" variant="outline" onClick={()=>openEditMember(m)} className="h-8 px-2" title="Edit member">
+                      <Edit2 className="w-3.5 h-3.5"/>
+                    </Button>
+                  )}
                   <Button size="sm" variant="outline" onClick={()=>toggleActive(m)} className="h-8">{m.is_active?'Deactivate':'Activate'}</Button>
                   {canDelete(m) && (
                     <Button size="sm" variant="outline" onClick={()=>setDeleteTarget(m)} className="h-8 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700">Delete</Button>
                   )}
                 </div>
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           )})}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md"><DialogHeader><DialogTitle>Invite Team Member</DialogTitle></DialogHeader>
           <div className="space-y-3">
@@ -317,6 +362,17 @@ function TeamTab() {
             {f.roles?.includes('doctor') && <div className="space-y-1.5"><Label>Consultation fee (₹)</Label><Input type="number" value={f.consultation_fee} onChange={e=>setF({...f,consultation_fee:e.target.value})} placeholder="Default per visit"/></div>}
             <div className="space-y-1.5"><Label>Temporary Password</Label><Input type="password" value={f.password} onChange={e=>setF({...f,password:e.target.value})} placeholder="min 8 characters"/></div>
             <Button onClick={invite} className="w-full bg-[#0D9488] hover:bg-[#0B7E73]">Add Member</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={!!editMember} onOpenChange={open => { if (!open) { setEditMember(null); setEditForm({ full_name: '', email: '', password: '' }) } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Edit Team Member</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5"><Label>Full Name</Label><Input value={editForm.full_name} onChange={e=>setEditForm({ ...editForm, full_name: e.target.value })}/></div>
+            <div className="space-y-1.5"><Label>Email</Label><Input type="email" value={editForm.email} onChange={e=>setEditForm({ ...editForm, email: e.target.value })}/></div>
+            <div className="space-y-1.5"><Label>New Password</Label><Input type="password" value={editForm.password} onChange={e=>setEditForm({ ...editForm, password: e.target.value })} placeholder="Leave blank to keep current"/></div>
+            <Button onClick={saveMemberEdit} className="w-full bg-[#0D9488] hover:bg-[#0B7E73]">Save Changes</Button>
           </div>
         </DialogContent>
       </Dialog>
