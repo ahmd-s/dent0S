@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { canAccessRoute } from '@/lib/rbac'
 
-const PUBLIC_PATHS = ['/login', '/signup', '/forgot-password', '/reset-password', '/verify-email', '/verify-email-pending']
+const PUBLIC_PATHS = ['/login', '/signup', '/signup/google-complete', '/forgot-password', '/reset-password', '/verify-email', '/verify-email-pending']
 const PROTECTED_PREFIXES = ['/dashboard', '/onboarding', '/patients', '/appointments', '/lab-cases', '/vendors', '/billing', '/settings', '/visits', '/inventory', '/subscription']
 
 function jwtPayload(token) {
@@ -66,6 +66,7 @@ export const config = {
     '/onboarding',
     '/login',
     '/signup',
+    '/signup/google-complete',
     '/forgot-password',
     '/reset-password',
     '/verify-email',

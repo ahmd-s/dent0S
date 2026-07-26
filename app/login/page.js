@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
 import { AuthSplit } from '@/components/dentos/AuthSplit'
+import { GoogleSignInButton, AuthOrDivider } from '@/components/dentos/GoogleSignInButton'
 import { toast } from 'sonner'
 
 const FOUNDER_QR_NOTE = 'Both founders should scan this same QR code into their own authenticator app now — it will not be shown again after setup is confirmed.'
@@ -49,6 +50,31 @@ function App() {
       loadSetupQr(pendingToken)
     }
   }, [step, pendingToken, qrDataUrl, loadSetupQr])
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const error = params.get('error')
+    if (error) {
+      const msg = error === 'google_not_configured'
+        ? 'Google sign-in is not configured.'
+        : error
+      setErr(msg)
+      toast.error(msg)
+    }
+    if (params.get('google_platform_admin') === '1') {
+      fetch('/api/auth/google/platform-pending')
+        .then(r => r.json())
+        .then(d => {
+          if (!d.ok) return
+          setPendingToken(d.pending_token)
+          setSetupRequired(!!d.setup_required)
+          setTotpCode('')
+          setQrDataUrl('')
+          setStep(d.setup_required ? 'setup' : 'verify')
+        })
+        .catch(() => {})
+    }
+  }, [])
 
   const submitPassword = async e => {
     e.preventDefault()
@@ -230,8 +256,9 @@ function App() {
           <Link href="/forgot-password" className="text-sm text-[#0D9488] hover:underline">Forgot password?</Link>
         </div>
       </form>
-      <div className="flex items-center gap-3 my-6"><div className="flex-1 h-px bg-border" /><span className="text-xs text-muted-foreground">OR</span><div className="flex-1 h-px bg-border" /></div>
-      <p className="text-center text-sm">New to DentOS? <Link href="/signup" className="text-[#0D9488] font-medium hover:underline">Create your clinic</Link></p>
+      <AuthOrDivider />
+      <GoogleSignInButton />
+      <p className="text-center text-sm mt-6">New to DentOS? <Link href="/signup" className="text-[#0D9488] font-medium hover:underline">Create your clinic</Link></p>
     </AuthSplit>
   )
 }

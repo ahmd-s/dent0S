@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AuthSplit } from '@/components/dentos/AuthSplit'
+import { GoogleSignInButton, AuthOrDivider } from '@/components/dentos/GoogleSignInButton'
 
 function App() {
   const router = useRouter()
@@ -53,6 +54,8 @@ function App() {
         </Button>
         {err && <p className="text-sm text-[#EF4444]">{err}</p>}
       </form>
+      <AuthOrDivider />
+      <GoogleSignInButton label="Sign up with Google" />
       <p className="text-center text-sm mt-6">Already have an account? <Link href="/login" className="text-[#0D9488] font-medium hover:underline">Sign in</Link></p>
     </AuthSplit>
   )
