@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server'
-import { requireUser, json, err, clean, cors } from '@/lib/api-helpers'
+import { requireUser, json, err, clean, cors, isClinicAccessBlocked, clinicAccessPausedResponse } from '@/lib/api-helpers'
 
 export async function OPTIONS() { return cors(new NextResponse(null, { status: 200 })) }
 
 export async function POST(request) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
+    if (isClinicAccessBlocked(ctx.clinic)) return clinicAccessPausedResponse(err)
     const { profile, db } = ctx; const cid = profile.clinic_id
     
     const b = await request.json()

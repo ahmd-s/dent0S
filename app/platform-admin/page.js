@@ -4,8 +4,17 @@ import { Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { toast } from 'sonner'
 
 const PLATFORM_STATUS_OPTIONS = [
@@ -31,10 +40,36 @@ const fmtDateTime = d => {
 
 const fmtAction = action => action.replace(/_/g, ' ')
 
+const fmtMoney = n => {
+  if (n == null || Number.isNaN(Number(n))) return '—'
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n)
+}
+
 function StatusBadge({ active }) {
   return active
     ? <Badge className="bg-green-50 text-green-700 hover:bg-green-50 border-green-200">Active</Badge>
     : <Badge variant="secondary">Inactive</Badge>
+}
+
+function AccessBadge({ status }) {
+  const blocked = status === 'blocked'
+  return blocked
+    ? <Badge variant="destructive">Blocked</Badge>
+    : <Badge className="bg-green-50 text-green-700 hover:bg-green-50 border-green-200">Active</Badge>
+}
+
+function AuditDetails({ log }) {
+  const parts = []
+  if (log.meta?.ip) parts.push(`IP: ${log.meta.ip}`)
+  if (log.meta?.from !== undefined) {
+    parts.push(`${log.meta.from ?? 'none'} → ${log.meta.to ?? 'none'}`)
+  }
+  if (log.meta?.amount != null) {
+    parts.push(`${fmtMoney(log.meta.amount)} via ${log.meta.method || '—'}`)
+    if (log.meta.date) parts.push(`date ${log.meta.date}`)
+  }
+  if (!parts.length) return '—'
+  return parts.join(' · ')
 }
 
 export default function PlatformAdminPage() {
@@ -45,6 +80,14 @@ export default function PlatformAdminPage() {
   const [logs, setLogs] = useState([])
   const [savingId, setSavingId] = useState(null)
   const [draftStatus, setDraftStatus] = useState({})
+  const [accessSavingId, setAccessSavingId] = useState(null)
+  const [manageClinic, setManageClinic] = useState(null)
+  const [payments, setPayments] = useState([])
+  const [paymentsLoading, setPaymentsLoading] = useState(false)
+  const [paymentSaving, setPaymentSaving] = useState(false)
+  const [aiLimitDraft, setAiLimitDraft] = useState('')
+  const [aiLimitSaving, setAiLimitSaving] = useState(false)
+  const [paymentForm, setPaymentForm] = useState({ date: '', amount: '', method: '', note: '' })
 
   const loadAll = useCallback(async () => {
     setLoading(true)
@@ -83,7 +126,33 @@ export default function PlatformAdminPage() {
 
   useEffect(() => { loadAll() }, [loadAll])
 
-  const saveStatus = async clinic => {
+  const loadPayments = useCallback(async clinicId => {
+    setPaymentsLoading(true)
+    try {
+      const r = await fetch(`/api/platform-admin/clinics/${clinicId}/payments`)
+      if (!r.ok) {
+        toast.error('Failed to load payments')
+        return
+      }
+      const d = await r.json()
+      setPayments(d.payments || [])
+    } catch {
+      toast.error('Network error')
+    } finally {
+      setPaymentsLoading(false)
+    }
+  }, [])
+
+  const openManage = clinic => {
+    setManageClinic(clinic)
+    setAiLimitDraft(
+      clinic.monthly_ai_usage_limit != null ? String(clinic.monthly_ai_usage_limit) : ''
+    )
+    setPaymentForm({ date: new Date().toISOString().slice(0, 10), amount: '', method: '', note: '' })
+    loadPayments(clinic.id)
+  }
+
+  const savePlatformOverride = async clinic => {
     const val = draftStatus[clinic.id]
     const platform_status = val === 'none' ? null : val
     setSavingId(clinic.id)
@@ -103,6 +172,87 @@ export default function PlatformAdminPage() {
       toast.error('Network error')
     } finally {
       setSavingId(null)
+    }
+  }
+
+  const setClinicAccess = async (clinic, blocked) => {
+    const subscription_status = blocked ? 'blocked' : 'active'
+    setAccessSavingId(clinic.id)
+    try {
+      const r = await fetch(`/api/platform-admin/clinics/${clinic.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription_status }),
+      })
+      if (!r.ok) {
+        toast.error('Failed to update access')
+        return
+      }
+      toast.success(blocked ? `${clinic.name} access paused` : `${clinic.name} access restored`)
+      await loadAll()
+      if (manageClinic?.id === clinic.id) {
+        setManageClinic(c => ({ ...c, subscription_status }))
+      }
+    } catch {
+      toast.error('Network error')
+    } finally {
+      setAccessSavingId(null)
+    }
+  }
+
+  const saveAiLimit = async () => {
+    if (!manageClinic) return
+    const raw = aiLimitDraft.trim()
+    const monthly_ai_usage_limit = raw === '' ? null : Number(raw)
+    if (raw !== '' && (!Number.isFinite(monthly_ai_usage_limit) || monthly_ai_usage_limit < 0)) {
+      toast.error('Enter a valid non-negative number or leave empty')
+      return
+    }
+    setAiLimitSaving(true)
+    try {
+      const r = await fetch(`/api/platform-admin/clinics/${manageClinic.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ monthly_ai_usage_limit }),
+      })
+      if (!r.ok) {
+        toast.error('Failed to save AI limit')
+        return
+      }
+      toast.success('AI usage limit saved')
+      await loadAll()
+      const updated = await r.json()
+      setManageClinic(c => ({ ...c, monthly_ai_usage_limit: updated.monthly_ai_usage_limit }))
+    } catch {
+      toast.error('Network error')
+    } finally {
+      setAiLimitSaving(false)
+    }
+  }
+
+  const submitPayment = async e => {
+    e.preventDefault()
+    if (!manageClinic) return
+    setPaymentSaving(true)
+    try {
+      const r = await fetch(`/api/platform-admin/clinics/${manageClinic.id}/payments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(paymentForm),
+      })
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}))
+        toast.error(d.error || 'Failed to record payment')
+        return
+      }
+      toast.success('Payment recorded')
+      setPaymentForm(f => ({ ...f, amount: '', method: '', note: '' }))
+      await loadPayments(manageClinic.id)
+      await loadAll()
+    } catch {
+      toast.error('Network error')
+    } finally {
+      setPaymentSaving(false)
     }
   }
 
@@ -159,7 +309,8 @@ export default function PlatformAdminPage() {
                     <th className="py-2 pr-4 font-medium">Signed up</th>
                     <th className="py-2 pr-4 font-medium">Status</th>
                     <th className="py-2 pr-4 font-medium">Plan</th>
-                    <th className="py-2 pr-4 font-medium">Billing</th>
+                    <th className="py-2 pr-4 font-medium">Razorpay status</th>
+                    <th className="py-2 pr-4 font-medium">Access</th>
                     <th className="py-2 pr-4 font-medium">Manual override</th>
                     <th className="py-2 pr-4 font-medium">Last activity</th>
                     <th className="py-2 font-medium"></th>
@@ -167,7 +318,7 @@ export default function PlatformAdminPage() {
                 </thead>
                 <tbody>
                   {clinics.length === 0 && (
-                    <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">No clinics yet</td></tr>
+                    <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">No clinics yet</td></tr>
                   )}
                   {clinics.map(c => (
                     <tr key={c.id} className="border-b border-border/60">
@@ -180,7 +331,17 @@ export default function PlatformAdminPage() {
                       <td className="py-3 pr-4">{fmtDate(c.created_at)}</td>
                       <td className="py-3 pr-4"><StatusBadge active={c.is_active} /></td>
                       <td className="py-3 pr-4 capitalize">{c.plan_type || '—'}</td>
-                      <td className="py-3 pr-4 capitalize">{c.subscription_status || '—'}</td>
+                      <td className="py-3 pr-4 capitalize">{c.billing_status || '—'}</td>
+                      <td className="py-3 pr-4">
+                        <div className="flex items-center gap-2">
+                          <AccessBadge status={c.subscription_status} />
+                          <Switch
+                            checked={c.subscription_status === 'blocked'}
+                            disabled={accessSavingId === c.id}
+                            onCheckedChange={checked => setClinicAccess(c, checked)}
+                          />
+                        </div>
+                      </td>
                       <td className="py-3 pr-4">
                         <Select
                           value={draftStatus[c.id] || 'none'}
@@ -197,16 +358,21 @@ export default function PlatformAdminPage() {
                         </Select>
                       </td>
                       <td className="py-3 pr-4 text-muted-foreground">{fmtDateTime(c.last_activity)}</td>
-                      <td className="py-3">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8"
-                          disabled={savingId === c.id}
-                          onClick={() => saveStatus(c)}
-                        >
-                          {savingId === c.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save'}
-                        </Button>
+                      <td className="py-3 whitespace-nowrap">
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" className="h-8" onClick={() => openManage(c)}>
+                            Manage
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8"
+                            disabled={savingId === c.id}
+                            onClick={() => savePlatformOverride(c)}
+                          >
+                            {savingId === c.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save'}
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -278,10 +444,7 @@ export default function PlatformAdminPage() {
                       <td className="py-3 pr-4">{log.actor_email || '—'}</td>
                       <td className="py-3 pr-4">{log.target_clinic_name || '—'}</td>
                       <td className="py-3 text-muted-foreground">
-                        {log.meta?.ip && <span>IP: {log.meta.ip}</span>}
-                        {log.meta?.from !== undefined && (
-                          <span>{log.meta.from ?? 'none'} → {log.meta.to ?? 'none'}</span>
-                        )}
+                        <AuditDetails log={log} />
                       </td>
                     </tr>
                   ))}
@@ -291,6 +454,120 @@ export default function PlatformAdminPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!manageClinic} onOpenChange={open => { if (!open) setManageClinic(null) }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{manageClinic?.name}</DialogTitle>
+          </DialogHeader>
+          {manageClinic && (
+            <Tabs defaultValue="payments" className="mt-2">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="payments">Payments</TabsTrigger>
+                <TabsTrigger value="ai">AI limit</TabsTrigger>
+              </TabsList>
+              <TabsContent value="payments" className="space-y-4 mt-4">
+                <form onSubmit={submitPayment} className="space-y-3 border rounded-lg p-4">
+                  <p className="text-sm font-medium">Record manual payment</p>
+                  <div className="grid gap-2">
+                    <Label htmlFor="pay-date">Date</Label>
+                    <Input
+                      id="pay-date"
+                      type="date"
+                      required
+                      value={paymentForm.date}
+                      onChange={e => setPaymentForm(f => ({ ...f, date: e.target.value }))}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="pay-amount">Amount (INR)</Label>
+                    <Input
+                      id="pay-amount"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      required
+                      value={paymentForm.amount}
+                      onChange={e => setPaymentForm(f => ({ ...f, amount: e.target.value }))}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="pay-method">Method</Label>
+                    <Input
+                      id="pay-method"
+                      placeholder="UPI, bank transfer, …"
+                      required
+                      value={paymentForm.method}
+                      onChange={e => setPaymentForm(f => ({ ...f, method: e.target.value }))}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="pay-note">Note (optional)</Label>
+                    <Input
+                      id="pay-note"
+                      value={paymentForm.note}
+                      onChange={e => setPaymentForm(f => ({ ...f, note: e.target.value }))}
+                    />
+                  </div>
+                  <Button type="submit" size="sm" disabled={paymentSaving}>
+                    {paymentSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Add payment'}
+                  </Button>
+                </form>
+                <div>
+                  <p className="text-sm font-medium mb-2">Payment history</p>
+                  {paymentsLoading ? (
+                    <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+                  ) : payments.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No payments logged yet.</p>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b text-left text-muted-foreground">
+                          <th className="py-1 pr-2">Date</th>
+                          <th className="py-1 pr-2">Amount</th>
+                          <th className="py-1 pr-2">Method</th>
+                          <th className="py-1">Recorded</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {payments.map(p => (
+                          <tr key={p.id} className="border-b border-border/50">
+                            <td className="py-2 pr-2">{fmtDate(p.date)}</td>
+                            <td className="py-2 pr-2">{fmtMoney(p.amount)}</td>
+                            <td className="py-2 pr-2">{p.method}</td>
+                            <td className="py-2 text-muted-foreground text-xs">
+                              {p.recorded_by_email || '—'} · {fmtDateTime(p.recorded_at)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </TabsContent>
+              <TabsContent value="ai" className="space-y-4 mt-4">
+                <p className="text-sm text-muted-foreground">
+                  Stored for future enforcement only — does not block AI features today.
+                </p>
+                <div className="grid gap-2">
+                  <Label htmlFor="ai-limit">Monthly AI usage limit</Label>
+                  <Input
+                    id="ai-limit"
+                    type="number"
+                    min="0"
+                    placeholder="Leave empty for no limit set"
+                    value={aiLimitDraft}
+                    onChange={e => setAiLimitDraft(e.target.value)}
+                  />
+                </div>
+                <Button size="sm" onClick={saveAiLimit} disabled={aiLimitSaving}>
+                  {aiLimitSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save limit'}
+                </Button>
+              </TabsContent>
+            </Tabs>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

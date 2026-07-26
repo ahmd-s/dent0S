@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
 import { v4 as uuidv4 } from 'uuid'
 import { nextPatientCode } from '@/lib/patient-code'
+import { isClinicAccessBlocked, CLINIC_ACCESS_PAUSED_MESSAGE } from '@/lib/clinic-access'
 
 /**
  * POST /api/public/clinic/:slug/patient-create
@@ -38,6 +39,12 @@ export async function POST(request, { params }) {
     const clinic = await db.collection('clinics').findOne({ slug })
     if (!clinic) {
       return NextResponse.json({ error: 'Clinic not found' }, { status: 404 })
+    }
+    if (isClinicAccessBlocked(clinic)) {
+      return NextResponse.json(
+        { error: CLINIC_ACCESS_PAUSED_MESSAGE, code: 'CLINIC_ACCESS_PAUSED' },
+        { status: 403 }
+      )
     }
 
     // ── Duplicate check: same clinic + same phone + same name (case-insensitive)

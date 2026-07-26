@@ -3,6 +3,7 @@ import { v2 as cloudinary } from 'cloudinary'
 import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
+import { isClinicAccessBlocked, clinicAccessPausedResponse } from '@/lib/clinic-access'
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -26,7 +27,8 @@ async function requireUser() {
   const db = await getDb()
   const profile = await db.collection('profiles').findOne({ id: t.uid })
   if (!profile) return null
-  return { profile, db }
+  const clinic = await db.collection('clinics').findOne({ id: profile.clinic_id })
+  return { profile, clinic, db }
 }
 
 const MAX_SIZE_BYTES = 5 * 1024 * 1024
@@ -36,6 +38,7 @@ export async function POST(request) {
   try {
     const ctx = await requireUser()
     if (!ctx) return err('Unauthorized', 401)
+    if (isClinicAccessBlocked(ctx.clinic)) return clinicAccessPausedResponse(err)
     const { profile, db } = ctx
     if (!hasPermission(profile, 'settings', 'update')) return err('Forbidden', 403)
 

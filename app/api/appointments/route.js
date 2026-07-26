@@ -3,6 +3,7 @@ import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
 import { getProfileRoles } from '@/lib/profile-roles'
 import { doctorAppointmentFilter } from '@/lib/doctor-scope'
+import { isClinicAccessBlocked, clinicAccessPausedResponse } from '@/lib/clinic-access'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -56,6 +57,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
+    if (isClinicAccessBlocked(ctx.clinic)) return clinicAccessPausedResponse(err)
     const { profile, db } = ctx; const cid = profile.clinic_id
     const b = await request.json()
     if (!b.appointment_date || !b.appointment_time) return err('Date and time required')

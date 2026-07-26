@@ -11,6 +11,7 @@ import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
 import { canAccessRoute } from '@/lib/rbac'
 import { getProfileRoles, roleBadgeLabel } from '@/lib/profile-roles'
+import { CLINIC_ACCESS_PAUSED_MESSAGE } from '@/lib/clinic-access'
 
 const NAV_ALL = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -244,6 +245,12 @@ export default function AppShell({ children }) {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {me.clinic?.subscription_status === 'blocked' && (
+          <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-3 text-sm dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-100">
+            {CLINIC_ACCESS_PAUSED_MESSAGE}
           </div>
         )}
 

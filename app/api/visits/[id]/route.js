@@ -24,6 +24,7 @@ import {
   STEP_DONE,
   STEP_ASSIGNED,
 } from '@/lib/visit-completion'
+import { isClinicAccessBlocked, clinicAccessPausedResponse } from '@/lib/clinic-access'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -67,6 +68,7 @@ async function upsertInvoice(db, clinic, cid, visit, b) {
     await db.collection('invoice_items').deleteMany({ invoice_id: existing.id, clinic_id: cid })
     invoiceId = existing.id
   } else {
+    if (isClinicAccessBlocked(clinic)) return { accessPaused: true }
     invoiceId = uuidv4()
     const count = await db.collection('invoices').countDocuments({ clinic_id: cid })
     const invoice_number = `INV-${initials(clinic.name)}-${String(count+1).padStart(5,'0')}`
@@ -249,7 +251,9 @@ export async function PUT(request, { params }) {
         }
       }
       if (canEditInvoice || (canEditClinicalFields && visit.workflow_status !== 'clinical')) {
-        invoiceId = await upsertInvoice(db, clinic, cid, visit, b)
+        const upsertResult = await upsertInvoice(db, clinic, cid, visit, b)
+        if (upsertResult?.accessPaused) return clinicAccessPausedResponse(err)
+        invoiceId = upsertResult
       }
     }
 

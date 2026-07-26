@@ -26,7 +26,7 @@ export async function POST(request) {
     const userId = uuidv4(), clinicId = uuidv4()
     const slug = slugify(b.clinic_name, { lower: true, strict: true }) + '-' + Math.floor(1000+Math.random()*9000)
     const verifyToken = generateResetToken()
-    await db.collection('clinics').insertOne({ id: clinicId, name: b.clinic_name, slug, owner_id: userId, phone: b.phone, address:'', city:'', gstin:'', logo_url:'', working_hours:null, subscription_plan:'free', is_active:true, onboarding_complete:false, created_at:new Date() })
+    await db.collection('clinics').insertOne({ id: clinicId, name: b.clinic_name, slug, owner_id: userId, phone: b.phone, address:'', city:'', gstin:'', logo_url:'', working_hours:null, subscription_plan:'free', is_active:true, onboarding_complete:false, subscription_status:'active', monthly_ai_usage_limit:null, created_at:new Date() })
     await db.collection('profiles').insertOne({
       id: userId,
       clinic_id: clinicId,

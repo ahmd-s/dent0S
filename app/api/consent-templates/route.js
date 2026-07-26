@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
+import { isClinicAccessBlocked, clinicAccessPausedResponse } from '@/lib/clinic-access'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -56,6 +57,7 @@ export async function POST(request) {
   try {
     const user = await requireUser()
     if (!user) return err('Unauthorized', 401)
+    if (isClinicAccessBlocked(user.clinic)) return clinicAccessPausedResponse(err)
     
     const { profile, db } = user
     const cid = profile.clinic_id

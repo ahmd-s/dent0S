@@ -5,6 +5,7 @@ import { hashPassword, getCurrentUser } from '@/lib/auth'
 import { sendStaffInviteEmail } from '@/lib/invite-email'
 import { hasPermission, canManageStaff } from '@/lib/rbac'
 import { validateRolesArray, getProfileRoles } from '@/lib/profile-roles'
+import { isClinicAccessBlocked, clinicAccessPausedResponse } from '@/lib/clinic-access'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -42,6 +43,7 @@ export async function GET() {
 export async function POST(request) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
+    if (isClinicAccessBlocked(ctx.clinic)) return clinicAccessPausedResponse(err)
     const { profile, clinic, db } = ctx; const cid = profile.clinic_id
     if (!canManageStaff(profile)) return err('Forbidden', 403)
     const b = await request.json(); const email = (b.email||'').toLowerCase().trim()
