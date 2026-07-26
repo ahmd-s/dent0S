@@ -3,7 +3,7 @@ import {
   generateOAuthState,
   buildGoogleAuthUrl,
 } from '@/lib/google-oauth'
-import { isGoogleOAuthConfigured } from '@/lib/google-oauth-errors'
+import { isGoogleOAuthConfigured } from '@/lib/google-oauth'
 import { setOAuthStateCookie } from '@/lib/google-oauth-cookies'
 
 export const dynamic = 'force-dynamic'
@@ -11,8 +11,11 @@ export const dynamic = 'force-dynamic'
 export async function GET(request) {
   const origin = new URL(request.url).origin
   if (!isGoogleOAuthConfigured()) {
+    console.error(
+      'Google OAuth start: missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET at runtime'
+    )
     return NextResponse.redirect(
-      new URL('/login?error=google_not_configured', origin)
+      new URL('/login?oauth_error=google_not_configured', origin)
     )
   }
   try {
@@ -22,6 +25,6 @@ export async function GET(request) {
   } catch (e) {
     console.error('Google OAuth start error:', e)
     const message = encodeURIComponent('Google sign-in failed. Please try again.')
-    return NextResponse.redirect(new URL(`/login?error=${message}`, origin))
+    return NextResponse.redirect(new URL(`/login?oauth_error=${message}`, origin))
   }
 }

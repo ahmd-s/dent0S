@@ -9,17 +9,29 @@ import { Label } from '@/components/ui/label'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
 import { AuthSplit } from '@/components/dentos/AuthSplit'
 import { GoogleSignInButton, AuthOrDivider } from '@/components/dentos/GoogleSignInButton'
-import { oauthLoginErrorMessage } from '@/lib/google-oauth-errors'
+import { oauthLoginErrorMessage } from '@/lib/oauth-login-error-message'
 import { toast } from 'sonner'
 
 const FOUNDER_QR_NOTE = 'Both founders should scan this same QR code into their own authenticator app now — it will not be shown again after setup is confirmed.'
+const OAUTH_ERROR_PARAM = 'oauth_error'
+
+function consumeOAuthErrorFromBrowserUrl() {
+  if (typeof window === 'undefined') return null
+  const params = new URLSearchParams(window.location.search)
+  const code = params.get(OAUTH_ERROR_PARAM)
+  if (!code) return null
+  params.delete(OAUTH_ERROR_PARAM)
+  const rest = params.toString()
+  const nextPath = rest ? `/login?${rest}` : '/login'
+  window.history.replaceState(null, '', nextPath)
+  return code
+}
 
 function LoginPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const oauthErrorParam = searchParams.get('error')
   const googlePlatformAdmin = searchParams.get('google_platform_admin')
-  const oauthToastShown = useRef(false)
+  const oauthHandled = useRef(false)
 
   const [step, setStep] = useState('password')
   const [email, setEmail] = useState('')
@@ -33,19 +45,17 @@ function LoginPageContent() {
   const [qrDataUrl, setQrDataUrl] = useState('')
   const [totpCode, setTotpCode] = useState('')
 
+  // OAuth failures must come from the real browser URL (document navigation from /api/auth/google),
+  // not useSearchParams() alone — Next can briefly expose a stale ?error= from router cache.
   useEffect(() => {
-    if (!oauthErrorParam) return
-    const msg = oauthLoginErrorMessage(oauthErrorParam)
+    if (oauthHandled.current) return
+    const code = consumeOAuthErrorFromBrowserUrl()
+    if (!code) return
+    oauthHandled.current = true
+    const msg = oauthLoginErrorMessage(code)
     setOauthErrMessage(msg)
-    if (!oauthToastShown.current) {
-      oauthToastShown.current = true
-      toast.error(msg)
-    }
-    const next = new URLSearchParams(searchParams.toString())
-    next.delete('error')
-    const q = next.toString()
-    router.replace(q ? `/login?${q}` : '/login', { scroll: false })
-  }, [oauthErrorParam, router, searchParams])
+    toast.error(msg)
+  }, [])
 
   useEffect(() => {
     if (googlePlatformAdmin !== '1') return

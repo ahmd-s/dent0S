@@ -15,7 +15,7 @@ import { issuePendingToken } from '@/lib/platform-admin-auth'
 
 function loginErrorRedirect(origin, message) {
   return NextResponse.redirect(
-    new URL(`/login?error=${encodeURIComponent(message)}`, origin)
+    new URL(`/login?oauth_error=${encodeURIComponent(message)}`, origin)
   )
 }
 
