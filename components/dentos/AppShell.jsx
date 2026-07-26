@@ -9,7 +9,7 @@ import { useRole } from './RoleContext'
 import { Badge } from '@/components/ui/badge'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
-import { canAccessRoute } from '@/lib/rbac'
+import { canAccessRoute, canAccessSettings } from '@/lib/rbac'
 import { getProfileRoles, roleBadgeLabel } from '@/lib/profile-roles'
 import { CLINIC_ACCESS_PAUSED_MESSAGE } from '@/lib/clinic-access'
 
@@ -143,6 +143,7 @@ export default function AppShell({ children }) {
               <div className="px-3 py-2.5 border-b border-white/10">
                 <div className="text-xs text-white/50 truncate">{me.profile?.email}</div>
               </div>
+              {canAccessSettings(me.profile) && (
               <Link
                 href="/subscription"
                 onClick={() => { setProfileOpen(false); setMobileOpen(false) }}
@@ -151,6 +152,7 @@ export default function AppShell({ children }) {
                 <CreditCard className="w-4 h-4" />
                 Subscription & Plan
               </Link>
+              )}
               <Link
                 href="/settings"
                 onClick={() => { setProfileOpen(false); setMobileOpen(false) }}
@@ -251,6 +253,17 @@ export default function AppShell({ children }) {
         {me.clinic?.subscription_status === 'blocked' && (
           <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-3 text-sm dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-100">
             {CLINIC_ACCESS_PAUSED_MESSAGE}
+          </div>
+        )}
+
+        {me.clinic?.subscription_status !== 'blocked' && me.subscription_hint?.show_trial_warning && (
+          <div className="bg-sky-50 border-b border-sky-200 text-sky-900 px-4 py-3 text-sm dark:bg-sky-950/40 dark:border-sky-800 dark:text-sky-100 flex flex-wrap items-center gap-2 justify-between">
+            <span>
+              Your trial ends in {me.subscription_hint.trial_days_remaining} day{me.subscription_hint.trial_days_remaining === 1 ? '' : 's'} — please subscribe to continue.
+            </span>
+            <Link href="/subscription" className="font-medium text-[#0D9488] hover:underline shrink-0">
+              View plans
+            </Link>
           </div>
         )}
 

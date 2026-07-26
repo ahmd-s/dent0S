@@ -3,6 +3,7 @@ import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
 import { isPlatformAdminProfile } from '@/lib/platform-admin'
 import { ensureProfileRolesMigrated } from '@/lib/profile-roles'
+import { shouldShowTrialWarning, trialDaysRemaining } from '@/lib/subscription-helpers'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -48,10 +49,22 @@ export async function GET() {
       await ensureProfileRolesMigrated(ctx.db, ctx.profile)
       ctx.profile = await ctx.db.collection('profiles').findOne({ id: ctx.profile.id })
     }
+
+    let subscription_hint = null
+    if (!isPA && ctx.clinic) {
+      const sub = await ctx.db.collection('subscriptions').findOne({ clinic_id: ctx.clinic.id })
+      const days = trialDaysRemaining(ctx.clinic, sub)
+      subscription_hint = {
+        trial_days_remaining: days,
+        show_trial_warning: shouldShowTrialWarning(ctx.clinic, sub),
+      }
+    }
+
     return json({
       user: { id: ctx.profile.id, email: ctx.profile.email },
       profile: clean(ctx.profile),
       clinic: clean(ctx.clinic),
+      subscription_hint,
       is_platform_admin: isPA,
       platform_session_active: isPA && !!ctx.token?.pa,
     })

@@ -26,7 +26,13 @@ export async function POST(request) {
     const userId = uuidv4(), clinicId = uuidv4()
     const slug = slugify(b.clinic_name, { lower: true, strict: true }) + '-' + Math.floor(1000+Math.random()*9000)
     const verifyToken = generateResetToken()
-    await db.collection('clinics').insertOne({ id: clinicId, name: b.clinic_name, slug, owner_id: userId, phone: b.phone, address:'', city:'', gstin:'', logo_url:'', working_hours:null, subscription_plan:'free', is_active:true, onboarding_complete:false, subscription_status:'active', monthly_ai_usage_limit:null, created_at:new Date() })
+    const now = new Date()
+    const trialEnd = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)
+    await db.collection('clinics').insertOne({
+      id: clinicId, name: b.clinic_name, slug, owner_id: userId, phone: b.phone, address:'', city:'', gstin:'', logo_url:'', working_hours:null,
+      subscription_plan:'free', is_active:true, onboarding_complete:false, subscription_status:'active', monthly_ai_usage_limit:null,
+      trial_ends_at: trialEnd, subscription_exempt: false, trial_auto_enforcement: 'auto', created_at: now,
+    })
     await db.collection('profiles').insertOne({
       id: userId,
       clinic_id: clinicId,
@@ -41,8 +47,6 @@ export async function POST(request) {
       email_verification_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
       created_at: new Date(),
     })
-    const now = new Date()
-    const trialEnd = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)
     await db.collection('subscriptions').insertOne({
       clinic_id: clinicId,
       subscription_status: 'trial',

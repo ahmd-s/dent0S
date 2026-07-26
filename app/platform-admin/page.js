@@ -188,15 +188,41 @@ export default function PlatformAdminPage() {
         toast.error('Failed to update access')
         return
       }
-      toast.success(blocked ? `${clinic.name} access paused` : `${clinic.name} access restored`)
+      toast.success(blocked ? `${clinic.name} access paused` : `${clinic.name} access restored (trial auto-block paused)`)
       await loadAll()
+      const updated = await r.json().catch(() => ({}))
       if (manageClinic?.id === clinic.id) {
-        setManageClinic(c => ({ ...c, subscription_status }))
+        setManageClinic(c => ({
+          ...c,
+          subscription_status,
+          trial_auto_enforcement: updated.trial_auto_enforcement ?? (blocked ? 'auto' : 'paused'),
+        }))
       }
     } catch {
       toast.error('Network error')
     } finally {
       setAccessSavingId(null)
+    }
+  }
+
+  const resumeTrialAutoBlock = async () => {
+    if (!manageClinic) return
+    try {
+      const r = await fetch(`/api/platform-admin/clinics/${manageClinic.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trial_auto_enforcement: 'auto' }),
+      })
+      if (!r.ok) {
+        toast.error('Failed to update auto-enforcement')
+        return
+      }
+      toast.success('Trial auto-block re-enabled for this clinic')
+      await loadAll()
+      const updated = await r.json()
+      setManageClinic(c => ({ ...c, trial_auto_enforcement: updated.trial_auto_enforcement || 'auto' }))
+    } catch {
+      toast.error('Network error')
     }
   }
 
@@ -461,6 +487,17 @@ export default function PlatformAdminPage() {
             <DialogTitle>{manageClinic?.name}</DialogTitle>
           </DialogHeader>
           {manageClinic && (
+            <>
+            {manageClinic.trial_auto_enforcement === 'paused' && manageClinic.subscription_status !== 'blocked' && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-3 py-2 text-sm space-y-2">
+                <p className="text-amber-900 dark:text-amber-100">
+                  Trial auto-block is paused after a manual unblock. The daily cron will not re-block this clinic until you re-enable auto-enforcement below.
+                </p>
+                <Button type="button" size="sm" variant="outline" onClick={resumeTrialAutoBlock}>
+                  Re-enable trial auto-block
+                </Button>
+              </div>
+            )}
             <Tabs defaultValue="payments" className="mt-2">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="payments">Payments</TabsTrigger>
@@ -565,6 +602,7 @@ export default function PlatformAdminPage() {
                 </Button>
               </TabsContent>
             </Tabs>
+            </>
           )}
         </DialogContent>
       </Dialog>

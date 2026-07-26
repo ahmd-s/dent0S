@@ -55,6 +55,8 @@ export async function GET() {
         billing_status: sub.subscription_status || null,
         platform_status: sub.platform_status ?? null,
         monthly_ai_usage_limit: c.monthly_ai_usage_limit ?? null,
+        trial_auto_enforcement: c.trial_auto_enforcement || 'auto',
+        manual_access_granted_at: c.manual_access_granted_at || null,
         last_staff_login: lastStaffLogin,
         last_visit_date: lastVisitDate,
         last_activity: lastActivity,
