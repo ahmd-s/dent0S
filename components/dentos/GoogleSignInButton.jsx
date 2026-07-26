@@ -26,17 +26,19 @@ function GoogleIcon() {
 }
 
 export function GoogleSignInButton({ label = 'Sign in with Google' }) {
+  const startGoogleSignIn = () => {
+    window.location.assign('/api/auth/google')
+  }
+
   return (
     <Button
       type="button"
       variant="outline"
       className="w-full h-11 gap-2 font-medium"
-      asChild
+      onClick={startGoogleSignIn}
     >
-      <a href="/api/auth/google">
-        <GoogleIcon />
-        {label}
-      </a>
+      <GoogleIcon />
+      {label}
     </Button>
   )
 }

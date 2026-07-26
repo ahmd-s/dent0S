@@ -1,6 +1,6 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState, useEffect, useCallback, useRef } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -9,26 +9,62 @@ import { Label } from '@/components/ui/label'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
 import { AuthSplit } from '@/components/dentos/AuthSplit'
 import { GoogleSignInButton, AuthOrDivider } from '@/components/dentos/GoogleSignInButton'
+import { oauthLoginErrorMessage } from '@/lib/google-oauth-errors'
 import { toast } from 'sonner'
 
 const FOUNDER_QR_NOTE = 'Both founders should scan this same QR code into their own authenticator app now — it will not be shown again after setup is confirmed.'
 
-function App() {
+function LoginPageContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const oauthErrorParam = searchParams.get('error')
+  const googlePlatformAdmin = searchParams.get('google_platform_admin')
+  const oauthToastShown = useRef(false)
+
   const [step, setStep] = useState('password')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [show, setShow] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [err, setErr] = useState('')
+  const [formErr, setFormErr] = useState('')
+  const [oauthErrMessage, setOauthErrMessage] = useState('')
   const [pendingToken, setPendingToken] = useState('')
   const [setupRequired, setSetupRequired] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState('')
   const [totpCode, setTotpCode] = useState('')
 
+  useEffect(() => {
+    if (!oauthErrorParam) return
+    const msg = oauthLoginErrorMessage(oauthErrorParam)
+    setOauthErrMessage(msg)
+    if (!oauthToastShown.current) {
+      oauthToastShown.current = true
+      toast.error(msg)
+    }
+    const next = new URLSearchParams(searchParams.toString())
+    next.delete('error')
+    const q = next.toString()
+    router.replace(q ? `/login?${q}` : '/login', { scroll: false })
+  }, [oauthErrorParam, router, searchParams])
+
+  useEffect(() => {
+    if (googlePlatformAdmin !== '1') return
+    fetch('/api/auth/google/platform-pending')
+      .then(r => r.json())
+      .then(d => {
+        if (!d.ok) return
+        setPendingToken(d.pending_token)
+        setSetupRequired(!!d.setup_required)
+        setTotpCode('')
+        setQrDataUrl('')
+        setStep(d.setup_required ? 'setup' : 'verify')
+      })
+      .catch(() => {})
+  }, [googlePlatformAdmin])
+
   const loadSetupQr = useCallback(async (token) => {
     setLoading(true)
-    setErr('')
+    setFormErr('')
     try {
       const r = await fetch('/api/auth/platform-admin/setup-totp', {
         method: 'POST',
@@ -36,10 +72,10 @@ function App() {
         body: JSON.stringify({ pending_token: token }),
       })
       const d = await r.json()
-      if (!r.ok) { setErr(d.error || 'Setup failed'); return }
+      if (!r.ok) { setFormErr(d.error || 'Setup failed'); return }
       setQrDataUrl(d.qr_data_url || '')
     } catch {
-      setErr('Network error')
+      setFormErr('Network error')
     } finally {
       setLoading(false)
     }
@@ -51,35 +87,12 @@ function App() {
     }
   }, [step, pendingToken, qrDataUrl, loadSetupQr])
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const error = params.get('error')
-    if (error) {
-      const msg = error === 'google_not_configured'
-        ? 'Google sign-in is not configured.'
-        : error
-      setErr(msg)
-      toast.error(msg)
-    }
-    if (params.get('google_platform_admin') === '1') {
-      fetch('/api/auth/google/platform-pending')
-        .then(r => r.json())
-        .then(d => {
-          if (!d.ok) return
-          setPendingToken(d.pending_token)
-          setSetupRequired(!!d.setup_required)
-          setTotpCode('')
-          setQrDataUrl('')
-          setStep(d.setup_required ? 'setup' : 'verify')
-        })
-        .catch(() => {})
-    }
-  }, [])
+  const displayErr = formErr || oauthErrMessage
 
   const submitPassword = async e => {
     e.preventDefault()
-    setErr('')
-    if (!email || !password) { setErr('Please fill all fields'); return }
+    setFormErr('')
+    if (!email || !password) { setFormErr('Please fill all fields'); return }
     setLoading(true)
     try {
       const r = await fetch('/api/auth/login', {
@@ -90,10 +103,10 @@ function App() {
       const d = await r.json()
       if (!r.ok) {
         if (r.status === 403 && d.error?.includes('verify your email')) {
-          setErr(d.error)
+          setFormErr(d.error)
           return
         }
-        setErr(d.error || 'Login failed')
+        setFormErr(d.error || 'Login failed')
         return
       }
 
@@ -107,7 +120,7 @@ function App() {
       }
 
       if (d.is_platform_admin) {
-        setErr('Platform admin sign-in requires two-factor authentication.')
+        setFormErr('Platform admin sign-in requires two-factor authentication.')
         return
       }
 
@@ -115,7 +128,7 @@ function App() {
       if (d.onboarding_complete) router.push('/dashboard')
       else router.push('/onboarding')
     } catch {
-      setErr('Network error')
+      setFormErr('Network error')
     } finally {
       setLoading(false)
     }
@@ -123,8 +136,8 @@ function App() {
 
   const submitTotp = async e => {
     e.preventDefault()
-    setErr('')
-    if (totpCode.length !== 6) { setErr('Enter the 6-digit code'); return }
+    setFormErr('')
+    if (totpCode.length !== 6) { setFormErr('Enter the 6-digit code'); return }
     setLoading(true)
     try {
       const url = setupRequired
@@ -137,13 +150,13 @@ function App() {
       })
       const d = await r.json()
       if (!r.ok) {
-        setErr(d.error || 'Verification failed')
+        setFormErr(d.error || 'Verification failed')
         return
       }
       toast.success(setupRequired ? 'Two-factor authentication enabled' : 'Welcome back!')
       router.push('/platform-admin')
     } catch {
-      setErr('Network error')
+      setFormErr('Network error')
     } finally {
       setLoading(false)
     }
@@ -154,7 +167,7 @@ function App() {
     setPendingToken('')
     setTotpCode('')
     setQrDataUrl('')
-    setErr('')
+    setFormErr('')
   }
 
   if (step === 'setup') {
@@ -185,7 +198,7 @@ function App() {
             <Button type="submit" disabled={loading || totpCode.length !== 6} className="w-full bg-[#0D9488] hover:bg-[#0B7E73] h-11">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirm setup'}
             </Button>
-            {err && <p className="text-sm text-[#EF4444]">{err}</p>}
+            {displayErr && <p className="text-sm text-[#EF4444]">{displayErr}</p>}
             <Button type="button" variant="ghost" className="w-full" onClick={backToPassword}>Back</Button>
           </form>
         </div>
@@ -212,7 +225,7 @@ function App() {
           <Button type="submit" disabled={loading || totpCode.length !== 6} className="w-full bg-[#0D9488] hover:bg-[#0B7E73] h-11">
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify'}
           </Button>
-          {err && <p className="text-sm text-[#EF4444]">{err}</p>}
+          {displayErr && <p className="text-sm text-[#EF4444]">{displayErr}</p>}
           <Button type="button" variant="ghost" className="w-full" onClick={backToPassword}>Back</Button>
         </form>
       </AuthSplit>
@@ -240,10 +253,10 @@ function App() {
         <Button type="submit" disabled={loading} className="w-full bg-[#0D9488] hover:bg-[#0B7E73] h-11">
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Sign In'}
         </Button>
-        {err && (
+        {displayErr && (
           <div className="space-y-2">
-            <p className="text-sm text-[#EF4444]">{err}</p>
-            {err.includes('verify your email') && email && (
+            <p className="text-sm text-[#EF4444]">{displayErr}</p>
+            {displayErr.includes('verify your email') && email && (
               <p className="text-sm text-center">
                 <Link href={`/verify-email-pending?email=${encodeURIComponent(email)}`} className="text-[#0D9488] hover:underline">
                   Resend verification email
@@ -263,4 +276,20 @@ function App() {
   )
 }
 
-export default App
+function LoginFallback() {
+  return (
+    <AuthSplit>
+      <div className="flex justify-center py-16">
+        <Loader2 className="w-8 h-8 animate-spin text-[#0D9488]" />
+      </div>
+    </AuthSplit>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginFallback />}>
+      <LoginPageContent />
+    </Suspense>
+  )
+}
