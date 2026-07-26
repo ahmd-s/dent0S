@@ -69,7 +69,6 @@ export async function POST(request) {
       ).end(buffer)
     })
 
-    const db = await getDb()
     const doc = {
       patient_id: patientId,
       visit_id: visitId,
