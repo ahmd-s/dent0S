@@ -170,7 +170,8 @@ function App() {
           action: {
             label: 'Send WhatsApp',
             onClick: () => {
-              const summaryUrl = `https://www.dent-os.in/visit-summary/${id}`
+              const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'
+              const summaryUrl = `${baseUrl}/visit-summary/${id}`
               const treatment = cur.v.treatment_done || 'Dental treatment'
               const msg = `Hello ${cur.v.patient?.name || 'Patient'}! 🦷\n\nThank you for visiting ${cur.clinicName}.\n\nTreatment: ${treatment}\n\n💊 Prescription & Invoice:\n${summaryUrl}\n\n— ${cur.clinicName}`
               const waUrl = `https://wa.me/91${cur.v.patient?.phone}?text=${encodeURIComponent(msg)}`
