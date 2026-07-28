@@ -1,8 +1,12 @@
-// Path: app/api/patients/route.js
 import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
 import { v4 as uuidv4 } from 'uuid'
+import { hasPermission, filterPatientFields } from '@/lib/rbac'
+import { getProfileRoles } from '@/lib/profile-roles'
+import { doctorPatientIds, shouldScopeToDoctor } from '@/lib/doctor-scope'
+import { nextPatientCode } from '@/lib/patient-code'
+import { isClinicAccessBlocked, clinicAccessPausedResponse } from '@/lib/clinic-access'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -27,7 +31,6 @@ async function requireUser() {
   return { profile, clinic, db }
 }
 
-// ── GET /api/patients ────────────────────────────────────────────────────────
 export async function GET(request) {
   try {
     const user = await requireUser()
@@ -35,6 +38,7 @@ export async function GET(request) {
 
     const { profile, db } = user
     const cid = profile.clinic_id
+    const roles = getProfileRoles(profile)
     const url = new URL(request.url)
 
     const q = url.searchParams.get('q')
@@ -43,6 +47,18 @@ export async function GET(request) {
     const pageSize = parseInt(url.searchParams.get('page_size') || '20')
 
     const f = { clinic_id: cid, is_archived: { $ne: true } }
+
+    if (shouldScopeToDoctor(roles)) {
+      const pids = await doctorPatientIds(db, cid, profile.id)
+      if (pids.length === 0) {
+        return json({
+          patients: [],
+          pagination: { page, page_size: pageSize, total_count: 0, total_pages: 0, has_next: false, has_prev: false },
+        })
+      }
+      f.id = { $in: pids }
+    }
+
     if (q) {
       const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
       f.$or = [{ name: re }, { phone: re }, { patient_code: re }]
@@ -56,9 +72,9 @@ export async function GET(request) {
       {
         $facet: {
           data: [{ $sort: { created_at: -1 } }, { $skip: (page - 1) * pageSize }, { $limit: pageSize }],
-          totalCount: [{ $count: 'total' }]
-        }
-      }
+          totalCount: [{ $count: 'total' }],
+        },
+      },
     ]).toArray()
 
     const patients = result?.data || []
@@ -66,31 +82,28 @@ export async function GET(request) {
     const totalPages = Math.ceil(totalCount / pageSize)
 
     return json({
-      patients: patients.map(clean),
+      patients: patients.map(p => filterPatientFields(clean(p), roles)),
       pagination: {
         page, page_size: pageSize, total_count: totalCount,
-        total_pages: totalPages, has_next: page < totalPages, has_prev: page > 1
-      }
+        total_pages: totalPages, has_next: page < totalPages, has_prev: page > 1,
+      },
     })
-
   } catch (error) {
     console.error('Patients GET error:', error)
     return err('Internal server error', 500)
   }
 }
 
-// ── POST /api/patients ───────────────────────────────────────────────────────
-// Rule: same clinic + same phone + same name = duplicate, block it.
-// Same phone + different name = allowed (family members).
 export async function POST(request) {
   try {
     const user = await requireUser()
     if (!user) return err('Unauthorized', 401)
+    if (isClinicAccessBlocked(user.clinic)) return clinicAccessPausedResponse(err)
 
-    const { profile, clinic, db } = user
+    const { profile, db } = user
     const cid = profile.clinic_id
 
-    if (profile.role === 'receptionist') return err('Forbidden', 403)
+    if (!hasPermission(profile, 'patients', 'create')) return err('Forbidden', 403)
 
     const b = await request.json()
     if (!b.name || !b.phone) return err('Name and phone required')
@@ -99,34 +112,22 @@ export async function POST(request) {
     const name = b.name.trim()
     if (!/^\d{10}$/.test(phone)) return err('Phone must be a 10-digit number')
 
-    // ── Duplicate check: same clinic + same phone + same name ──────────────
     const nameRegex = new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')
     const existing = await db.collection('patients').findOne(
       { clinic_id: cid, phone, name: { $regex: nameRegex }, is_archived: { $ne: true } },
       { projection: { _id: 0 } }
     )
     if (existing) {
-      // Same person already exists — return their record with a clear message
       return json({
         ok: true,
         id: existing.id,
         patient: clean(existing),
         existing: true,
-        message: 'A patient with this name and phone already exists.'
+        message: 'A patient with this name and phone already exists.',
       })
     }
 
-    // ── Generate patient code via atomic counter ────────────────────────────
-    const lastPatient = await db.collection('patients')
-  .find({ clinic_id: clinic.id, patient_code: { $regex: /^PT\d+$/ } })
-  .sort({ patient_code: -1 })
-  .limit(1)
-  .toArray()
-const lastNum = lastPatient.length > 0
-  ? parseInt(lastPatient[0].patient_code.replace('PT', '')) 
-  : 0
-const patientCode = 'PT' + String(lastNum + 1).padStart(5, '0')
-
+    const patientCode = await nextPatientCode(db, cid)
     const id = uuidv4()
 
     try {
@@ -148,10 +149,9 @@ const patientCode = 'PT' + String(lastNum + 1).padStart(5, '0')
         is_archived: false,
         created_by: profile.id,
         created_via: 'internal_dashboard',
-        created_at: new Date()
+        created_at: new Date(),
       })
     } catch (insertErr) {
-      // Unique index violation — race condition
       if (insertErr.code === 11000) {
         const raceExisting = await db.collection('patients').findOne(
           { clinic_id: cid, phone, name: { $regex: nameRegex } }
@@ -164,7 +164,6 @@ const patientCode = 'PT' + String(lastNum + 1).padStart(5, '0')
     }
 
     return json({ ok: true, id, existing: false }, 201)
-
   } catch (error) {
     console.error('Patient creation error:', error)
     return err('Internal server error', 500)

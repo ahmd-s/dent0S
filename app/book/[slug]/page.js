@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { ToothIcon } from '@/components/dentos/Logo'
+import { ClinicLogo } from '@/components/dentos/Logo'
 import { toast } from 'sonner'
 
 const todayIso = () => new Date().toISOString().slice(0, 10)
@@ -18,6 +18,11 @@ const fmtFull = d => {
   const x = new Date(d + 'T00:00:00')
   return x.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
 }
+
+const BOOK_LABEL = 'text-slate-900 dark:text-slate-900'
+const BOOK_INPUT = 'text-slate-900 bg-white border-slate-200 placeholder:text-slate-400 dark:text-slate-900 dark:bg-white dark:border-slate-200 dark:placeholder:text-slate-400'
+const BOOK_TEXTAREA = 'text-slate-900 bg-white border-slate-200 placeholder:text-slate-400 dark:text-slate-900 dark:bg-white dark:border-slate-200 dark:placeholder:text-slate-400'
+const BOOK_BTN_OUTLINE = 'text-slate-900 bg-white border-slate-200 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-900 dark:bg-white dark:border-slate-200 dark:hover:bg-slate-50 dark:hover:text-slate-900'
 
 // ─── Step indicator ─────────────────────────────────────────────────────────
 const STEPS = ['Doctor', 'Patient', 'Appointment']
@@ -208,32 +213,30 @@ export default function BookingPage() {
 
   // ── Early returns ─────────────────────────────────────────────────────────
   if (notFound) return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
+    <div className="light min-h-screen flex items-center justify-center bg-[#F8FAFC]">
       <div className="text-center">
         <h1 className="text-2xl font-bold text-[#0F172A]">Clinic not found</h1>
-        <p className="text-muted-foreground mt-2">This booking link is invalid.</p>
+        <p className="text-slate-500 mt-2">This booking link is invalid.</p>
       </div>
     </div>
   )
   if (!clinic) return (
-    <div className="min-h-screen flex items-center justify-center">
+    <div className="light min-h-screen flex items-center justify-center bg-[#F8FAFC]">
       <Loader2 className="w-6 h-6 animate-spin text-[#0D9488]" />
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC]">
+    <div className="light min-h-screen bg-[#F8FAFC]">
       <div className="max-w-xl mx-auto px-4 py-8">
 
         {/* Clinic header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#0D9488] mx-auto">
-            {clinic.logo_url
-              ? <img src={clinic.logo_url} alt="" className="w-full h-full rounded-2xl object-cover" />
-              : <ToothIcon className="w-8 h-8 text-white" />}
+          <div className="inline-flex mx-auto">
+            <ClinicLogo logoUrl={clinic.logo_url} size="w-16 h-16" iconSize="w-8 h-8" rounded="rounded-2xl" />
           </div>
           <h1 className="mt-4 text-2xl font-bold text-[#0F172A]">{clinic.name}</h1>
-          <div className="mt-2 text-sm text-muted-foreground flex items-center justify-center gap-3 flex-wrap">
+          <div className="mt-2 text-sm text-slate-500 flex items-center justify-center gap-3 flex-wrap">
             {clinic.city && <span className="inline-flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{clinic.city}</span>}
             {clinic.phone && (
               <a href={`tel:+91${clinic.phone}`} className="inline-flex items-center gap-1 text-[#0D9488] hover:underline">
@@ -246,26 +249,26 @@ export default function BookingPage() {
         <StepBar current={step} />
 
         {/* ── STEP 1: Doctor ──────────────────────────────────────────────── */}
-        <div className={`bg-white rounded-xl border border-border p-6 mb-4 transition-opacity ${step !== 1 ? 'opacity-60' : ''}`}>
+        <div className={`bg-white rounded-xl border border-slate-200 p-6 mb-4 transition-opacity ${step !== 1 ? 'opacity-60' : ''}`}>
           <h2 className="text-base font-semibold text-[#0F172A] mb-4 flex items-center gap-2">
             <span className="w-6 h-6 rounded-full bg-[#0D9488] text-white text-xs flex items-center justify-center font-bold">1</span>
             Select Doctor
           </h2>
           {doctors.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No doctors listed for this clinic.</p>
+            <p className="text-sm text-slate-500">No doctors listed for this clinic.</p>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {doctors.map(d => (
                 <button
                   key={d.id}
                   onClick={() => { setDoctor(d.id); setSelectedPatient(null); setPhone(''); setPhoneSearch([]); setSearchState('idle') }}
-                  className={`p-3 rounded-lg border text-left transition ${doctor === d.id ? 'border-[#0D9488] bg-[#0D9488]/5' : 'bg-white border-border hover:border-[#0D9488]/50'}`}
+                  className={`p-3 rounded-lg border text-left transition ${doctor === d.id ? 'border-[#0D9488] bg-[#0D9488]/5' : 'bg-white border-slate-200 hover:border-[#0D9488]/50'}`}
                 >
                   <div className="w-10 h-10 rounded-full bg-[#0D9488]/10 flex items-center justify-center text-sm font-semibold text-[#0D9488]">
                     {d.full_name?.split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase()}
                   </div>
-                  <div className="mt-2 font-medium text-sm">Dr. {d.full_name}</div>
-                  {d.specialization && <div className="text-xs text-muted-foreground">{d.specialization}</div>}
+                  <div className="mt-2 font-medium text-sm text-slate-900">Dr. {d.full_name}</div>
+                  {d.specialization && <div className="text-xs text-slate-500">{d.specialization}</div>}
                 </button>
               ))}
             </div>
@@ -274,7 +277,7 @@ export default function BookingPage() {
 
         {/* ── STEP 2: Patient ─────────────────────────────────────────────── */}
         {doctor && (
-          <div className="bg-white rounded-xl border border-border p-6 mb-4">
+          <div className="bg-white rounded-xl border border-slate-200 p-6 mb-4">
             <h2 className="text-base font-semibold text-[#0F172A] mb-4 flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-[#0D9488] text-white text-xs flex items-center justify-center font-bold">2</span>
               Find or Add Patient
@@ -289,13 +292,13 @@ export default function BookingPage() {
                   </div>
                   <div>
                     <div className="font-semibold text-[#0F172A] text-sm">{selectedPatient.name}</div>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="text-xs text-slate-500">
                       {selectedPatient.patient_code && <span className="mr-2">{selectedPatient.patient_code}</span>}
                       +91 {selectedPatient.phone}
                     </div>
                   </div>
                 </div>
-                <button onClick={clearPatient} className="text-muted-foreground hover:text-[#EF4444] transition">
+                <button onClick={clearPatient} className="text-slate-500 hover:text-[#EF4444] transition">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -303,27 +306,27 @@ export default function BookingPage() {
               <>
                 {/* Phone search input */}
                 <div className="space-y-1.5">
-                  <Label>Mobile Number</Label>
+                  <Label className={BOOK_LABEL}>Mobile Number</Label>
                   <div className="flex">
-                    <span className="px-3 flex items-center bg-muted border border-r-0 border-input rounded-l-md text-sm text-muted-foreground">+91</span>
+                    <span className="px-3 flex items-center bg-slate-100 border border-r-0 border-slate-200 rounded-l-md text-sm text-slate-500">+91</span>
                     <div className="relative flex-1">
                       <Input
                         value={phone}
                         onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                         placeholder="Enter mobile number to search"
-                        className="rounded-l-none pr-9"
+                        className={`${BOOK_INPUT} rounded-l-none pr-9`}
                         autoComplete="off"
                       />
                       <div className="absolute right-3 top-1/2 -translate-y-1/2">
                         {searchState === 'searching'
-                          ? <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                          ? <Loader2 className="w-4 h-4 animate-spin text-slate-500" />
                           : phone
-                          ? <Search className="w-4 h-4 text-muted-foreground" />
+                          ? <Search className="w-4 h-4 text-slate-500" />
                           : null}
                       </div>
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">We'll look up existing patient records as you type.</p>
+                  <p className="text-xs text-slate-500">We'll look up existing patient records as you type.</p>
                 </div>
 
                 {/* Search results */}
@@ -331,31 +334,31 @@ export default function BookingPage() {
                   <div className="mt-3 space-y-2">
                     {phoneSearch.length > 0 ? (
                       <>
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
                           {phoneSearch.length} patient{phoneSearch.length > 1 ? 's' : ''} found
                         </p>
                         {phoneSearch.map(p => (
                           <button
                             key={p.id}
                             onClick={() => selectPatient(p)}
-                            className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:border-[#0D9488] hover:bg-[#0D9488]/5 transition text-left"
+                            className="w-full flex items-center gap-3 p-3 rounded-lg border border-slate-200 hover:border-[#0D9488] hover:bg-[#0D9488]/5 transition text-left"
                           >
                             <div className="w-9 h-9 rounded-full bg-[#0D9488]/10 flex items-center justify-center text-sm font-bold text-[#0D9488] shrink-0">
                               {p.name?.[0]?.toUpperCase()}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="font-medium text-sm text-[#0F172A]">{p.name}</div>
-                              <div className="text-xs text-muted-foreground">
+                              <div className="text-xs text-slate-500">
                                 {p.patient_code && <span className="mr-2 font-mono">{p.patient_code}</span>}
                                 +91 {p.phone}
                                 {p.age && <span className="ml-2">{p.age} yrs</span>}
                                 {p.gender && <span className="ml-2 capitalize">{p.gender}</span>}
                               </div>
                             </div>
-                            <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                            <ChevronRight className="w-4 h-4 text-slate-500 shrink-0" />
                           </button>
                         ))}
-                        <p className="text-xs text-muted-foreground pt-1">
+                        <p className="text-xs text-slate-500 pt-1">
                           Not the right patient?{' '}
                           <button className="text-[#0D9488] underline underline-offset-2" onClick={() => { setShowNewForm(true); setPhoneSearch([]) }}>
                             Add new patient instead
@@ -365,7 +368,7 @@ export default function BookingPage() {
                     ) : (
                       <div className="p-4 rounded-lg border border-dashed border-slate-200 text-center">
                         <User className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                        <p className="text-sm text-muted-foreground">No patient found with this number.</p>
+                        <p className="text-sm text-slate-500">No patient found with this number.</p>
                         {!showNewForm && (
                           <button
                             onClick={() => setShowNewForm(true)}
@@ -386,17 +389,18 @@ export default function BookingPage() {
                       <UserPlus className="w-4 h-4 text-[#0D9488]" /> New Patient Details
                     </p>
                     <div className="space-y-1.5">
-                      <Label>Full Name <span className="text-[#EF4444]">*</span></Label>
+                      <Label className={BOOK_LABEL}>Full Name <span className="text-[#EF4444]">*</span></Label>
                       <Input
                         value={newPatient.name}
                         onChange={e => setNewPatient({ ...newPatient, name: e.target.value })}
                         placeholder="Enter patient's full name"
+                        className={BOOK_INPUT}
                         autoFocus
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
-                        <Label>Age</Label>
+                        <Label className={BOOK_LABEL}>Age</Label>
                         <Input
                           type="number"
                           min="0"
@@ -404,14 +408,15 @@ export default function BookingPage() {
                           value={newPatient.age}
                           onChange={e => setNewPatient({ ...newPatient, age: e.target.value })}
                           placeholder="e.g. 32"
+                          className={BOOK_INPUT}
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <Label>Gender</Label>
+                        <Label className={BOOK_LABEL}>Gender</Label>
                         <select
                           value={newPatient.gender}
                           onChange={e => setNewPatient({ ...newPatient, gender: e.target.value })}
-                          className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D9488] focus:ring-offset-1"
+                          className="w-full h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0D9488] focus:ring-offset-1"
                         >
                           <option value="">Select</option>
                           <option value="male">Male</option>
@@ -424,7 +429,7 @@ export default function BookingPage() {
                       <Button
                         type="button"
                         variant="outline"
-                        className="flex-1"
+                        className={`flex-1 ${BOOK_BTN_OUTLINE}`}
                         onClick={() => { setShowNewForm(false); setNewPatient({ name: '', age: '', gender: '' }) }}
                       >
                         Cancel
@@ -433,7 +438,7 @@ export default function BookingPage() {
                         type="button"
                         disabled={creatingPatient || !newPatient.name.trim() || phone.length < 10}
                         onClick={createPatient}
-                        className="flex-1 bg-[#0D9488] hover:bg-[#0B7E73]"
+                        className="flex-1 bg-[#0D9488] hover:bg-[#0B7E73] text-white"
                       >
                         {creatingPatient ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Patient'}
                       </Button>
@@ -450,7 +455,7 @@ export default function BookingPage() {
 
         {/* ── STEP 3: Appointment ─────────────────────────────────────────── */}
         {doctor && selectedPatient && (
-          <div className="bg-white rounded-xl border border-border p-6 space-y-5">
+          <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-5">
             <h2 className="text-base font-semibold text-[#0F172A] flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-[#0D9488] text-white text-xs flex items-center justify-center font-bold">3</span>
               Pick a Date &amp; Time
@@ -458,16 +463,16 @@ export default function BookingPage() {
 
             {/* Date */}
             <div>
-              <Label className="text-sm font-medium">Select Date</Label>
-              <Input type="date" min={todayIso()} value={date} onChange={e => setDate(e.target.value)} className="mt-1.5" />
-              <div className="text-xs text-muted-foreground mt-1">{fmtFull(date)}</div>
+              <Label className={`${BOOK_LABEL} text-sm font-medium`}>Select Date</Label>
+              <Input type="date" min={todayIso()} value={date} onChange={e => setDate(e.target.value)} className={`mt-1.5 ${BOOK_INPUT}`} />
+              <div className="text-xs text-slate-500 mt-1">{fmtFull(date)}</div>
             </div>
 
             {/* Slots */}
             <div>
-              <Label className="text-sm font-medium">Select Time</Label>
+              <Label className={`${BOOK_LABEL} text-sm font-medium`}>Select Time</Label>
               {slots.length === 0 && (
-                <div className="mt-2 text-sm text-muted-foreground">Clinic is closed on this day. Choose another date.</div>
+                <div className="mt-2 text-sm text-slate-500">Clinic is closed on this day. Choose another date.</div>
               )}
               <div className="mt-2 grid grid-cols-3 sm:grid-cols-4 gap-2">
                 {slots.map(s => (
@@ -481,7 +486,7 @@ export default function BookingPage() {
                         ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200'
                         : time === s.time
                         ? 'bg-[#0D9488] text-white border-[#0D9488]'
-                        : 'bg-white border-border hover:border-[#0D9488] hover:text-[#0D9488]'
+                        : 'bg-white border-slate-200 text-slate-900 hover:border-[#0D9488] hover:text-[#0D9488]'
                     }`}
                   >
                     {s.time}
@@ -491,24 +496,24 @@ export default function BookingPage() {
             </div>
 
             {/* Reason */}
-            <div className="pt-2 border-t border-border">
-              <Label className="text-sm font-medium">Reason for Visit</Label>
+            <div className="pt-2 border-t border-slate-200">
+              <Label className={`${BOOK_LABEL} text-sm font-medium`}>Reason for Visit</Label>
               <Textarea
                 rows={2}
                 value={reason}
                 onChange={e => setReason(e.target.value)}
                 placeholder="e.g. Toothache, cleaning, consultation"
-                className="mt-1.5"
+                className={`mt-1.5 ${BOOK_TEXTAREA}`}
               />
             </div>
 
-            <p className="text-xs text-muted-foreground">We'll confirm your appointment via call or WhatsApp.</p>
+            <p className="text-xs text-slate-500">We'll confirm your appointment via call or WhatsApp.</p>
 
             <Button
               type="button"
               disabled={busy || !time}
               onClick={submit}
-              className="w-full bg-[#0D9488] hover:bg-[#0B7E73] h-12 text-base"
+              className="w-full bg-[#0D9488] hover:bg-[#0B7E73] h-12 text-base text-white"
             >
               {busy
                 ? <Loader2 className="w-5 h-5 animate-spin" />
@@ -517,7 +522,7 @@ export default function BookingPage() {
           </div>
         )}
 
-        <div className="text-center text-xs text-muted-foreground mt-6">
+        <div className="text-center text-xs text-slate-500 mt-6">
           Powered by <span className="text-[#0D9488] font-medium">DentOS</span>
         </div>
       </div>

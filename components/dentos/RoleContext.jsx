@@ -2,7 +2,27 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
-import { canManageBilling, canManageInventory, canManageStaff, canAccessClinical, canAccessSettings } from '@/lib/rbac'
+import {
+  canManageBilling,
+  canManageInventory,
+  canManageStaff,
+  canAccessClinical,
+  canViewClinical,
+  canEditClinical,
+  canAccessSettings,
+} from '@/lib/rbac'
+import { getProfileRoles, hasRole } from '@/lib/profile-roles'
+
+async function redirectPlatformAdmin(router, d) {
+  if (!d?.is_platform_admin) return false
+  if (d.platform_session_active) {
+    router.push('/platform-admin')
+    return true
+  }
+  await fetch('/api/auth/logout', { method: 'POST' })
+  router.push('/login')
+  return true
+}
 
 const RoleContext = createContext(null)
 
@@ -18,6 +38,7 @@ export function RoleProvider({ children }) {
       router.push('/login')
       return null
     }
+    if (await redirectPlatformAdmin(router, d)) return null
     if (!d.clinic?.onboarding_complete) {
       router.push('/onboarding')
       return null
@@ -38,6 +59,15 @@ export function RoleProvider({ children }) {
         setLoading(false)
         return
       }
+      if (d.is_platform_admin) {
+        if (d.platform_session_active) router.push('/platform-admin')
+        else {
+          await fetch('/api/auth/logout', { method: 'POST' })
+          router.push('/login')
+        }
+        setLoading(false)
+        return
+      }
       if (!d.clinic?.onboarding_complete) {
         router.push('/onboarding')
         setLoading(false)
@@ -50,35 +80,34 @@ export function RoleProvider({ children }) {
   }, [router])
 
   const value = useMemo(() => {
-    const role = me?.profile?.role ?? null
-    const isDoctor = () => role === 'doctor'
-    const isReceptionist = () => role === 'receptionist'
-    const isAdmin = () => role === 'admin'
-    const canAccessClinicalInternal = () => canAccessClinical(role)
-    const canAccessSettingsInternal = () => canAccessSettings(role)
-    const canManageBillingInternal = () => canManageBilling(role)
-    const canManageInventoryInternal = () => canManageInventory(role)
-    const canManageStaffInternal = () => canManageStaff(role)
+    const roles = getProfileRoles(me?.profile)
+    const roleCtx = roles.length === 1 ? roles[0] : roles
+
     return {
       me,
       loading,
       refresh,
-      currentRole: role,
-      isDoctor,
-      isReceptionist,
-      isAdmin,
-      canAccessClinical: canAccessClinicalInternal,
-      canAccessSettings: canAccessSettingsInternal,
-      canManageBilling: canManageBillingInternal,
-      canManageInventory: canManageInventoryInternal,
-      canManageStaff: canManageStaffInternal,
+      roles,
+      /** @deprecated use roles — first role for legacy UI */
+      currentRole: roles[0] ?? null,
+      hasRole: (role) => hasRole(roles, role),
+      isDoctor: () => hasRole(roles, 'doctor'),
+      isReceptionist: () => hasRole(roles, 'receptionist'),
+      isAdmin: () => hasRole(roles, 'admin'),
+      canAccessClinical: () => canAccessClinical(roleCtx),
+      canViewClinical: () => canViewClinical(roleCtx),
+      canEditClinical: () => canEditClinical(roleCtx),
+      canAccessSettings: () => canAccessSettings(roleCtx),
+      canManageBilling: () => canManageBilling(roleCtx),
+      canManageInventory: () => canManageInventory(roleCtx),
+      canManageStaff: () => canManageStaff(roleCtx),
     }
   }, [me, loading, refresh])
 
   if (loading || !me) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <Loader2 className="w-6 h-6 animate-spin text-[#0D9488]" />
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
       </div>
     )
   }

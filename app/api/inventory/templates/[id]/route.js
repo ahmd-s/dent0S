@@ -8,7 +8,7 @@ export async function PUT(request, { params }) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
-    if (!canManageInventory(profile.role)) return err('Forbidden', 403)
+    if (!canManageInventory(profile)) return err('Forbidden', 403)
     
     const b = await request.json()
     if ('treatment_name' in b && !b.treatment_name?.trim()) return err('Treatment name is required')
@@ -38,7 +38,7 @@ export async function DELETE(request, { params }) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
-    if (!canManageInventory(profile.role)) return err('Forbidden', 403)
+    if (!canManageInventory(profile)) return err('Forbidden', 403)
     
     const r = await db.collection('treatment_templates').deleteOne({ id: params.id, clinic_id: cid })
     if (!r.deletedCount) return err('Template not found', 404)

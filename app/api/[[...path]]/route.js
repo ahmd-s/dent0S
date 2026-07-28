@@ -1,15 +1,8 @@
 import { NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'
-import slugify from 'slugify'
 import { getDb } from '@/lib/mongo'
-import { hashPassword, verifyPassword, signToken, setAuthCookie, clearAuthCookie, getCurrentUser } from '@/lib/auth'
-import { sendStaffInviteEmail } from '@/lib/invite-email'
-import { createAnthropicMessage } from '@/lib/anthropic-messages'
-import { SMART_TYPING_SEED } from '@/lib/smart-typing-seed'
-import { setupIndexes } from '@/lib/setup-indexes'
-import { AWAITING_ACCEPTANCE_STATUSES, IN_PRODUCTION_STATUSES, READY_STATUSES, CLOSED_STATUSES } from '@/lib/lab-case-helpers'
+import { getCurrentUser } from '@/lib/auth'
 import { timeToMinutes } from '@/lib/block-times'
-import { hasPermission, canManageBilling, canManageStaff, canAccessClinical } from '@/lib/rbac'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -22,10 +15,6 @@ const json = (d, s=200) => cors(NextResponse.json(d, { status: s }))
 const err = (msg, s=400) => json({ error: msg }, s)
 const clean = o => { if (!o) return o; const { _id, password_hash, ...rest } = o; return rest }
 const todayIso = () => new Date().toISOString().slice(0,10)
-const yIso = () => { const d = new Date(); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10) }
-const weekStart = () => { const d = new Date(); d.setDate(d.getDate()-7); return d.toISOString().slice(0,10) }
-const monthBack = m => { const d = new Date(); d.setMonth(d.getMonth()-m); return d.toISOString().slice(0,10) }
-const initials = name => (name||'').split(' ').filter(Boolean).map(w=>w[0]).join('').toUpperCase().slice(0,3) || 'CL'
 
 // time helpers for slot generation
 const toMin = t => { const m = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(t.trim()); if (!m) return null; let h = parseInt(m[1]); const mm = parseInt(m[2]); const ap = m[3].toUpperCase(); if (ap==='PM' && h!==12) h+=12; if (ap==='AM' && h===12) h=0; return h*60+mm }
@@ -67,6 +56,7 @@ async function handle(request, { params }) {
     const db = await getDb()
 
     // ============ PUBLIC ROUTES (no auth) ============
+    // Kept here to avoid dynamic routing conflicts with the patient folder.
     if (path[0] === 'public' && path[1] === 'clinic' && path[2] && !path[3] && m === 'GET') {
       const c = await db.collection('clinics').findOne({ slug: path[2], is_active: true })
       if (!c) return err('Clinic not found', 404)
@@ -236,6 +226,7 @@ async function handle(request, { params }) {
       return json({ ok:true, id, doctor_name: doctor?.full_name || '', clinic_name: c.name, clinic_phone: c.phone, clinic_city: c.city, unmatched_note })
     }
 
+<<<<<<< HEAD
     // ============ LAB CASES BY NUMBER (WhatsApp integration) ============
     if (path[0] === 'lab-cases' && path[1] === 'by-number' && path[2] && m === 'PATCH') {
       const caseNumber = path[2].toUpperCase()
@@ -695,6 +686,8 @@ async function handle(request, { params }) {
       }
     }
 
+=======
+>>>>>>> 1b2c9765788c77fa7ef45790a326d40d9aa5c607
     return err(`Route ${route} not found`, 404)
   } catch (e) {
     console.error('API Error:', e)

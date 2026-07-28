@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Loader2, Plus, Copy, ExternalLink, Trash2, Edit2, FileText } from 'lucide-react'
+import { Loader2, Plus, Copy, ExternalLink, Trash2, Edit2, FileText, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,9 +9,16 @@ import { Card } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { toast } from 'sonner'
 import { canAccessSettings } from '@/lib/rbac'
+import { getProfileRoles, VALID_ROLES } from '@/lib/profile-roles'
+import { ToothIcon } from '@/components/dentos/Logo'
+import ImageUpload from '@/components/dentos/ImageUpload'
+import { useRole } from '@/components/dentos/RoleContext'
 
 const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 const TIMES = (() => { const arr = []; for (let h=6; h<=22; h++) for (let m=0;m<60;m+=30) { const hh=h%12===0?12:h%12, ap=h<12?'AM':'PM'; arr.push(`${String(hh).padStart(2,'0')}:${String(m).padStart(2,'0')} ${ap}`) } return arr })()
@@ -29,7 +36,7 @@ function App() {
   return (
     <div className="max-w-4xl mx-auto">
       <Tabs defaultValue="clinic">
-        <TabsList className="bg-[#F8FAFC]"><TabsTrigger value="clinic">Clinic Profile</TabsTrigger><TabsTrigger value="team">Team</TabsTrigger><TabsTrigger value="availability">Doctor Availability</TabsTrigger><TabsTrigger value="consent">Consent Forms</TabsTrigger></TabsList>
+        <TabsList className="bg-muted"><TabsTrigger value="clinic">Clinic Profile</TabsTrigger><TabsTrigger value="team">Team</TabsTrigger><TabsTrigger value="availability">Doctor Availability</TabsTrigger><TabsTrigger value="consent">Consent Forms</TabsTrigger></TabsList>
         <TabsContent value="clinic" className="mt-4 space-y-5"><ClinicTab me={me} reload={()=>fetch('/api/auth/me').then(r=>r.json()).then(setMe)}/></TabsContent>
         <TabsContent value="team" className="mt-4"><TeamTab/></TabsContent>
         <TabsContent value="availability" className="mt-4"><DoctorAvailabilityTab me={me}/></TabsContent>
@@ -40,6 +47,7 @@ function App() {
 }
 
 function ClinicTab({ me, reload }) {
+  const { refresh: refreshRole } = useRole()
   const [c, setC] = useState(null)
   const [hours, setHours] = useState(DAYS.map(d => ({ day:d, open: d!=='Sun', start:'10:00 AM', end:'07:00 PM' })))
   const [saving, setSaving] = useState(false)
@@ -56,7 +64,7 @@ function ClinicTab({ me, reload }) {
     setSaving(true)
     const r = await fetch('/api/clinic', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name: c.name, phone: c.phone, address: c.address, city: c.city, gstin: c.gstin, logo_url: c.logo_url, working_hours: hours }) })
     setSaving(false)
-    if (r.ok) { toast.success('Saved'); reload() } else toast.error('Failed')
+    if (r.ok) { toast.success('Saved'); reload(); refreshRole() } else toast.error('Failed')
   }
   const updateSlug = async () => {
     const r = await fetch('/api/clinic', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ slug: c.slug }) })
@@ -79,15 +87,24 @@ function ClinicTab({ me, reload }) {
 
   return (
     <>
-      <Card className="p-6 bg-white border-border rounded-lg">
+      <Card className="p-6 bg-card border-border rounded-lg">
         <h3 className="font-semibold mb-4">Clinic Profile</h3>
+        <div className="space-y-1.5 mb-5">
+          <Label>Clinic Logo</Label>
+          <ImageUpload
+            value={c.logo_url}
+            onChange={url => { setC({ ...c, logo_url: url }); reload(); refreshRole() }}
+            uploadUrl="/api/clinic/logo"
+            fallback={<ToothIcon className="w-8 h-8 text-white" />}
+            helperText="JPG, PNG or WEBP. Max 5MB. Appears in your sidebar and on invoices."
+          />
+        </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5 col-span-2"><Label>Clinic Name</Label><Input value={c.name||''} onChange={e=>setC({...c,name:e.target.value})}/></div>
           <div className="space-y-1.5"><Label>Phone</Label><Input value={c.phone||''} onChange={e=>setC({...c,phone:e.target.value})}/></div>
           <div className="space-y-1.5"><Label>City</Label><Input value={c.city||''} onChange={e=>setC({...c,city:e.target.value})}/></div>
           <div className="space-y-1.5 col-span-2"><Label>Address</Label><Textarea rows={2} value={c.address||''} onChange={e=>setC({...c,address:e.target.value})}/></div>
           <div className="space-y-1.5"><Label>GSTIN</Label><Input value={c.gstin||''} onChange={e=>setC({...c,gstin:e.target.value})}/></div>
-          <div className="space-y-1.5"><Label>Logo URL</Label><Input value={c.logo_url||''} onChange={e=>setC({...c,logo_url:e.target.value})} placeholder="https://…"/></div>
         </div>
         <h4 className="font-medium mt-6 mb-3">Working Hours</h4>
         {hours.map((h,i) => (
@@ -103,22 +120,22 @@ function ClinicTab({ me, reload }) {
         <div className="mt-4 flex justify-end"><Button onClick={save} disabled={saving} className="bg-[#0D9488] hover:bg-[#0B7E73]">{saving?<Loader2 className="w-4 h-4 animate-spin"/>:'Save Changes'}</Button></div>
       </Card>
 
-      <Card className="p-6 bg-white border-border rounded-lg mt-5">
+      <Card className="p-6 bg-card border-border rounded-lg mt-5">
         <h3 className="font-semibold mb-1">Public Booking Page</h3>
         <p className="text-sm text-muted-foreground mb-3">Share this link with patients to let them book online.</p>
-        <div className="flex items-center gap-2 p-3 bg-[#F8FAFC] rounded-md border border-border">
+        <div className="flex items-center gap-2 p-3 bg-muted rounded-md border border-border">
           <span className="flex-1 font-mono text-sm break-all">{bookingLink}</span>
-          <button onClick={()=>{navigator.clipboard.writeText(bookingLink); toast.success('Copied')}} className="px-2 py-1 hover:bg-white rounded"><Copy className="w-4 h-4 text-muted-foreground"/></button>
-          <a href={bookingLink} target="_blank" rel="noreferrer" className="px-2 py-1 hover:bg-white rounded"><ExternalLink className="w-4 h-4 text-muted-foreground"/></a>
+          <button onClick={()=>{navigator.clipboard.writeText(bookingLink); toast.success('Copied')}} className="px-2 py-1 hover:bg-card rounded"><Copy className="w-4 h-4 text-muted-foreground"/></button>
+          <a href={bookingLink} target="_blank" rel="noreferrer" className="px-2 py-1 hover:bg-card rounded"><ExternalLink className="w-4 h-4 text-muted-foreground"/></a>
         </div>
         <div className="mt-3 flex items-center gap-2">
           <Input value={c.slug} onChange={e=>setC({...c,slug:e.target.value})} className="font-mono text-sm" placeholder="clinic-slug"/>
           <Button variant="outline" size="sm" onClick={updateSlug}>Update Slug</Button>
         </div>
-        <p className="text-xs text-orange-600 mt-2">⚠️ Changing this will break existing shared links</p>
+        <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">⚠️ Changing this will break existing shared links</p>
       </Card>
 
-      <Card className="p-6 bg-white border-border rounded-lg mt-5">
+      <Card className="p-6 bg-card border-border rounded-lg mt-5">
         <div className="flex items-center justify-between mb-3"><h3 className="font-semibold">Treatment Templates</h3><Button size="sm" onClick={()=>{setTpl({id:null,name:'',category:'',default_notes:'',default_price:''}); setTplOpen(true)}}><Plus className="w-4 h-4 mr-1"/>Add Template</Button></div>
         {templates.length === 0 && <div className="text-sm text-muted-foreground py-2">No templates yet. Add common treatments to apply them quickly during visits.</div>}
         {templates.map(t => (
@@ -146,29 +163,78 @@ function ClinicTab({ me, reload }) {
   )
 }
 
+function RoleCheckboxGroup({ value, onChange, disabled, className }) {
+  const labels = { admin: 'Admin', doctor: 'Doctor', receptionist: 'Receptionist' }
+  const toggle = (role) => {
+    if (disabled) return
+    const set = new Set(value || [])
+    if (set.has(role)) {
+      set.delete(role)
+    } else {
+      set.add(role)
+    }
+    const next = VALID_ROLES.filter(r => set.has(r))
+    if (next.length === 0) {
+      toast.error('At least one role is required')
+      return
+    }
+    onChange(next)
+  }
+  return (
+    <div className={className || 'flex flex-wrap gap-4'}>
+      {VALID_ROLES.map(role => (
+        <label key={role} className="flex items-center gap-2 text-sm cursor-pointer">
+          <Checkbox checked={(value || []).includes(role)} onCheckedChange={() => toggle(role)} disabled={disabled} />
+          {labels[role]}
+        </label>
+      ))}
+    </div>
+  )
+}
+
 function TeamTab() {
+  const { me } = useRole()
   const [team, setTeam] = useState([])
   const [open, setOpen] = useState(false)
-  const [f, setF] = useState({ full_name:'', email:'', role:'doctor', password:'', whatsapp_number:'' })
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [f, setF] = useState({ full_name:'', email:'', roles:['doctor'], password:'', whatsapp_number:'', consultation_fee:'' })
   const [editingWhatsApp, setEditingWhatsApp] = useState(null)
   const [whatsappValue, setWhatsappValue] = useState('')
+  const [editingFee, setEditingFee] = useState(null)
+  const [feeValue, setFeeValue] = useState('')
+  const [editMember, setEditMember] = useState(null)
+  const [editForm, setEditForm] = useState({ full_name: '', email: '', password: '' })
   const load = () => fetch('/api/team').then(r=>r.json()).then(d=>setTeam(d.team||[]))
   useEffect(() => { load() }, [])
   const invite = async () => {
-    const r = await fetch('/api/team', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(f) })
+    if (!f.roles?.length) { toast.error('Select at least one role'); return }
+    const r = await fetch('/api/team', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ...f, roles: f.roles }) })
     const d = await r.json()
     if (r.ok) {
-      toast.success(d.invite_email_sent ? 'Invitation email sent with login details.' : 'Team member added. Set RESEND_API_KEY and RESEND_FROM_EMAIL to send invite emails automatically.')
-      setOpen(false); setF({full_name:'',email:'',role:'doctor',password:'',whatsapp_number:''}); load()
+      toast.success(d.invite_email_sent ? 'Invitation email sent with login details.' : 'Team member added.')
+      setOpen(false); setF({full_name:'',email:'',roles:['doctor'],password:'',whatsapp_number:'',consultation_fee:''}); load()
     } else toast.error(d.error||'Failed')
   }
   const toggleActive = async (m) => {
     const r = await fetch(`/api/team/${m.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ is_active: !m.is_active }) })
     if (r.ok) { toast.success('Updated'); load() }
   }
-  const updateRole = async (m, role) => {
-    const r = await fetch(`/api/team/${m.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ role }) })
-    if (r.ok) { toast.success('Role updated'); load() }
+  const deleteMember = async () => {
+    if (!deleteTarget) return
+    const r = await fetch(`/api/team/${deleteTarget.id}`, { method:'DELETE' })
+    const d = await r.json()
+    if (r.ok) { toast.success('Team member removed'); setDeleteTarget(null); load() }
+    else toast.error(d.error || 'Failed to delete')
+  }
+  const updateRoles = async (m, roles) => {
+    const r = await fetch(`/api/team/${m.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ roles }) })
+    if (r.ok) { toast.success('Roles updated'); load() }
+    else toast.error((await r.json()).error || 'Failed')
+  }
+  const updateConsultationFee = async (m) => {
+    const r = await fetch(`/api/team/${m.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ consultation_fee: feeValue === '' ? null : feeValue }) })
+    if (r.ok) { toast.success('Consultation fee updated'); setEditingFee(null); load() }
+    else toast.error('Failed')
   }
   const updateWhatsApp = async (m) => {
     if (!/^\d{10}$/.test(whatsappValue)) {
@@ -179,20 +245,59 @@ function TeamTab() {
     if (r.ok) { toast.success('WhatsApp number updated'); setEditingWhatsApp(null); setWhatsappValue(''); load() }
     else toast.error('Failed')
   }
+  const openEditMember = (m) => {
+    setEditMember(m)
+    setEditForm({ full_name: m.full_name || '', email: m.email || '', password: '' })
+  }
+  const saveMemberEdit = async () => {
+    if (!editMember) return
+    if (!editForm.full_name.trim()) { toast.error('Name is required'); return }
+    if (!editForm.email.trim()) { toast.error('Email is required'); return }
+    const body = { full_name: editForm.full_name.trim(), email: editForm.email.trim() }
+    if (editForm.password) body.password = editForm.password
+    const r = await fetch(`/api/team/${editMember.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const d = await r.json()
+    if (r.ok) {
+      toast.success('Team member updated')
+      setEditMember(null)
+      setEditForm({ full_name: '', email: '', password: '' })
+      load()
+    } else toast.error(d.error || 'Failed')
+  }
   const formatWhatsApp = (num) => num ? `+91 ${num}` : '—'
+  const currentUserId = me?.profile?.id
+  const ownerId = me?.clinic?.owner_id
+  const canDelete = (m) => m.id !== currentUserId && m.id !== ownerId
   return (
-    <Card className="p-6 bg-white border-border rounded-lg">
+    <Card className="p-6 bg-card border-border rounded-lg max-w-6xl">
       <div className="flex items-center justify-between mb-3"><h3 className="font-semibold">Team Members ({team.length})</h3><Button size="sm" onClick={()=>setOpen(true)} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>Invite</Button></div>
-      <table className="w-full text-sm">
-        <thead className="text-xs uppercase text-muted-foreground tracking-wider border-b border-border">
-          <tr><th className="text-left py-2 font-medium">Name</th><th className="text-left font-medium">Email</th><th className="text-left font-medium">WhatsApp</th><th className="text-left font-medium">Role</th><th className="text-left font-medium">Last login</th><th className="text-left font-medium">Status</th><th className="text-right font-medium">Actions</th></tr>
-        </thead>
-        <tbody>
-          {team.map(m => (
-            <tr key={m.id} className="border-b border-border last:border-0">
-              <td className="py-3 font-medium">{m.full_name}</td>
-              <td className="py-3 text-muted-foreground">{m.email}</td>
-              <td className="py-3">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="min-w-[140px]">Name</TableHead>
+            <TableHead className="min-w-[180px]">Email</TableHead>
+            <TableHead className="w-[130px]">WhatsApp</TableHead>
+            <TableHead className="min-w-[240px]">Roles</TableHead>
+            <TableHead className="w-[130px]">Consultation fee</TableHead>
+            <TableHead className="w-[120px]">Last login</TableHead>
+            <TableHead className="w-[90px]">Status</TableHead>
+            <TableHead className="w-[200px] text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {team.map(m => {
+            const memberRoles = getProfileRoles(m)
+            const isDoctorMember = memberRoles.includes('doctor')
+            const isAdminMember = memberRoles.includes('admin')
+            return (
+            <TableRow key={m.id}>
+              <TableCell className="font-medium min-w-[140px]">{m.full_name}</TableCell>
+              <TableCell className="text-muted-foreground min-w-[180px] max-w-[220px] truncate">{m.email}</TableCell>
+              <TableCell className="w-[130px]">
                 {editingWhatsApp === m.id ? (
                   <div className="flex items-center gap-2">
                     <Input type="text" value={whatsappValue} onChange={e=>setWhatsappValue(e.target.value)} placeholder="10 digits" className="w-28 h-8" maxLength={10}/>
@@ -201,31 +306,90 @@ function TeamTab() {
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <span className={m.role === 'doctor' ? '' : 'text-muted-foreground'}>{m.role === 'doctor' ? formatWhatsApp(m.whatsapp_number) : '—'}</span>
-                    {m.role === 'doctor' && <button onClick={()=>{setEditingWhatsApp(m.id); setWhatsappValue(m.whatsapp_number||'')}} className="text-muted-foreground hover:text-[#0D9488]"><Edit2 className="w-3.5 h-3.5"/></button>}
+                    <span className={isDoctorMember ? '' : 'text-muted-foreground'}>{isDoctorMember ? formatWhatsApp(m.whatsapp_number) : '—'}</span>
+                    {isDoctorMember && <button onClick={()=>{setEditingWhatsApp(m.id); setWhatsappValue(m.whatsapp_number||'')}} className="text-muted-foreground hover:text-[#0D9488]"><Edit2 className="w-3.5 h-3.5"/></button>}
                   </div>
                 )}
-              </td>
-              <td className="py-3"><Select value={m.role} onValueChange={v=>updateRole(m,v)}><SelectTrigger className="w-32 h-8"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="admin">Admin</SelectItem><SelectItem value="doctor">Doctor</SelectItem><SelectItem value="receptionist">Receptionist</SelectItem></SelectContent></Select></td>
-              <td className="py-3 text-muted-foreground text-xs whitespace-nowrap">{fmtLastLogin(m.last_login_at)}</td>
-              <td className="py-3">{m.is_active?<span className="text-xs px-2 py-1 rounded-full bg-green-50 text-green-700">Active</span>:<span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">Inactive</span>}</td>
-              <td className="py-3 text-right"><Button size="sm" variant="outline" onClick={()=>toggleActive(m)} className="h-8">{m.is_active?'Deactivate':'Activate'}</Button></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              </TableCell>
+              <TableCell className="min-w-[240px]">
+                <RoleCheckboxGroup
+                  value={memberRoles}
+                  onChange={roles => updateRoles(m, roles)}
+                  className="flex flex-nowrap items-center gap-x-4"
+                />
+              </TableCell>
+              <TableCell className="w-[130px] whitespace-nowrap">
+                {isDoctorMember ? (
+                  editingFee === m.id ? (
+                    <div className="flex items-center gap-2">
+                      <Input type="number" value={feeValue} onChange={e=>setFeeValue(e.target.value)} className="w-24 h-8" placeholder="₹" />
+                      <button onClick={()=>updateConsultationFee(m)} className="text-green-600"><Check className="w-4 h-4"/></button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span>{m.consultation_fee != null ? `₹${Number(m.consultation_fee).toLocaleString('en-IN')}` : '—'}</span>
+                      <button onClick={()=>{setEditingFee(m.id); setFeeValue(m.consultation_fee ?? '')}} className="text-muted-foreground hover:text-[#0D9488]"><Edit2 className="w-3.5 h-3.5"/></button>
+                    </div>
+                  )
+                ) : '—'}
+              </TableCell>
+              <TableCell className="w-[120px] text-muted-foreground text-xs whitespace-nowrap">{fmtLastLogin(m.last_login_at)}</TableCell>
+              <TableCell className="w-[90px]">{m.is_active?<span className="text-xs px-2 py-1 rounded-full bg-green-50 text-green-700">Active</span>:<span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">Inactive</span>}</TableCell>
+              <TableCell className="w-[200px] text-right">
+                <div className="flex items-center justify-end gap-2">
+                  {!isAdminMember && (
+                    <Button size="sm" variant="outline" onClick={()=>openEditMember(m)} className="h-8 px-2" title="Edit member">
+                      <Edit2 className="w-3.5 h-3.5"/>
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" onClick={()=>toggleActive(m)} className="h-8">{m.is_active?'Deactivate':'Activate'}</Button>
+                  {canDelete(m) && (
+                    <Button size="sm" variant="outline" onClick={()=>setDeleteTarget(m)} className="h-8 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700">Delete</Button>
+                  )}
+                </div>
+              </TableCell>
+            </TableRow>
+          )})}
+        </TableBody>
+      </Table>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md"><DialogHeader><DialogTitle>Invite Team Member</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5"><Label>Full Name</Label><Input value={f.full_name} onChange={e=>setF({...f,full_name:e.target.value})}/></div>
             <div className="space-y-1.5"><Label>Email</Label><Input type="email" value={f.email} onChange={e=>setF({...f,email:e.target.value})}/></div>
-            <div className="space-y-1.5"><Label>Role</Label><Select value={f.role} onValueChange={v=>setF({...f,role:v})}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="doctor">Doctor</SelectItem><SelectItem value="receptionist">Receptionist</SelectItem></SelectContent></Select></div>
-            {f.role === 'doctor' && <div className="space-y-1.5"><Label>WhatsApp Number (for daily schedule)</Label><Input type="text" value={f.whatsapp_number} onChange={e=>setF({...f,whatsapp_number:e.target.value.replace(/\D/g,'').slice(0,10)})} placeholder="10-digit mobile number" maxLength={10}/></div>}
+            <div className="space-y-1.5"><Label>Roles</Label><RoleCheckboxGroup value={f.roles} onChange={roles => setF({ ...f, roles })} /></div>
+            {f.roles?.includes('doctor') && <div className="space-y-1.5"><Label>WhatsApp Number (for daily schedule)</Label><Input type="text" value={f.whatsapp_number} onChange={e=>setF({...f,whatsapp_number:e.target.value.replace(/\D/g,'').slice(0,10)})} placeholder="10-digit mobile number" maxLength={10}/></div>}
+            {f.roles?.includes('doctor') && <div className="space-y-1.5"><Label>Consultation fee (₹)</Label><Input type="number" value={f.consultation_fee} onChange={e=>setF({...f,consultation_fee:e.target.value})} placeholder="Default per visit"/></div>}
             <div className="space-y-1.5"><Label>Temporary Password</Label><Input type="password" value={f.password} onChange={e=>setF({...f,password:e.target.value})} placeholder="min 8 characters"/></div>
             <Button onClick={invite} className="w-full bg-[#0D9488] hover:bg-[#0B7E73]">Add Member</Button>
           </div>
         </DialogContent>
       </Dialog>
+      <Dialog open={!!editMember} onOpenChange={open => { if (!open) { setEditMember(null); setEditForm({ full_name: '', email: '', password: '' }) } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Edit Team Member</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5"><Label>Full Name</Label><Input value={editForm.full_name} onChange={e=>setEditForm({ ...editForm, full_name: e.target.value })}/></div>
+            <div className="space-y-1.5"><Label>Email</Label><Input type="email" value={editForm.email} onChange={e=>setEditForm({ ...editForm, email: e.target.value })}/></div>
+            <div className="space-y-1.5"><Label>New Password</Label><Input type="password" value={editForm.password} onChange={e=>setEditForm({ ...editForm, password: e.target.value })} placeholder="Leave blank to keep current"/></div>
+            <Button onClick={saveMemberEdit} className="w-full bg-[#0D9488] hover:bg-[#0B7E73]">Save Changes</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <AlertDialog open={!!deleteTarget} onOpenChange={open => { if (!open) setDeleteTarget(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove team member?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove {deleteTarget?.full_name} from your team. Their past activity will be preserved for records. Continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={deleteMember} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   )
 }
@@ -275,7 +439,7 @@ function ConsentFormsTab() {
   }
 
   return (
-    <Card className="p-6 bg-white border-border rounded-lg">
+    <Card className="p-6 bg-card border-border rounded-lg">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold">Consent Form Templates</h3>
         <Button size="sm" onClick={() => { setTemplate({ id: null, name: '', category: 'General', content: '', active: true }); setOpen(true) }} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>Add Template</Button>
@@ -293,7 +457,7 @@ function ConsentFormsTab() {
       {!loading && templates.length > 0 && (
         <div className="space-y-3">
           {templates.map(t => (
-            <div key={t.id} className="flex items-center gap-3 p-4 border border-border rounded-lg hover:bg-[#F8FAFC]/50">
+            <div key={t.id} className="flex items-center gap-3 p-4 border border-border rounded-lg hover:bg-muted/50">
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <div className="font-medium">{t.name}</div>
@@ -408,7 +572,7 @@ function DoctorAvailabilityTab({ me }) {
   })()
 
   return (
-    <Card className="p-6 bg-white border-border rounded-lg">
+    <Card className="p-6 bg-card border-border rounded-lg">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold">Doctor Availability</h3>
         {canEdit && <Button size="sm" onClick={() => { setForm({ doctor_id: '', date: '', start_time: '', end_time: '', reason: '' }); setOpen(true) }} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>Add Block</Button>}
@@ -422,7 +586,7 @@ function DoctorAvailabilityTab({ me }) {
       {!loading && blocks.length > 0 && (
         <div className="space-y-3">
           {blocks.map(block => (
-            <div key={block.id} className="flex items-center gap-3 p-4 border border-border rounded-lg hover:bg-[#F8FAFC]/50">
+            <div key={block.id} className="flex items-center gap-3 p-4 border border-border rounded-lg hover:bg-muted/50">
               <div className="flex-1">
                 <div className="font-medium">{block.doctor_name || 'All Doctors'}</div>
                 <div className="text-sm text-muted-foreground">{block.date} · {block.start_time} - {block.end_time}</div>

@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation'
 import { Printer, Loader2, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { ToothIcon } from '@/components/dentos/Logo'
+import { ClinicLogo } from '@/components/dentos/Logo'
 
 const inr = n => '₹' + (n||0).toLocaleString('en-IN')
 const fmtDate = d => d ? `${String(new Date(d+'T00:00:00').getDate()).padStart(2,'0')}/${String(new Date(d+'T00:00:00').getMonth()+1).padStart(2,'0')}/${new Date(d+'T00:00:00').getFullYear()}` : '—'
@@ -54,7 +54,7 @@ function App() {
         <Card className="p-10 bg-white border-border rounded-lg print:shadow-none print:border-0">
           <div className="flex items-start justify-between border-b-2 border-[#0D9488] pb-6">
             <div className="flex items-start gap-3">
-              <div className="w-12 h-12 rounded-lg bg-[#0D9488] flex items-center justify-center"><ToothIcon className="w-6 h-6 text-white"/></div>
+              <ClinicLogo logoUrl={data.clinic?.logo_url} size="w-12 h-12" iconSize="w-6 h-6" />
               <div>
                 <div className="text-xl font-bold text-[#0F172A]">{data.clinic?.name}</div>
                 <div className="text-xs text-muted-foreground mt-0.5 max-w-xs">{data.clinic?.address}</div>

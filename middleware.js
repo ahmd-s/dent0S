@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { canAccessRoute } from '@/lib/rbac'
 
-const PUBLIC_PATHS = ['/login', '/signup']
-const PROTECTED_PREFIXES = ['/dashboard', '/onboarding', '/patients', '/appointments', '/lab-cases', '/vendors', '/billing', '/settings', '/visits', '/inventory']
+const PUBLIC_PATHS = ['/login', '/signup', '/signup/google-complete', '/forgot-password', '/reset-password', '/verify-email', '/verify-email-pending']
+const PROTECTED_PREFIXES = ['/dashboard', '/onboarding', '/patients', '/appointments', '/lab-cases', '/vendors', '/billing', '/settings', '/visits', '/inventory', '/subscription']
 
 function jwtPayload(token) {
   try {
@@ -20,24 +20,67 @@ function jwtPayload(token) {
 export function middleware(req) {
   const { pathname } = req.nextUrl
   const token = req.cookies.get('dentos_token')?.value
+  const payload = token ? jwtPayload(token) : null
+  const isPlatformAdmin = !!payload?.pa
 
   if (pathname.startsWith('/book')) return NextResponse.next()
 
-  if (PUBLIC_PATHS.includes(pathname)) {
-    if (token) return NextResponse.redirect(new URL('/dashboard', req.url))
+  if (pathname === '/platform-admin' || pathname.startsWith('/platform-admin/')) {
+    if (!token) return NextResponse.redirect(new URL('/login', req.url))
+    if (!isPlatformAdmin) return new NextResponse(null, { status: 404, statusText: 'Not Found' })
     return NextResponse.next()
   }
+
+  if (PUBLIC_PATHS.includes(pathname)) {
+    if (token) {
+      return NextResponse.redirect(new URL(isPlatformAdmin ? '/platform-admin' : '/dashboard', req.url))
+    }
+    return NextResponse.next()
+  }
+
   if (PROTECTED_PREFIXES.some(p => pathname === p || pathname.startsWith(p + '/'))) {
     if (!token) return NextResponse.redirect(new URL('/login', req.url))
-    const payload = jwtPayload(token)
-    if (!canAccessRoute(payload?.role, pathname)) {
+    if (isPlatformAdmin) return NextResponse.redirect(new URL('/platform-admin', req.url))
+    // Clinic-less session without platform 2FA — force re-login (platform admin stuck state)
+    if (payload?.cid == null && !payload?.pa) {
+      return NextResponse.redirect(new URL('/login', req.url))
+    }
+    const roles = Array.isArray(payload?.roles)
+      ? payload.roles
+      : payload?.role
+        ? [payload.role]
+        : []
+    if (!canAccessRoute(roles, pathname)) {
       return NextResponse.redirect(new URL('/dashboard?error=unauthorized', req.url))
     }
   }
+
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/onboarding', '/login', '/signup', '/book/:path*',
-    '/patients/:path*', '/appointments/:path*', '/lab-cases/:path*', '/vendors/:path*', '/billing/:path*', '/settings/:path*', '/visits/:path*', '/inventory', '/inventory/:path*']
+  matcher: [
+    '/platform-admin',
+    '/platform-admin/:path*',
+    '/dashboard/:path*',
+    '/onboarding',
+    '/login',
+    '/signup',
+    '/signup/google-complete',
+    '/forgot-password',
+    '/reset-password',
+    '/verify-email',
+    '/verify-email-pending',
+    '/book/:path*',
+    '/patients/:path*',
+    '/appointments/:path*',
+    '/lab-cases/:path*',
+    '/vendors/:path*',
+    '/billing/:path*',
+    '/settings/:path*',
+    '/visits/:path*',
+    '/inventory',
+    '/inventory/:path*',
+    '/subscription',
+  ],
 }

@@ -1,0 +1,37 @@
+---
+alwaysApply: false
+---
+# DentOS Core Principles
+
+DentOS is a production-focused multi-tenant clinic management SaaS.
+
+## General
+
+- Preserve existing functionality unless explicitly asked to change it.
+- Prefer incremental refactoring over complete rewrites.
+- Do not introduce unnecessary abstractions.
+- Explain architectural tradeoffs before large structural changes.
+- Follow existing project structure and coding conventions.
+- Consider maintainability, scalability, security, and performance.
+- Do not remove existing functionality without confirmation.
+
+## Architecture
+
+- The repository is the source of truth for current implementation.
+- Never assume planned/roadmap architecture is already implemented.
+- Clearly distinguish: current implementation vs planned vs proposed.
+- Maintain multi-tenant safety — never break clinic data isolation.
+
+```js
+// ❌ BAD — missing clinic scope
+db.collection('patients').find({ id: patientId })
+
+// ✅ GOOD — always scope by clinic
+db.collection('patients').find({ id: patientId, clinic_id: clinicId })
+```
+
+## Coding
+
+- Reuse existing utilities and components (`lib/`, `components/dentos/`, API helpers).
+- Keep changes focused; avoid unrelated modifications.
+- When multiple approaches exist, recommend the most production-ready option and explain why.

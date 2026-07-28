@@ -57,7 +57,7 @@ function App() {
   return (
     <div className="max-w-7xl mx-auto">
       <div>
-        <h1 className="text-2xl font-bold text-[#0F172A]">Inventory Alerts</h1>
+        <h1 className="text-2xl font-bold text-foreground">Inventory Alerts</h1>
         <p className="text-muted-foreground text-sm">Low stock and expiry warnings</p>
       </div>
 
@@ -65,15 +65,15 @@ function App() {
       {!loading && (
         <div className="mt-6 space-y-6">
           <div>
-            <h2 className="text-lg font-semibold text-[#0F172A] flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-amber-500"/> Low Stock Items ({lowStock.length})
             </h2>
             {lowStock.length === 0 ? (
-              <Card className="mt-3 bg-white border-border rounded-lg py-8 text-center text-muted-foreground text-sm">
+              <Card className="mt-3 bg-card border-border rounded-lg py-8 text-center text-muted-foreground text-sm">
                 No low stock items. Great job!
               </Card>
             ) : (
-              <div className="mt-3 bg-white border-border rounded-lg overflow-hidden">
+              <div className="mt-3 bg-card border-border rounded-lg overflow-hidden">
                 <table className="w-full">
                   <thead className="bg-muted border-b border-border">
                     <tr>
@@ -110,15 +110,15 @@ function App() {
           </div>
 
           <div>
-            <h2 className="text-lg font-semibold text-[#0F172A] flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
               <Clock className="w-5 h-5 text-orange-500"/> Expiring Soon ({expiringSoon.length})
             </h2>
             {expiringSoon.length === 0 ? (
-              <Card className="mt-3 bg-white border-border rounded-lg py-8 text-center text-muted-foreground text-sm">
+              <Card className="mt-3 bg-card border-border rounded-lg py-8 text-center text-muted-foreground text-sm">
                 No items expiring soon.
               </Card>
             ) : (
-              <div className="mt-3 bg-white border-border rounded-lg overflow-hidden">
+              <div className="mt-3 bg-card border-border rounded-lg overflow-hidden">
                 <table className="w-full">
                   <thead className="bg-muted border-b border-border">
                     <tr>

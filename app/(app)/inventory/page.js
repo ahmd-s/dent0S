@@ -103,7 +103,7 @@ function App() {
     <div className="max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#0F172A]">Inventory Dashboard</h1>
+          <h1 className="text-2xl font-bold text-foreground">Inventory Dashboard</h1>
           <p className="text-muted-foreground text-sm">Overview of your dental materials and supplies</p>
         </div>
         <div className="flex items-center gap-2">
@@ -128,38 +128,38 @@ function App() {
       {!loading && analytics && (
         <div className="mt-6 space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="p-5 bg-white border-border rounded-lg">
+            <Card className="p-5 bg-card border-border rounded-lg">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Total Items</p>
-                  <p className="text-2xl font-bold text-[#0F172A]">{analytics.total_items}</p>
+                  <p className="text-2xl font-bold text-foreground">{analytics.total_items}</p>
                 </div>
                 <Package className="w-8 h-8 text-[#0D9488]"/>
               </div>
             </Card>
-            <Card className="p-5 bg-white border-border rounded-lg">
+            <Card className="p-5 bg-card border-border rounded-lg">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Total Value</p>
-                  <p className="text-2xl font-bold text-[#0F172A]">₹{analytics.total_value.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-foreground">₹{analytics.total_value.toLocaleString()}</p>
                 </div>
                 <IndianRupee className="w-8 h-8 text-[#0D9488]"/>
               </div>
             </Card>
-            <Card className={`p-5 bg-white border-border rounded-lg ${analytics.low_stock_count > 0 ? 'border-amber-300' : ''}`}>
+            <Card className={`p-5 bg-card border-border rounded-lg ${analytics.low_stock_count > 0 ? 'border-amber-300' : ''}`}>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Low Stock</p>
-                  <p className={`text-2xl font-bold ${analytics.low_stock_count > 0 ? 'text-amber-600' : 'text-[#0F172A]'}`}>{analytics.low_stock_count}</p>
+                  <p className={`text-2xl font-bold ${analytics.low_stock_count > 0 ? 'text-amber-600' : 'text-foreground'}`}>{analytics.low_stock_count}</p>
                 </div>
                 <AlertTriangle className={`w-8 h-8 ${analytics.low_stock_count > 0 ? 'text-amber-500' : 'text-[#0D9488]'}`}/>
               </div>
             </Card>
-            <Card className={`p-5 bg-white border-border rounded-lg ${analytics.expiring_soon_count > 0 ? 'border-orange-300' : ''}`}>
+            <Card className={`p-5 bg-card border-border rounded-lg ${analytics.expiring_soon_count > 0 ? 'border-orange-300' : ''}`}>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Expiring Soon</p>
-                  <p className={`text-2xl font-bold ${analytics.expiring_soon_count > 0 ? 'text-orange-600' : 'text-[#0F172A]'}`}>{analytics.expiring_soon_count}</p>
+                  <p className={`text-2xl font-bold ${analytics.expiring_soon_count > 0 ? 'text-orange-600' : 'text-foreground'}`}>{analytics.expiring_soon_count}</p>
                 </div>
                 <Clock className={`w-8 h-8 ${analytics.expiring_soon_count > 0 ? 'text-orange-500' : 'text-[#0D9488]'}`}/>
               </div>
@@ -167,8 +167,8 @@ function App() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="p-5 bg-white border-border rounded-lg">
-              <h2 className="text-lg font-semibold text-[#0F172A] mb-4 flex items-center gap-2">
+            <Card className="p-5 bg-card border-border rounded-lg">
+              <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5 text-amber-500"/> Low Stock Items
               </h2>
               {lowStock.length === 0 ? (
@@ -201,8 +201,8 @@ function App() {
               )}
             </Card>
 
-            <Card className="p-5 bg-white border-border rounded-lg">
-              <h2 className="text-lg font-semibold text-[#0F172A] mb-4 flex items-center gap-2">
+            <Card className="p-5 bg-card border-border rounded-lg">
+              <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
                 <Clock className="w-5 h-5 text-orange-500"/> Expiring Soon
               </h2>
               {expiringSoon.length === 0 ? (
@@ -228,8 +228,8 @@ function App() {
             </Card>
           </div>
 
-          <Card className="p-5 bg-white border-border rounded-lg">
-            <h2 className="text-lg font-semibold text-[#0F172A] mb-4">Monthly Consumption</h2>
+          <Card className="p-5 bg-card border-border rounded-lg">
+            <h2 className="text-lg font-semibold text-foreground mb-4">Monthly Consumption</h2>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={analytics.monthly_consumption}>
@@ -368,7 +368,7 @@ function QuickAddStockDialog({ open, setOpen, inventoryItems, vendors, onSaved }
                 placeholder="Search item..."
               />
               {showItemDropdown && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-border rounded-md shadow-lg max-h-64 overflow-y-auto">
+                <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-md shadow-lg max-h-64 overflow-y-auto">
                   {filteredItems.length > 0 ? (
                     filteredItems.slice(0, 10).map(item => (
                       <button

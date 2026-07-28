@@ -49,7 +49,7 @@ function App() {
         <div><p className="text-muted-foreground text-sm">Manage dental labs &amp; suppliers</p></div>
         {canManage && <Button onClick={openNew} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Plus className="w-4 h-4 mr-1"/>Add Vendor</Button>}
       </div>
-      <Card className="mt-5 p-4 bg-white border-border rounded-lg flex items-center gap-3">
+      <Card className="mt-5 p-4 bg-card border-border rounded-lg flex items-center gap-3">
         <div className="flex-1 relative">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"/>
           <Input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search labs by name, contact or phone…" className="pl-9"/>
@@ -60,17 +60,17 @@ function App() {
 
       {loading && <div className="mt-6 flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]"/></div>}
       {!loading && list.length === 0 && (
-        <Card className="mt-4 bg-white border-border rounded-lg py-16 text-center text-muted-foreground text-sm">
+        <Card className="mt-4 bg-card border-border rounded-lg py-16 text-center text-muted-foreground text-sm">
           No vendors yet. {!canManage && 'Add your first dental lab to start tracking cases.'}
         </Card>
       )}
       {!loading && list.length > 0 && (
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {list.map(v => (
-            <Card key={v.id} className="p-5 bg-white border-border rounded-lg flex flex-col">
+            <Card key={v.id} className="p-5 bg-card border-border rounded-lg flex flex-col">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="font-semibold text-[#0F172A] truncate">{v.name}</div>
+                  <div className="font-semibold text-foreground truncate">{v.name}</div>
                   {v.material_types && <div className="text-xs text-muted-foreground mt-0.5 truncate">{v.material_types}</div>}
                   {v.vendor_type === 'dental_lab' && (
                     <span className="text-xs bg-blue-50 text-blue-600 border border-blue-200 rounded-full px-2 py-0.5 mt-1 inline-block">Dental Lab</span>
@@ -79,7 +79,7 @@ function App() {
                     <span className="text-xs bg-green-50 text-green-600 border border-green-200 rounded-full px-2 py-0.5 mt-1 inline-block">Material Supplier</span>
                   )}
                   {(v.vendor_type === 'both' || !v.vendor_type) && (
-                    <span className="text-xs bg-gray-50 text-gray-500 border border-gray-200 rounded-full px-2 py-0.5 mt-1 inline-block">Lab & Supplier</span>
+                    <span className="text-xs bg-muted text-muted-foreground border border-border rounded-full px-2 py-0.5 mt-1 inline-block">Lab & Supplier</span>
                   )}
                 </div>
                 {canManage && (

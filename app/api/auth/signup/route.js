@@ -1,0 +1,84 @@
+import { NextResponse } from 'next/server'
+import { v4 as uuidv4 } from 'uuid'
+import slugify from 'slugify'
+import { getDb } from '@/lib/mongo'
+import { hashPassword, generateResetToken, hashResetToken } from '@/lib/auth'
+import { sendEmailVerificationEmail } from '@/lib/invite-email'
+
+function cors(res) {
+  res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
+  res.headers.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH')
+  res.headers.set('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+  res.headers.set('Access-Control-Allow-Credentials', 'true')
+  return res
+}
+const json = (d, s=200) => cors(NextResponse.json(d, { status: s }))
+const err = (msg, s=400) => json({ error: msg }, s)
+
+export async function POST(request) {
+  try {
+    const db = await getDb()
+    const b = await request.json()
+    const required = ['full_name','email','phone','clinic_name','password']
+    if (required.some(k=>!b[k])) return err('Missing fields')
+    const email = b.email.toLowerCase().trim()
+    if (await db.collection('profiles').findOne({ email })) return err('Email already registered')
+    const userId = uuidv4(), clinicId = uuidv4()
+    const slug = slugify(b.clinic_name, { lower: true, strict: true }) + '-' + Math.floor(1000+Math.random()*9000)
+    const verifyToken = generateResetToken()
+    const now = new Date()
+    const trialEnd = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)
+    await db.collection('clinics').insertOne({
+      id: clinicId, name: b.clinic_name, slug, owner_id: userId, phone: b.phone, address:'', city:'', gstin:'', logo_url:'', working_hours:null,
+      subscription_plan:'free', is_active:true, onboarding_complete:false, subscription_status:'active', monthly_ai_usage_limit:null,
+      trial_ends_at: trialEnd, subscription_exempt: false, trial_auto_enforcement: 'auto', created_at: now,
+    })
+    await db.collection('profiles').insertOne({
+      id: userId,
+      clinic_id: clinicId,
+      email,
+      password_hash: await hashPassword(b.password),
+      full_name: b.full_name,
+      role: 'admin',
+      phone: b.phone,
+      is_active: true,
+      email_verified: false,
+      email_verification_token_hash: hashResetToken(verifyToken),
+      email_verification_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      created_at: new Date(),
+    })
+    await db.collection('subscriptions').insertOne({
+      clinic_id: clinicId,
+      subscription_status: 'trial',
+      plan_type: null,
+      trial_start: now,
+      trial_end: trialEnd,
+      razorpay_subscription_id: null,
+      razorpay_plan_id: null,
+      razorpay_customer_id: null,
+      current_period_start: null,
+      current_period_end: null,
+      cancel_at_period_end: false,
+      cancelled_at: null,
+      grace_period_end: null,
+      last_payment_date: null,
+      last_payment_amount: null,
+      created_at: now,
+      updated_at: now
+    })
+    const origin = new URL(request.url).origin
+    const verifyUrl = `${origin}/verify-email?token=${encodeURIComponent(verifyToken)}`
+    const emailResult = await sendEmailVerificationEmail({
+      to: email,
+      verifyUrl,
+      clinicName: b.clinic_name,
+    })
+    if (!emailResult?.sent) {
+      console.error('Verification email not sent:', emailResult?.reason || 'unknown')
+    }
+    return json({ ok: true, verification_email_sent: !!emailResult?.sent })
+  } catch (e) {
+    console.error('Auth signup error:', e)
+    return err('Internal server error', 500)
+  }
+}

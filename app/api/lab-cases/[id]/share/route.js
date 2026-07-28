@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireUser, json, err, cors } from '@/lib/api-helpers'
+import { requireUser, json, err, cors, isClinicAccessBlocked, clinicAccessPausedResponse } from '@/lib/api-helpers'
 import { secureToken } from '@/lib/lab-case-helpers'
 import { logAudit, AUDIT_ACTIONS, AUDIT_SOURCE } from '@/lib/audit'
 
@@ -10,6 +10,7 @@ export async function OPTIONS() { return cors(new NextResponse(null, { status: 2
 export async function POST(request, { params }) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
+    if (isClinicAccessBlocked(ctx.clinic)) return clinicAccessPausedResponse(err)
     const { profile, db } = ctx; const cid = profile.clinic_id
     const lc = await db.collection('lab_cases').findOne({ id: params.id, clinic_id: cid })
     if (!lc) return err('Lab case not found', 404)

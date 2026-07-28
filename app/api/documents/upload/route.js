@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { v2 as cloudinary } from 'cloudinary'
 import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
+import { isClinicAccessBlocked, CLINIC_ACCESS_PAUSED_MESSAGE } from '@/lib/clinic-access'
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -11,11 +12,23 @@ cloudinary.config({
 
 export async function POST(request) {
   try {
-    const user = await getCurrentUser(request)
+    const user = getCurrentUser()
     if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
+      )
+    }
+
+    const db = await getDb()
+    const profile = await db.collection('profiles').findOne({ id: user.uid })
+    const clinic = profile?.clinic_id
+      ? await db.collection('clinics').findOne({ id: profile.clinic_id })
+      : null
+    if (isClinicAccessBlocked(clinic)) {
+      return NextResponse.json(
+        { error: CLINIC_ACCESS_PAUSED_MESSAGE, code: 'CLINIC_ACCESS_PAUSED' },
+        { status: 403 }
       )
     }
 
@@ -56,7 +69,6 @@ export async function POST(request) {
       ).end(buffer)
     })
 
-    const db = await getDb()
     const doc = {
       patient_id: patientId,
       visit_id: visitId,

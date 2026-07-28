@@ -33,7 +33,7 @@ export async function PUT(request, { params }) {
     const { profile, db } = user
     const cid = profile.clinic_id
     
-    if (!hasPermission(profile.role, 'consent_templates', 'update')) return err('Forbidden', 403)
+    if (!hasPermission(profile, 'consent_templates', 'update')) return err('Forbidden', 403)
     
     const b = await request.json()
     const { id } = params
@@ -75,7 +75,7 @@ export async function DELETE(request, { params }) {
     const { profile, db } = user
     const cid = profile.clinic_id
     
-    if (!hasPermission(profile.role, 'consent_templates', 'delete')) return err('Forbidden', 403)
+    if (!hasPermission(profile, 'consent_templates', 'delete')) return err('Forbidden', 403)
     
     const { id } = params
     

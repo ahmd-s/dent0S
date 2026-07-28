@@ -156,10 +156,10 @@ export function VisitVoiceRecorder({ visitId, onApplyExtraction, disabled }) {
   const busy = disabled || processing
 
   return (
-    <Card className="p-4 bg-[#F8FAFC] border-border rounded-lg border-dashed">
+    <Card className="p-4 bg-muted border-border rounded-lg border-dashed">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <div className="text-sm font-medium text-[#0F172A]">Voice notes</div>
+          <div className="text-sm font-medium text-foreground">Voice notes</div>
           <p className="text-xs text-muted-foreground mt-0.5 max-w-xl">
             Record a short dictation after the visit. Text is added as editable drafts—review before saving.
           </p>
@@ -170,7 +170,7 @@ export function VisitVoiceRecorder({ visitId, onApplyExtraction, disabled }) {
               type="button"
               variant="outline"
               size="sm"
-              className="h-9 border-[#0D9488] text-[#0F172A] hover:bg-[#0D9488]/10"
+              className="h-9 border-[#0D9488] text-foreground hover:bg-[#0D9488]/10"
               disabled={busy || !visitId}
               onClick={startRecording}
             >
@@ -205,11 +205,11 @@ export function VisitVoiceRecorder({ visitId, onApplyExtraction, disabled }) {
         </div>
       </div>
       {lastTranscript && (
-        <Accordion type="single" collapsible className="w-full mt-3 border border-border rounded-md bg-white px-2">
+        <Accordion type="single" collapsible className="w-full mt-3 border border-border rounded-md bg-card px-2">
           <AccordionItem value="transcript" className="border-0">
             <AccordionTrigger className="text-xs py-2 hover:no-underline">Raw transcript (verification)</AccordionTrigger>
             <AccordionContent>
-              <pre className="text-xs whitespace-pre-wrap bg-muted/50 p-3 rounded-md max-h-48 overflow-y-auto text-[#0F172A]">
+              <pre className="text-xs whitespace-pre-wrap bg-muted/50 p-3 rounded-md max-h-48 overflow-y-auto text-foreground">
                 {lastTranscript}
               </pre>
             </AccordionContent>

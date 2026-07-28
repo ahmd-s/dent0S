@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
 import crypto from 'crypto'
+import { activateClinicAccessOnPayment } from '@/lib/clinic-subscription-sync'
 
 export async function POST(request) {
   try {
@@ -20,10 +21,21 @@ export async function POST(request) {
     const now = new Date()
     if (eventType === 'subscription.charged') {
       const periodEnd = new Date(entity.current_end * 1000)
+      const planType = entity.notes?.plan_type || subscription.plan_type
       await db.collection('subscriptions').updateOne(
         { clinic_id: clinicId },
-        { $set: { subscription_status: 'active', current_period_end: periodEnd, last_payment_date: now, grace_period_end: null, updated_at: now } }
+        {
+          $set: {
+            subscription_status: 'active',
+            current_period_end: periodEnd,
+            last_payment_date: now,
+            grace_period_end: null,
+            updated_at: now,
+            ...(planType ? { plan_type: planType } : {}),
+          },
+        }
       )
+      await activateClinicAccessOnPayment(db, clinicId)
     } else if (eventType === 'subscription.failed') {
       const graceEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
       await db.collection('subscriptions').updateOne(

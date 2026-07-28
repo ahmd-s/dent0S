@@ -11,14 +11,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { useRole } from '@/components/dentos/RoleContext'
+import { useLiveRefresh } from '@/hooks/useLiveRefresh'
 
 const inr = n => '₹' + (n||0).toLocaleString('en-IN')
 const fmtDate = d => d ? `${String(new Date(d+'T00:00:00').getDate()).padStart(2,'0')}/${String(new Date(d+'T00:00:00').getMonth()+1).padStart(2,'0')}/${new Date(d+'T00:00:00').getFullYear()}` : '—'
 const monthAgo = () => { const d = new Date(); d.setMonth(d.getMonth()-1); return d.toISOString().slice(0,10) }
 const todayIso = () => new Date().toISOString().slice(0,10)
 const statusBadge = s => {
-  const m = { pending:'bg-orange-100 text-orange-700', paid:'bg-green-100 text-green-700', partial:'bg-yellow-100 text-yellow-700', waived:'bg-slate-200 text-slate-600' }
-  return <span className={`text-xs px-2 py-1 rounded-full capitalize ${m[s]||'bg-slate-100'}`}>{s}</span>
+  const m = { pending:'bg-orange-100 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300', paid:'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-300', partial:'bg-yellow-100 text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-300', waived:'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400' }
+  return <span className={`text-xs px-2 py-1 rounded-full capitalize ${m[s]||'bg-slate-100 dark:bg-slate-800'}`}>{s}</span>
 }
 
 function App() {
@@ -41,6 +42,7 @@ function App() {
     setList(d.invoices||[]); setSummary(d.summary||{collected:0,pending:0,total:0})
   }
   useEffect(() => { load() }, [from, to, status, q])
+  useLiveRefresh(load, [from, to, status, q])
 
   const handleSearchChange = useCallback((value) => {
     if (searchTimeoutRef.current) {
@@ -67,50 +69,77 @@ function App() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {cards.map(c => { const Icon = c.icon; return (
-          <Card key={c.label} className="p-5 bg-white border-border rounded-lg">
+          <Card key={c.label} className="p-4 md:p-5 bg-card border-border rounded-lg">
             <div className="flex items-start justify-between">
-              <div><div className="text-sm text-muted-foreground">{c.label}</div><div className="text-3xl font-bold mt-2" style={{color: c.color}}>{c.val}</div></div>
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{backgroundColor: c.color+'15'}}><Icon className="w-5 h-5" style={{color: c.color}}/></div>
+              <div className="flex-1 min-w-0"><div className="text-xs md:text-sm text-muted-foreground">{c.label}</div><div className="text-2xl md:text-3xl font-bold mt-1 md:mt-2" style={{color: c.color}}>{c.val}</div></div>
+              <div className="w-9 h-9 md:w-10 md:h-10 rounded-lg flex items-center justify-center flex-shrink-0 ml-2" style={{backgroundColor: c.color+'15'}}><Icon className="w-4 h-4 md:w-5 md:h-5" style={{color: c.color}}/></div>
             </div>
           </Card>
         )})}
       </div>
 
-      <Card className="mt-5 p-4 bg-white border-border rounded-lg flex items-center gap-3 flex-wrap">
-        <div><Label className="text-xs">From</Label><Input type="date" value={from} onChange={e=>setFrom(e.target.value)} className="w-40"/></div>
-        <div><Label className="text-xs">To</Label><Input type="date" value={to} onChange={e=>setTo(e.target.value)} className="w-40"/></div>
-        <div className="flex-1 min-w-[180px]"><Label className="text-xs">Search</Label><div className="relative"><Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"/><Input value={q} onChange={e=>handleSearchChange(e.target.value)} placeholder="Patient name or invoice number…" className="pl-9"/></div></div>
-        <div><Label className="text-xs">Status</Label><Select value={status} onValueChange={setStatus}><SelectTrigger className="w-40"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All</SelectItem><SelectItem value="pending">Pending</SelectItem><SelectItem value="paid">Paid</SelectItem><SelectItem value="partial">Partial</SelectItem><SelectItem value="waived">Waived</SelectItem></SelectContent></Select></div>
-        <div className="self-end"><Button variant="outline" onClick={exportCsv}>Export CSV</Button></div>
+      <Card className="mt-5 p-4 bg-card border-border rounded-lg flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <div className="flex-1 min-w-[140px]"><Label className="text-xs">From</Label><Input type="date" value={from} onChange={e=>setFrom(e.target.value)} className="w-full sm:w-40"/></div>
+        <div className="flex-1 min-w-[140px]"><Label className="text-xs">To</Label><Input type="date" value={to} onChange={e=>setTo(e.target.value)} className="w-full sm:w-40"/></div>
+        <div className="flex-1 min-w-[180px]"><Label className="text-xs">Search</Label><div className="relative"><Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"/><Input value={q} onChange={e=>handleSearchChange(e.target.value)} placeholder="Patient name or invoice number…" className="pl-9 w-full"/></div></div>
+        <div className="flex-1 min-w-[140px]"><Label className="text-xs">Status</Label><Select value={status} onValueChange={setStatus}><SelectTrigger className="w-full sm:w-40"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All</SelectItem><SelectItem value="pending">Pending</SelectItem><SelectItem value="paid">Paid</SelectItem><SelectItem value="partial">Partial</SelectItem><SelectItem value="waived">Waived</SelectItem></SelectContent></Select></div>
+        <div className="sm:self-end"><Button variant="outline" onClick={exportCsv} className="w-full sm:w-auto">Export CSV</Button></div>
       </Card>
 
-      <Card className="mt-4 bg-white border-border rounded-lg overflow-hidden">
+      <Card className="mt-4 bg-card border-border rounded-lg overflow-hidden">
         {list.length===0 && <div className="py-12 text-center text-muted-foreground text-sm">No invoices in this date range</div>}
         {list.length>0 && (
-          <table className="w-full text-sm">
-            <thead className="bg-[#F8FAFC] text-left text-xs uppercase text-muted-foreground tracking-wider">
-              <tr><th className="px-5 py-3 font-medium">Invoice #</th><th className="px-5 py-3 font-medium">Date</th><th className="px-5 py-3 font-medium">Patient</th><th className="px-5 py-3 font-medium">Amount</th><th className="px-5 py-3 font-medium">Status</th><th className="px-5 py-3 text-right font-medium">Actions</th></tr>
-            </thead>
-            <tbody>
+          <>
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted text-left text-xs uppercase text-muted-foreground tracking-wider">
+                  <tr><th className="px-5 py-3 font-medium">Invoice #</th><th className="px-5 py-3 font-medium">Date</th><th className="px-5 py-3 font-medium">Patient</th><th className="px-5 py-3 font-medium">Amount</th><th className="px-5 py-3 font-medium">Status</th><th className="px-5 py-3 text-right font-medium">Actions</th></tr>
+                </thead>
+                <tbody>
+                  {list.map(i => (
+                    <tr key={i.id} className="border-t border-border hover:bg-muted/50">
+                      <td className="px-5 py-3 font-mono text-xs">{i.invoice_number}</td>
+                      <td className="px-5 py-3 text-muted-foreground">{fmtDate(i.invoice_date)}</td>
+                      <td className="px-5 py-3">{i.patient_name}</td>
+                      <td className="px-5 py-3 font-medium">{inr(i.total_amount)}</td>
+                      <td className="px-5 py-3">{statusBadge(i.payment_status)}</td>
+                      <td className="px-5 py-3">
+                        <div className="flex justify-end gap-2">
+                          <Link href={`/billing/${i.id}`}><Button size="sm" variant="outline" className="h-8"><Eye className="w-3.5 h-3.5 mr-1"/>View</Button></Link>
+                          {canManageBilling() && (i.payment_status==='pending' || i.payment_status==='partial') && <Button size="sm" onClick={()=>setPayOpen(i)} className="h-8 bg-[#0D9488] hover:bg-[#0B7E73]">Mark Paid</Button>}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-3 p-4">
               {list.map(i => (
-                <tr key={i.id} className="border-t border-border hover:bg-[#F8FAFC]/50">
-                  <td className="px-5 py-3 font-mono text-xs">{i.invoice_number}</td>
-                  <td className="px-5 py-3 text-muted-foreground">{fmtDate(i.invoice_date)}</td>
-                  <td className="px-5 py-3">{i.patient_name}</td>
-                  <td className="px-5 py-3 font-medium">{inr(i.total_amount)}</td>
-                  <td className="px-5 py-3">{statusBadge(i.payment_status)}</td>
-                  <td className="px-5 py-3">
-                    <div className="flex justify-end gap-2">
-                      <Link href={`/billing/${i.id}`}><Button size="sm" variant="outline" className="h-8"><Eye className="w-3.5 h-3.5 mr-1"/>View</Button></Link>
-                      {canManageBilling() && (i.payment_status==='pending' || i.payment_status==='partial') && <Button size="sm" onClick={()=>setPayOpen(i)} className="h-8 bg-[#0D9488] hover:bg-[#0B7E73]">Mark Paid</Button>}
+                <div key={i.id} className="border border-border rounded-lg p-4 bg-card">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-mono text-xs text-muted-foreground">{i.invoice_number}</div>
+                      <div className="font-medium text-sm mt-1 truncate">{i.patient_name}</div>
                     </div>
-                  </td>
-                </tr>
+                    <div className="text-right ml-2">
+                      <div className="font-semibold text-base">{inr(i.total_amount)}</div>
+                      {statusBadge(i.payment_status)}
+                    </div>
+                  </div>
+                  <div className="text-xs text-muted-foreground mb-3">{fmtDate(i.invoice_date)}</div>
+                  <div className="flex gap-2">
+                    <Link href={`/billing/${i.id}`} className="flex-1"><Button size="sm" variant="outline" className="h-10 w-full"><Eye className="w-3.5 h-3.5 mr-1"/>View</Button></Link>
+                    {canManageBilling() && (i.payment_status==='pending' || i.payment_status==='partial') && <Button size="sm" onClick={()=>setPayOpen(i)} className="h-10 flex-1 bg-[#0D9488] hover:bg-[#0B7E73]">Mark Paid</Button>}
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          </>
         )}
       </Card>
       <MarkPaidModal invoice={payOpen} onClose={()=>setPayOpen(null)} onSaved={load}/>

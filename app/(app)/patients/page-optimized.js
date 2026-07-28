@@ -10,7 +10,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { useRole } from '@/components/dentos/RoleContext'
 
 const fmtDate = d => d ? `${String(new Date(d).getDate()).padStart(2,'0')}/${String(new Date(d).getMonth()+1).padStart(2,'0')}/${new Date(d).getFullYear()}` : '—'
 const PAGE_SIZE = 20
@@ -24,8 +23,6 @@ function App() {
   const [loading, setLoading] = useState(true)
   // OPTIMIZATION: Added pagination state
   const [pagination, setPagination] = useState({ total_count: 0, total_pages: 1, has_next: false, has_prev: false })
-  const { isReceptionist } = useRole()
-  const receptionist = isReceptionist()
 
   const load = async () => {
     setLoading(true)
@@ -52,9 +49,9 @@ function App() {
     <div className="max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
         <div><p className="text-muted-foreground text-sm">Manage all patients in your clinic</p></div>
-        {!receptionist && <AddPatientButton onCreated={load} open={open} setOpen={setOpen} />}
+        <AddPatientButton onCreated={load} open={open} setOpen={setOpen} />
       </div>
-      <Card className="mt-5 p-4 bg-white border-border rounded-lg flex items-center gap-3">
+      <Card className="mt-5 p-4 bg-card border-border rounded-lg flex items-center gap-3">
         <div className="flex-1 relative">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"/>
           <Input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search by name or phone…" className="pl-9"/>
@@ -72,7 +69,7 @@ function App() {
         {/* OPTIMIZATION: Show total count from pagination */}
         <span className="text-sm text-muted-foreground whitespace-nowrap">{pagination.total_count} patients</span>
       </Card>
-      <Card className="mt-4 bg-white border-border rounded-lg overflow-hidden">
+      <Card className="mt-4 bg-card border-border rounded-lg overflow-hidden">
         {loading && (
           <div className="p-5 space-y-3">
             {[...Array(5)].map((_, i) => (
@@ -94,7 +91,7 @@ function App() {
         {!loading && visible.length===0 && <div className="py-16 text-center text-muted-foreground text-sm">No patients match your search</div>}
         {!loading && visible.length>0 && (
           <table className="w-full text-sm">
-            <thead className="bg-[#F8FAFC] text-left text-xs uppercase text-muted-foreground tracking-wider">
+            <thead className="bg-muted text-left text-xs uppercase text-muted-foreground tracking-wider">
               <tr><th className="px-5 py-3 font-medium">Name</th><th className="px-5 py-3 font-medium">Phone</th><th className="px-5 py-3 font-medium">Age</th><th className="px-5 py-3 font-medium">Gender</th><th className="px-5 py-3 font-medium">Last Visit</th><th className="px-5 py-3 font-medium">Follow-up Due</th><th className="px-5 py-3 text-right font-medium">Actions</th></tr>
             </thead>
             <tbody>
@@ -102,8 +99,8 @@ function App() {
                 const fudate = p.next_followup_date ? new Date(p.next_followup_date) : null
                 const overdue = fudate && fudate < new Date()
                 return (
-                  <tr key={p.id} className="border-t border-border hover:bg-[#F8FAFC]/50 cursor-pointer" onClick={()=>window.location.href=`/patients/${p.id}`}>
-                    <td className="px-5 py-3"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-full bg-[#0D9488]/10 flex items-center justify-center text-sm font-semibold text-[#0D9488]">{p.name?.[0]?.toUpperCase()}</div><div><div className="font-medium text-[#0F172A]">{p.name}</div><div className="text-xs text-muted-foreground">{p.patient_code}</div></div></div></td>
+                  <tr key={p.id} className="border-t border-border hover:bg-muted/50 cursor-pointer" onClick={()=>window.location.href=`/patients/${p.id}`}>
+                    <td className="px-5 py-3"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-full bg-[#0D9488]/10 flex items-center justify-center text-sm font-semibold text-[#0D9488]">{p.name?.[0]?.toUpperCase()}</div><div><div className="font-medium text-foreground">{p.name}</div><div className="text-xs text-muted-foreground">{p.patient_code}</div></div></div></td>
                     <td className="px-5 py-3 text-muted-foreground"><div className="flex items-center gap-1.5"><Phone className="w-3 h-3"/>+91 {p.phone}</div></td>
                     <td className="px-5 py-3 text-muted-foreground">{p.age||'—'}</td>
                     <td className="px-5 py-3 text-muted-foreground capitalize">{p.gender||'—'}</td>

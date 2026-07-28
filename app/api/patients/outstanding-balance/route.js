@@ -9,9 +9,9 @@ function cors(res) {
   res.headers.set('Access-Control-Allow-Credentials', 'true')
   return res
 }
-
 const json = (d, s=200) => cors(NextResponse.json(d, { status: s }))
 const err = (msg, s=400) => json({ error: msg }, s)
+const clean = o => { if (!o) return o; const { _id, password_hash, ...rest } = o; return rest }
 
 async function requireUser() {
   const t = getCurrentUser(); if (!t) return null
@@ -24,14 +24,10 @@ async function requireUser() {
 
 export async function GET(request) {
   try {
-    const ctx = await requireUser()
-    if (!ctx) return err('Unauthorized', 401)
-    
-    const { profile, db } = ctx
-    const cid = profile.clinic_id
+    const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
+    const { profile, db } = ctx; const cid = profile.clinic_id
     const url = new URL(request.url)
     const patient_id = url.searchParams.get('patient_id')
-    
     if (!patient_id) return err('patient_id required')
     
     const invoices = await db.collection('invoices').find({
@@ -58,13 +54,8 @@ export async function GET(request) {
       outstandingBalance, 
       unpaidInvoices 
     })
-    
-  } catch (error) {
-    console.error('Outstanding balance API error:', error)
+  } catch (e) {
+    console.error('Outstanding balance error:', e)
     return err('Internal server error', 500)
   }
-}
-
-export async function OPTIONS() {
-  return cors(new NextResponse(null, { status: 200 }))
 }

@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Textarea } from '@/components/ui/textarea'
 
-export default function SmartTextarea({ value, onChange, category, placeholder, rows = 3, className = '' }) {
+export default function SmartTextarea({ value, onChange, category, placeholder, rows = 3, className = '', disabled = false }) {
   const [suggestions, setSuggestions] = useState([])
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const [showDropdown, setShowDropdown] = useState(false)
@@ -21,7 +21,7 @@ export default function SmartTextarea({ value, onChange, category, placeholder, 
   }, [])
 
   const searchTemplates = async (query) => {
-    if (!query || query.length < 1) {
+    if (disabled || !query || query.length < 1) {
       setSuggestions([])
       setShowDropdown(false)
       return
@@ -108,6 +108,8 @@ export default function SmartTextarea({ value, onChange, category, placeholder, 
         placeholder={placeholder}
         rows={rows}
         className={className}
+        disabled={disabled}
+        readOnly={disabled}
       />
       {showDropdown && suggestions.length > 0 && (
         <div
