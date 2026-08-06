@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import axios from 'axios';
 
 export async function POST(request) {
   try {
@@ -26,51 +27,34 @@ export async function POST(request) {
     groqFormData.append('model', 'whisper-large-v3');
     groqFormData.append('language', 'en');
 
-    const transcriptionResponse = await fetch(
+    const transcriptionResponse = await axios.post(
       'https://api.groq.com/openai/v1/audio/transcriptions',
+      groqFormData,
       {
-        method: 'POST',
         headers: {
           'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
         },
-        body: groqFormData,
+        httpsAgent: new (await import('https')).Agent({ rejectUnauthorized: false })
       }
     );
 
-    if (!transcriptionResponse.ok) {
-      const error = await transcriptionResponse.json();
-      console.error('Groq transcription error:', error);
-      return NextResponse.json(
-        { error: 'Transcription failed' },
-        { status: 500 }
-      );
-    }
-
-    const transcriptionResult = 
-      await transcriptionResponse.json();
-    const transcript = transcriptionResult.text;
+    const transcript = transcriptionResponse.data.text;
 
     // STEP 2: Extract with Groq LLM (free)
-    const extractionResponse = await fetch(
+    const extractionResponse = await axios.post(
       'https://api.groq.com/openai/v1/chat/completions',
       {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          max_tokens: 1000,
-          temperature: 0,
-          messages: [
-            {
-              role: 'system',
-              content: 'You are a clinical documentation assistant for a dental clinic in India. Extract structured data from doctor-patient conversation transcripts. Always respond with valid JSON only. No explanation, no markdown, no code blocks. Just the raw JSON object.'
-            },
-            {
-              role: 'user',
-              content: `Extract the following fields from this dental note:
+        model: 'llama-3.3-70b-versatile',
+        max_tokens: 1000,
+        temperature: 0,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a clinical documentation assistant for a dental clinic in India. Extract structured data from doctor-patient conversation transcripts. Always respond with valid JSON only. No explanation, no markdown, no code blocks. Just the raw JSON object.'
+          },
+          {
+            role: 'user',
+            content: `Extract the following fields from this dental note:
 
 - chief_complaint: what the patient complains about
 - clinical_notes/examination_findings: clinical observations
@@ -109,26 +93,19 @@ Rules:
 - For treatment_done, look specifically for what was done TODAY in this visit
 
 Transcript: ${transcript}`
-            }
-          ]
-        }),
+          }
+        ]
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        httpsAgent: new (await import('https')).Agent({ rejectUnauthorized: false })
       }
     );
 
-    if (!extractionResponse.ok) {
-      const error = await extractionResponse.json();
-      console.error('Groq extraction error:', error);
-      return NextResponse.json({
-        transcript,
-        extracted: null,
-        error: 'Extraction failed',
-      });
-    }
-
-    const extractionResult = 
-      await extractionResponse.json();
-    const extractedText = 
-      extractionResult.choices[0].message.content;
+    const extractedText = extractionResponse.data.choices[0].message.content;
 
     let extracted = null;
     try {
@@ -148,10 +125,7 @@ Transcript: ${transcript}`
     });
 
   } catch (error) {
-    console.error('Voice transcription error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error("VOICE ROUTE CRASH:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

@@ -2,8 +2,7 @@ import { NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'
 import slugify from 'slugify'
 import { getDb } from '@/lib/mongo'
-import { hashPassword, generateResetToken, hashResetToken } from '@/lib/auth'
-import { sendEmailVerificationEmail } from '@/lib/invite-email'
+import { hashPassword } from '@/lib/auth'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -25,7 +24,6 @@ export async function POST(request) {
     if (await db.collection('profiles').findOne({ email })) return err('Email already registered')
     const userId = uuidv4(), clinicId = uuidv4()
     const slug = slugify(b.clinic_name, { lower: true, strict: true }) + '-' + Math.floor(1000+Math.random()*9000)
-    const verifyToken = generateResetToken()
     const now = new Date()
     const trialEnd = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)
     await db.collection('clinics').insertOne({
@@ -42,9 +40,7 @@ export async function POST(request) {
       role: 'admin',
       phone: b.phone,
       is_active: true,
-      email_verified: false,
-      email_verification_token_hash: hashResetToken(verifyToken),
-      email_verification_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      email_verified: true,
       created_at: new Date(),
     })
     await db.collection('subscriptions').insertOne({
@@ -66,17 +62,7 @@ export async function POST(request) {
       created_at: now,
       updated_at: now
     })
-    const origin = new URL(request.url).origin
-    const verifyUrl = `${origin}/verify-email?token=${encodeURIComponent(verifyToken)}`
-    const emailResult = await sendEmailVerificationEmail({
-      to: email,
-      verifyUrl,
-      clinicName: b.clinic_name,
-    })
-    if (!emailResult?.sent) {
-      console.error('Verification email not sent:', emailResult?.reason || 'unknown')
-    }
-    return json({ ok: true, verification_email_sent: !!emailResult?.sent })
+    return json({ ok: true })
   } catch (e) {
     console.error('Auth signup error:', e)
     return err('Internal server error', 500)

@@ -3,6 +3,7 @@ import { v2 as cloudinary } from 'cloudinary'
 import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
 import { isClinicAccessBlocked, CLINIC_ACCESS_PAUSED_MESSAGE } from '@/lib/clinic-access'
+import { uploadBuffer } from '@/lib/localStorage'
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -55,19 +56,27 @@ export async function POST(request) {
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
 
-    const uploadResult = await new Promise((resolve, reject) => {
-      cloudinary.uploader.upload_stream(
-        {
-          folder: `dentos/${user.clinic_id}/${patientId}`,
-          resource_type: 'auto',
-          allowed_formats: ['jpg', 'jpeg', 'png', 'pdf'],
-        },
-        (error, result) => {
-          if (error) reject(error)
-          else resolve(result)
-        }
-      ).end(buffer)
-    })
+    let uploadResult;
+
+    if (process.env.APP_MODE === 'local') {
+      // Use local file system
+      uploadResult = uploadBuffer(buffer, file.name, `dentos/${user.clinic_id}/${patientId}`);
+    } else {
+      // Existing Cloudinary logic
+      uploadResult = await new Promise((resolve, reject) => {
+        cloudinary.uploader.upload_stream(
+          {
+            folder: `dentos/${user.clinic_id}/${patientId}`,
+            resource_type: 'auto',
+            allowed_formats: ['jpg', 'jpeg', 'png', 'pdf'],
+          },
+          (error, result) => {
+            if (error) reject(error)
+            else resolve(result)
+          }
+        ).end(buffer)
+      })
+    }
 
     const doc = {
       patient_id: patientId,

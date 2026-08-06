@@ -176,7 +176,6 @@ function App() {
     const cur = stateRef.current
     try {
       if (!skipConsumption && consumeItems.length > 0) {
-<<<<<<< HEAD
         const itemsToSend = consumeItems
           .filter(item => 
             item.actual_quantity > 0 && 
@@ -213,20 +212,11 @@ function App() {
             console.error('Consume API error:', consumeError)
             toast.warning('Stock deduction failed, but visit will complete')
           }
-=======
-        const itemsToConsume = consumeItems.filter(i => i.actual_quantity > 0).map(i => ({
-          item_id: i.item_id, quantity: i.actual_quantity,
-        }))
-        if (itemsToConsume.length > 0) {
-          await fetch('/api/inventory/consume', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ visit_id: id, patient_name: cur.v.patient?.name || 'Unknown', items: itemsToConsume }),
-          })
->>>>>>> 1b2c9765788c77fa7ef45790a326d40d9aa5c607
         }
       }
+      
+      // Always complete the visit regardless of consume result
       const r = await fetch(`/api/visits/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'},
-<<<<<<< HEAD
         body: JSON.stringify({ ...cur.v, prescriptions: cur.rxs, invoice_items: cur.items, discount: cur.discount, gst_enabled: cur.gstOn, payment_mode: cur.paymentMode, payment_status: cur.paymentStatus, complete: true }) })
       if (r.ok) { 
         toast.success('Visit completed!', {
@@ -248,11 +238,6 @@ function App() {
       } else {
         toast.error('Failed to complete visit')
       }
-=======
-        body: JSON.stringify({ inventory_action: skipConsumption ? 'skip' : 'done' }) })
-      if (r.ok) { toast.success('Inventory step saved'); load() }
-      else toast.error('Failed')
->>>>>>> 1b2c9765788c77fa7ef45790a326d40d9aa5c607
     } finally {
       setSaving(false)
       setConsumeModalOpen(false)

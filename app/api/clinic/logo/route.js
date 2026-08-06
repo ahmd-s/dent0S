@@ -4,6 +4,7 @@ import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { isClinicAccessBlocked, clinicAccessPausedResponse } from '@/lib/clinic-access'
+import { uploadBuffer } from '@/lib/localStorage'
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -50,19 +51,25 @@ export async function POST(request) {
     const buffer = Buffer.from(await file.arrayBuffer())
     const cid = profile.clinic_id
 
-    const uploadResult = await new Promise((resolve, reject) => {
-      cloudinary.uploader.upload_stream(
-        {
-          folder: `dentos/${cid}/logo`,
-          resource_type: 'image',
-          allowed_formats: ALLOWED_FORMATS,
-        },
-        (error, result) => {
-          if (error) reject(error)
-          else resolve(result)
-        }
-      ).end(buffer)
-    })
+    let uploadResult;
+
+    if (process.env.APP_MODE === 'local') {
+      uploadResult = uploadBuffer(buffer, file.name, `dentos/${cid}/logo`);
+    } else {
+      uploadResult = await new Promise((resolve, reject) => {
+        cloudinary.uploader.upload_stream(
+          {
+            folder: `dentos/${cid}/logo`,
+            resource_type: 'image',
+            allowed_formats: ALLOWED_FORMATS,
+          },
+          (error, result) => {
+            if (error) reject(error)
+            else resolve(result)
+          }
+        ).end(buffer)
+      })
+    }
 
     await db.collection('clinics').updateOne(
       { id: cid },

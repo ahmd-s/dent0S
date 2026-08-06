@@ -160,44 +160,6 @@ function App() {
                 const fudate = p.next_followup_date ? new Date(p.next_followup_date) : null
                 const overdue = fudate && fudate < new Date()
                 return (
-<<<<<<< HEAD
-                  <tr key={p.id} className="border-t border-border hover:bg-[#F8FAFC]/50 cursor-pointer" onClick={()=>window.location.href=`/patients/${p.id}`}>
-                    <td className="px-5 py-3"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-full bg-[#0D9488]/10 flex items-center justify-center text-sm font-semibold text-[#0D9488]">{p.name?.[0]?.toUpperCase()}</div><div><div className="font-medium text-[#0F172A]">{p.name}</div><div className="text-xs text-muted-foreground">{p.patient_code}</div></div></div></td>
-                    <td className="px-5 py-3 text-muted-foreground"><div className="flex items-center gap-1.5"><Phone className="w-3 h-3"/>+91 {p.phone}</div></td>
-                    <td className="px-5 py-3 text-muted-foreground">{p.age||'—'}</td>
-                    <td className="px-5 py-3 text-muted-foreground capitalize">{p.gender||'—'}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{fmtDate(p.last_visit_date)}</td>
-                    <td className="px-5 py-3">{fudate ? <span className={overdue?'text-[#EF4444] font-medium':'text-success font-medium'}>{fmtDate(p.next_followup_date)}</span> : <span className="text-muted-foreground">—</span>}</td>
-                    <td className="px-5 py-3" onClick={e=>e.stopPropagation()}>
-                      <div className="flex justify-end gap-2">
-                        <Link href={`/patients/${p.id}`}><Button size="sm" variant="outline" className="h-8"><Eye className="w-3.5 h-3.5 mr-1"/>View</Button></Link>
-                        <Button size="sm" className="h-8 bg-[#0D9488] hover:bg-[#0B7E73]" onClick={()=>{window.location.href=`/appointments?patient=${p.id}&patientName=${encodeURIComponent(p.name)}`}}><CalendarPlus className="w-3.5 h-3.5 mr-1"/>Book</Button>
-                        <Button
-  size="sm"
-  variant="destructive"
-  onClick={async (e) => {
-
-    e.stopPropagation()
-
-    const ok = confirm('Delete this patient permanently?')
-
-    if (!ok) return
-
-    const r = await fetch(`/api/patients/${p.id}`, {
-      method: 'DELETE'
-    })
-
-    if (r.ok) {
-      toast.success('Patient deleted')
-      load()
-    } else {
-      toast.error('Failed to delete patient')
-    }
-  }}
->
-  Delete
-</Button>
-=======
                   <div key={p.id} className="border border-border rounded-lg p-4 bg-card">
                     <div className="flex items-start gap-3 mb-3">
                       <div className="w-10 h-10 rounded-full bg-[#0D9488]/10 flex items-center justify-center text-sm font-semibold text-[#0D9488] flex-shrink-0">{p.name?.[0]?.toUpperCase()}</div>
@@ -205,7 +167,6 @@ function App() {
                         <Link href={`/patients/${p.id}`} className="font-medium text-foreground hover:text-[#0D9488] block truncate">{p.name}</Link>
                         <div className="text-xs text-muted-foreground">{p.patient_code}</div>
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1"><Phone className="w-3 h-3"/>+91 {p.phone}</div>
->>>>>>> 1b2c9765788c77fa7ef45790a326d40d9aa5c607
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs mb-3">

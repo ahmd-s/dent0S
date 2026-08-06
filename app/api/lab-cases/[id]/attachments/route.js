@@ -3,6 +3,9 @@ import { NextResponse } from 'next/server'
 import { v2 as cloudinary } from 'cloudinary'
 import { requireUser, json, err, cors, isClinicAccessBlocked, clinicAccessPausedResponse } from '@/lib/api-helpers'
 import { logAudit, AUDIT_ACTIONS, AUDIT_SOURCE } from '@/lib/audit'
+import { uploadBuffer } from '@/lib/localStorage'
+import fs from 'fs'
+import path from 'path'
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -29,12 +32,18 @@ export async function POST(request, { params }) {
     if (file.size > 10 * 1024 * 1024) return err('File too large. Maximum size is 10MB')
 
     const buffer = Buffer.from(await file.arrayBuffer())
-    const uploadResult = await new Promise((resolve, reject) => {
-      cloudinary.uploader.upload_stream(
-        { folder: `dentos/${cid}/lab-cases/${params.id}`, resource_type: 'auto', allowed_formats: ['jpg', 'jpeg', 'png', 'pdf'] },
-        (error, result) => { if (error) reject(error); else resolve(result) }
-      ).end(buffer)
-    })
+    let uploadResult;
+
+    if (process.env.APP_MODE === 'local') {
+      uploadResult = uploadBuffer(buffer, file.name, `dentos/${cid}/lab-cases/${params.id}`);
+    } else {
+      uploadResult = await new Promise((resolve, reject) => {
+        cloudinary.uploader.upload_stream(
+          { folder: `dentos/${cid}/lab-cases/${params.id}`, resource_type: 'auto', allowed_formats: ['jpg', 'jpeg', 'png', 'pdf'] },
+          (error, result) => { if (error) reject(error); else resolve(result) }
+        ).end(buffer)
+      })
+    }
 
     const attachment = {
       id: uuidv4(),
@@ -70,9 +79,17 @@ export async function DELETE(request, { params }) {
     if (!att) return err('Attachment not found', 404)
 
     try {
-      await cloudinary.uploader.destroy(att.public_id, { resource_type: att.file_type === 'image' ? 'image' : 'raw' })
+      if (process.env.APP_MODE === 'local') {
+        const extension = path.extname(att.file_name) || ''
+        const fullPath = path.join(process.cwd(), 'local-uploads', att.public_id + extension)
+        if (fs.existsSync(fullPath)) {
+          fs.unlinkSync(fullPath)
+        }
+      } else {
+        await cloudinary.uploader.destroy(att.public_id, { resource_type: att.file_type === 'image' ? 'image' : 'raw' })
+      }
     } catch (e) {
-      console.error('Cloudinary destroy error:', e)
+      console.error('File destroy error:', e)
     }
     await db.collection('lab_cases').updateOne({ id: params.id, clinic_id: cid }, { $pull: { attachments: { id: attachmentId } }, $set: { updated_at: new Date() } })
     await logAudit(db, { clinicId: cid, labCaseId: lc.id, caseNumber: lc.case_number, action: AUDIT_ACTIONS.FILE_DELETED, source: AUDIT_SOURCE.CLINIC, actorId: profile.id, actorName: profile.full_name || '', meta: { file_name: att.file_name } })

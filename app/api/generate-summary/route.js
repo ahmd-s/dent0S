@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
+import axios from 'axios'
 import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
 import { canAccessClinical } from '@/lib/rbac'
-import { createAnthropicMessage } from '@/lib/anthropic-messages'
 import { isClinicAccessBlocked, clinicAccessPausedResponse } from '@/lib/clinic-access'
 
 function cors(res) {
@@ -38,17 +38,36 @@ export async function POST(request) {
     const visits = await db.collection('visits').find({ patient_id: b.patient_id, clinic_id: cid }).sort({ visit_date: -1, created_at: -1 }).limit(8).toArray()
     if (visits.length === 0) return err('No visits to summarize yet', 400)
     const visitText = visits.map(v => `Date: ${v.visit_date}\nComplaint: ${v.chief_complaint||'-'}\nDiagnosis: ${v.diagnosis||'-'}\nTreatment: ${v.treatment_done||'-'}\nPlan: ${v.treatment_plan||'-'}\n---`).join('\n')
-    const prompt = `You are a clinical documentation assistant for a dental clinic in India. Based on the visit history below, write a concise clinical summary (maximum 200 words).\n\nCover: main dental complaints, treatments completed, current dental status, and recommended follow-up actions already mentioned by the doctor.\n\nDo not diagnose. Do not suggest treatments not already mentioned in the notes. Use professional clinical language.\n\nPatient: ${p.name}, Age: ${p.age||'unknown'}\nBlood Group: ${p.blood_group||'unknown'}\nKnown Allergies: ${p.allergies||'None recorded'}\n\nVisit History (most recent first):\n${visitText}\n\nWrite the clinical summary now:`
+    const systemPrompt = `You are a clinical documentation assistant for a dental clinic in India. Based on the visit history below, write a concise clinical summary (maximum 200 words).\n\nCover: main dental complaints, treatments completed, current dental status, and recommended follow-up actions already mentioned by the doctor.\n\nDo not diagnose. Do not suggest treatments not already mentioned in the notes. Use professional clinical language.`
+    const userPrompt = `Patient: ${p.name}, Age: ${p.age||'unknown'}\nBlood Group: ${p.blood_group||'unknown'}\nKnown Allergies: ${p.allergies||'None recorded'}\n\nVisit History (most recent first):\n${visitText}\n\nWrite the clinical summary now:`
     try {
-      const text = await createAnthropicMessage({
-        max_tokens: 600,
-        messages: [{ role: 'user', content: prompt }],
-      })
+      console.log("GROQ KEY BEING USED:", process.env.GROQ_API_KEY);
+      const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', 
+        {
+          model: 'llama-3.3-70b-versatile',
+          max_tokens: 600,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ]
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          httpsAgent: new (await import('https')).Agent({ rejectUnauthorized: false })
+        }
+      )
+
+      const text = response.data.choices[0].message.content
       if (!text) return err('Empty AI response', 500)
+      
       await db.collection('patients').updateOne({ id: b.patient_id, clinic_id: cid }, { $set: { ai_summary: text, ai_summary_generated_at: new Date() } })
       return json({ ok: true, summary: text, generated_at: new Date() })
     } catch (e) {
-      console.error('AI summary error:', e?.message || e)
+      console.error('AI FULL ERROR:', e)
+      console.error('AI ERROR CAUSE:', e?.cause)
       return err(`AI service error: ${e?.message || 'Unknown'}`, 502)
     }
   } catch (e) {

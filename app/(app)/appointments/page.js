@@ -361,11 +361,7 @@ function NewAppointmentModal({ open, setOpen, initialDate, onCreated, prefillPat
           <div className="space-y-1.5">
             <Label>Patient</Label>
             {picked ? (
-<<<<<<< HEAD
-              <div className="flex items-center justify-between p-2 px-3 border border-border rounded-md bg-[#F8FAFC]"><div><div className="font-medium text-sm">{picked.name}</div><div className="text-xs text-muted-foreground">+91 {picked.phone}</div></div>{!prefillPatient && <button type="button" onClick={()=>setPicked(null)} className="text-xs text-[#0D9488] hover:underline">Change</button>}</div>
-=======
               <div className="flex items-center justify-between p-2 px-3 border border-border rounded-md bg-muted"><div><div className="font-medium text-sm">{picked.name}</div><div className="text-xs text-muted-foreground">+91 {picked.phone}</div></div><button type="button" onClick={()=>setPicked(null)} className="text-xs text-[#0D9488] hover:underline">Change</button></div>
->>>>>>> 1b2c9765788c77fa7ef45790a326d40d9aa5c607
             ) : walkin ? (
               <div className="grid grid-cols-2 gap-2"><Input placeholder="Patient name" value={walkinForm.name} onChange={e=>setWalkinForm({...walkinForm,name:e.target.value})}/><Input placeholder="Phone (10 digits)" value={walkinForm.phone} onChange={e=>setWalkinForm({...walkinForm,phone:e.target.value.replace(/\D/g,'').slice(0,10)})}/><button type="button" onClick={()=>setWalkin(false)} className="col-span-2 text-xs text-[#0D9488] hover:underline text-left">← Search existing patient instead</button></div>
             ) : (
