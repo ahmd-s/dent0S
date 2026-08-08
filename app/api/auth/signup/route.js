@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid'
 import slugify from 'slugify'
 import { getDb } from '@/lib/mongo'
 import { hashPassword } from '@/lib/auth'
+import { createTrial } from '@/lib/subscription-engine'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -43,25 +44,7 @@ export async function POST(request) {
       email_verified: true,
       created_at: new Date(),
     })
-    await db.collection('subscriptions').insertOne({
-      clinic_id: clinicId,
-      subscription_status: 'trial',
-      plan_type: null,
-      trial_start: now,
-      trial_end: trialEnd,
-      razorpay_subscription_id: null,
-      razorpay_plan_id: null,
-      razorpay_customer_id: null,
-      current_period_start: null,
-      current_period_end: null,
-      cancel_at_period_end: false,
-      cancelled_at: null,
-      grace_period_end: null,
-      last_payment_date: null,
-      last_payment_amount: null,
-      created_at: now,
-      updated_at: now
-    })
+    await createTrial(db, clinicId, { trialEnd, createdAt: now })
     return json({ ok: true })
   } catch (e) {
     console.error('Auth signup error:', e)

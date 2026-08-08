@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { canAccessRoute, canAccessSettings } from '@/lib/rbac'
 import { getProfileRoles, roleBadgeLabel } from '@/lib/profile-roles'
 import { CLINIC_ACCESS_PAUSED_MESSAGE } from '@/lib/clinic-access'
+import { ImpersonationBanner } from '@/components/platform-admin/ImpersonationBanner'
 
 const NAV_ALL = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -86,7 +87,14 @@ export default function AppShell({ children }) {
   const title = Object.entries(PAGE_TITLES).find(([k]) => pathname === k || pathname.startsWith(k+'/'))?.[1] || 'DentOS'
 
   return (
-    <div className="min-h-screen flex bg-background overflow-x-hidden">
+    <div className="min-h-screen flex flex-col bg-background overflow-x-hidden">
+      {me?.is_impersonating && (
+        <ImpersonationBanner
+          clinicName={me.impersonated_clinic_name || me.clinic?.name}
+          byEmail={me.impersonated_by_email}
+        />
+      )}
+      <div className="flex flex-1 overflow-hidden">
       {mobileOpen && <div onClick={()=>setMobileOpen(false)} className="md:hidden fixed inset-0 bg-black/50 z-40 backdrop-blur-sm"/>}
       <aside className={`w-64 lg:w-72 sidebar-bg sidebar-fg fixed inset-y-0 left-0 flex flex-col z-50 transition-transform duration-300 ease-in-out md:translate-x-0 ${mobileOpen?'translate-x-0':'-translate-x-full md:translate-x-0'}`}>
         <div className="p-5 border-b border-white/10 flex items-center justify-between">
@@ -271,6 +279,7 @@ export default function AppShell({ children }) {
         )}
 
         <main className="p-4 md:p-6 bg-background min-h-[calc(100vh-4rem)] overflow-x-hidden">{children}</main>
+      </div>
       </div>
     </div>
   )

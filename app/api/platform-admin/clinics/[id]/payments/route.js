@@ -1,10 +1,6 @@
 import { NextResponse } from 'next/server'
-import { v4 as uuidv4 } from 'uuid'
-import {
-  requirePlatformAdmin,
-  logPlatformAudit,
-  AUDIT_ACTIONS,
-} from '@/lib/platform-admin'
+import { requirePlatformAdmin } from '@/lib/platform-admin'
+import { recordManualPayment, activateSubscription } from '@/lib/subscription-engine'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -49,45 +45,46 @@ export async function POST(request, { params }) {
     if (!ctx) return notFound()
     const { profile, db } = ctx
 
-    const clinic = await db.collection('clinics').findOne({ id: params.id })
-    if (!clinic) return notFound()
-
     const b = await request.json()
-    if (!b.date || b.amount == null || b.amount === '' || !b.method?.trim()) {
-      return err('date, amount, and method are required')
-    }
-    const amount = Number(b.amount)
-    if (!Number.isFinite(amount) || amount < 0) return err('Invalid amount')
-
-    const now = new Date()
-    const entry = {
-      id: uuidv4(),
-      clinic_id: params.id,
+    const result = await recordManualPayment(db, profile, params.id, {
       date: b.date,
-      amount,
-      method: String(b.method).trim(),
-      note: b.note ? String(b.note).trim() : '',
-      recorded_by_id: profile.id,
-      recorded_by_email: profile.email || '',
-      recorded_at: now,
-    }
-
-    await db.collection('clinic_manual_payments').insertOne(entry)
-
-    await logPlatformAudit(db, {
-      actor: profile,
-      action: AUDIT_ACTIONS.MANUAL_PAYMENT_RECORDED,
-      targetClinicId: clinic.id,
-      targetClinicName: clinic.name,
-      meta: {
-        amount: entry.amount,
-        method: entry.method,
-        date: entry.date,
-        note: entry.note || null,
-      },
+      amount: b.amount,
+      method: b.method,
+      note: b.note,
     })
 
-    return json({ ok: true, payment: clean(entry) })
+    if (!result.ok) return err(result.error)
+
+    const paymentDate = new Date(b.date)
+    const sub = await db.collection('subscriptions').findOne({ clinic_id: params.id })
+    const planType = sub?.plan_type || 'monthly'
+    const periodEnd = new Date(paymentDate)
+    if (planType === 'yearly') {
+      periodEnd.setFullYear(periodEnd.getFullYear() + 1)
+    } else {
+      periodEnd.setMonth(periodEnd.getMonth() + 1)
+    }
+
+    const activation = await activateSubscription(db, params.id, {
+      periodEnd,
+      periodStart: paymentDate,
+      planType,
+      lastPaymentDate: paymentDate,
+      clearGrace: true,
+      reason: 'manual_payment',
+      clearEmergencyLock: true,
+    })
+    if (!activation.ok) return err(activation.error)
+
+    const state = activation.state
+    return json({
+      ok: true,
+      payment: clean(result.payment),
+      subscription_status: state.clinicStatus,
+      billing_status: state.billingStatus,
+      subscription_reason: state.subscriptionReason,
+      grace_period_end: state.graceEndsAt,
+    })
   } catch (e) {
     console.error('Platform admin payments POST error:', e)
     return cors(NextResponse.json({ error: 'Internal server error' }, { status: 500 }))

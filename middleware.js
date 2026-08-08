@@ -20,10 +20,16 @@ function jwtPayload(token) {
 export function middleware(req) {
   const { pathname } = req.nextUrl
   const token = req.cookies.get('dentos_token')?.value
-  const payload = token ? jwtPayload(token) : null
-  const isPlatformAdmin = !!payload?.pa
+  // Impersonation session takes precedence for clinic routes
+  const impToken = req.cookies.get('dentos_imp')?.value
+  const payload = impToken ? jwtPayload(impToken) : (token ? jwtPayload(token) : null)
+  const paPayload = token ? jwtPayload(token) : null
+  const isPlatformAdmin = !!paPayload?.pa
+  const isImpersonating = !!payload?.imp
 
   if (pathname.startsWith('/book')) return NextResponse.next()
+  if (pathname === '/maintenance') return NextResponse.next()
+  if (pathname.startsWith('/auth/impersonate')) return NextResponse.next()
 
   if (pathname === '/platform-admin' || pathname.startsWith('/platform-admin/')) {
     if (!token) return NextResponse.redirect(new URL('/login', req.url))
@@ -32,17 +38,25 @@ export function middleware(req) {
   }
 
   if (PUBLIC_PATHS.includes(pathname)) {
-    if (token) {
+    if (token && !isImpersonating) {
       return NextResponse.redirect(new URL(isPlatformAdmin ? '/platform-admin' : '/dashboard', req.url))
     }
     return NextResponse.next()
   }
 
   if (PROTECTED_PREFIXES.some(p => pathname === p || pathname.startsWith(p + '/'))) {
-    if (!token) return NextResponse.redirect(new URL('/login', req.url))
-    if (isPlatformAdmin) return NextResponse.redirect(new URL('/platform-admin', req.url))
-    // Clinic-less session without platform 2FA — force re-login (platform admin stuck state)
-    if (payload?.cid == null && !payload?.pa) {
+    // Maintenance mode check — read from dentos_maintenance cookie set by the API
+    const maintenanceCookie = req.cookies.get('dentos_maintenance')?.value
+    if (maintenanceCookie === 'true' && !isPlatformAdmin) {
+      return NextResponse.redirect(new URL('/maintenance', req.url))
+    }
+
+    const activeToken = impToken || token
+    if (!activeToken) return NextResponse.redirect(new URL('/login', req.url))
+    if (!isImpersonating && isPlatformAdmin) {
+      return NextResponse.redirect(new URL('/platform-admin', req.url))
+    }
+    if (payload?.cid == null && !payload?.pa && !payload?.imp) {
       return NextResponse.redirect(new URL('/login', req.url))
     }
     const roles = Array.isArray(payload?.roles)
@@ -72,6 +86,8 @@ export const config = {
     '/verify-email',
     '/verify-email-pending',
     '/book/:path*',
+    '/auth/impersonate',
+    '/maintenance',
     '/patients/:path*',
     '/appointments/:path*',
     '/lab-cases/:path*',

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { requirePlatformAdmin } from '@/lib/platform-admin'
+import { DEFAULT_FEATURES, requirePlatformAdmin } from '@/lib/platform-admin'
+import { graceDaysRemaining, isInGracePeriod } from '@/lib/subscription-helpers'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -44,6 +45,9 @@ export async function GET() {
         .filter(Boolean)
         .sort((a, b) => new Date(b) - new Date(a))[0] || null
 
+      const inGrace = isInGracePeriod(sub)
+      const graceDays = graceDaysRemaining(sub)
+
       return {
         id: c.id,
         name: c.name,
@@ -54,12 +58,31 @@ export async function GET() {
         subscription_status: c.subscription_status === 'blocked' ? 'blocked' : 'active',
         billing_status: sub.subscription_status || null,
         platform_status: sub.platform_status ?? null,
+        subscription_reason: sub.subscription_reason || null,
         monthly_ai_usage_limit: c.monthly_ai_usage_limit ?? null,
         trial_auto_enforcement: c.trial_auto_enforcement || 'auto',
         manual_access_granted_at: c.manual_access_granted_at || null,
         last_staff_login: lastStaffLogin,
         last_visit_date: lastVisitDate,
         last_activity: lastActivity,
+        // Sprint 2: extended fields
+        trial_ends_at: c.trial_ends_at || null,
+        current_period_end: sub.current_period_end || null,
+        grace_period_end: sub.grace_period_end || null,
+        grace_days_remaining: inGrace ? graceDays : null,
+        days_remaining: inGrace ? graceDays : null,
+        subscription_id: sub.razorpay_subscription_id || sub.subscription_id || null,
+        customer_id: sub.razorpay_customer_id || sub.customer_id || null,
+        payment_method: sub.payment_method || null,
+        features: c.features || DEFAULT_FEATURES,
+        emergency_locked_at: c.emergency_locked_at || null,
+        emergency_locked_by: c.emergency_locked_by || null,
+        emergency_locked_reason: c.emergency_locked_reason || null,
+        is_in_grace: inGrace,
+        is_payment_failed: sub.subscription_status === 'halted' || sub.subscription_reason === 'payment_failed',
+        is_comped: sub.platform_status === 'comped',
+        is_emergency_locked: c.subscription_status === 'blocked' && !!c.emergency_locked_at,
+        is_manual_override: ['force_active', 'force_trial', 'active'].includes(sub.platform_status),
       }
     })
 

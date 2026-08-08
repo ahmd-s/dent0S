@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
 import crypto from 'crypto'
-import { activateClinicAccessOnPayment } from '@/lib/clinic-subscription-sync'
+import { activateSubscription, startGracePeriod, cancelSubscription } from '@/lib/subscription-engine'
 
 export async function POST(request) {
   try {
@@ -10,44 +10,39 @@ export async function POST(request) {
     if (!signature) return new NextResponse('Missing signature', { status: 400 })
     const expected = crypto.createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET).update(body).digest('hex')
     if (signature !== expected) return new NextResponse('Invalid signature', { status: 400 })
+
     const event = JSON.parse(body)
     const eventType = event.event
     const entity = event.payload?.subscription?.entity
     if (!entity) return NextResponse.json({ ok: true })
+
     const db = await getDb()
     const subscription = await db.collection('subscriptions').findOne({ razorpay_subscription_id: entity.id })
     if (!subscription) return NextResponse.json({ ok: true })
+
     const clinicId = subscription.clinic_id
     const now = new Date()
+
     if (eventType === 'subscription.charged') {
       const periodEnd = new Date(entity.current_end * 1000)
+      const periodStart = entity.current_start ? new Date(entity.current_start * 1000) : null
       const planType = entity.notes?.plan_type || subscription.plan_type
-      await db.collection('subscriptions').updateOne(
-        { clinic_id: clinicId },
-        {
-          $set: {
-            subscription_status: 'active',
-            current_period_end: periodEnd,
-            last_payment_date: now,
-            grace_period_end: null,
-            updated_at: now,
-            ...(planType ? { plan_type: planType } : {}),
-          },
-        }
-      )
-      await activateClinicAccessOnPayment(db, clinicId)
+      await activateSubscription(db, clinicId, {
+        periodEnd,
+        periodStart,
+        lastPaymentDate: now,
+        planType: planType || null,
+        clearGrace: true,
+        reason: 'payment_recovered',
+        clearEmergencyLock: true,
+      })
     } else if (eventType === 'subscription.failed') {
       const graceEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-      await db.collection('subscriptions').updateOne(
-        { clinic_id: clinicId },
-        { $set: { subscription_status: 'halted', grace_period_end: graceEnd, updated_at: now } }
-      )
+      await startGracePeriod(db, clinicId, { graceEnd, reason: 'payment_failed' })
     } else if (eventType === 'subscription.cancelled') {
-      await db.collection('subscriptions').updateOne(
-        { clinic_id: clinicId },
-        { $set: { subscription_status: 'cancelled', cancelled_at: now, updated_at: now } }
-      )
+      await cancelSubscription(db, null, clinicId)
     }
+
     return NextResponse.json({ ok: true })
   } catch (e) {
     console.error('Webhook error:', e)

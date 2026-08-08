@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser, getCurrentImpersonatedUser } from '@/lib/auth'
 import { isPlatformAdminProfile } from '@/lib/platform-admin'
 import { ensureProfileRolesMigrated } from '@/lib/profile-roles'
 import { shouldShowTrialWarning, trialDaysRemaining } from '@/lib/subscription-helpers'
@@ -28,6 +28,15 @@ const clean = o => {
 }
 
 async function requireUser() {
+  // Impersonation session takes precedence for clinic-scoped API access
+  const imp = getCurrentImpersonatedUser()
+  if (imp?.imp) {
+    const db = await getDb()
+    const profile = await db.collection('profiles').findOne({ id: imp.uid })
+    if (!profile) return null
+    const clinic = await db.collection('clinics').findOne({ id: profile.clinic_id })
+    return { profile, clinic, db, token: imp, isImpersonated: true }
+  }
   const t = getCurrentUser()
   if (!t) return null
   const db = await getDb()
@@ -67,6 +76,9 @@ export async function GET() {
       subscription_hint,
       is_platform_admin: isPA,
       platform_session_active: isPA && !!ctx.token?.pa,
+      is_impersonating: ctx.isImpersonated === true,
+      impersonated_by_email: ctx.isImpersonated ? ctx.token?.imp_by_email : null,
+      impersonated_clinic_name: ctx.isImpersonated ? ctx.token?.imp_clinic_name : null,
     })
   } catch (e) {
     console.error('Auth me error:', e)

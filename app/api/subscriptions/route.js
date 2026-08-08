@@ -8,7 +8,7 @@ import {
   trialDaysRemaining,
   trialEndsAtFromClinic,
 } from '@/lib/subscription-helpers'
-import { activateClinicAccessOnPayment } from '@/lib/clinic-subscription-sync'
+import { activateSubscription } from '@/lib/subscription-engine'
 
 const json = (d, s=200) => NextResponse.json(d, { status: s })
 const err = (msg, s=400) => json({ error: msg }, s)
@@ -96,23 +96,14 @@ export async function POST(request) {
     periodEnd.setFullYear(periodEnd.getFullYear() + 1)
   }
 
-  await db.collection('subscriptions').updateOne(
-    { clinic_id: profile.clinic_id },
-    {
-      $set: {
-        plan_type,
-        subscription_status: 'active',
-        razorpay_subscription_id,
-        razorpay_plan_id: razorpay_plan_id || rpSub?.plan_id || null,
-        current_period_start: now,
-        current_period_end: periodEnd,
-        cancel_at_period_end: false,
-        updated_at: now,
-      },
-    },
-    { upsert: true }
-  )
-
-  await activateClinicAccessOnPayment(db, profile.clinic_id)
+  await activateSubscription(db, profile.clinic_id, {
+    periodEnd,
+    periodStart: now,
+    planType: plan_type,
+    razorpaySubId: razorpay_subscription_id,
+    razorpayPlanId: razorpay_plan_id || rpSub?.plan_id || null,
+    lastPaymentDate: now,
+    clearGrace: true,
+  })
   return json({ ok: true })
 }

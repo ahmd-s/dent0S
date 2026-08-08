@@ -1,13 +1,42 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, LogOut, Shield } from 'lucide-react'
+import {
+  BarChart3,
+  ChevronDown,
+  Loader2,
+  LogOut,
+  Megaphone,
+  Settings,
+  Shield,
+  Wrench,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { NotificationBell } from '@/components/platform-admin/NotificationBell'
+import { GlobalSearch } from '@/components/platform-admin/GlobalSearch'
+import { cn } from '@/lib/utils'
+
+const NAV = [
+  { href: '/platform-admin', label: 'Dashboard', exact: true },
+  { href: '/platform-admin/analytics', label: 'Analytics' },
+  { href: '/platform-admin/notifications', label: 'Notifications' },
+  { href: '/platform-admin/broadcast', label: 'Broadcast' },
+  { href: '/platform-admin/maintenance', label: 'Maintenance' },
+  { href: '/platform-admin/settings', label: 'Settings' },
+]
 
 export default function PlatformAdminLayout({ children }) {
   const router = useRouter()
+  const pathname = usePathname()
   const [me, setMe] = useState(null)
   const [denied, setDenied] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -64,27 +93,79 @@ export default function PlatformAdminLayout({ children }) {
     )
   }
 
+  const isActive = (item) => {
+    if (item.exact) return pathname === item.href
+    return pathname.startsWith(item.href)
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Shield className="w-5 h-5 text-[#0D9488]" />
-            <div>
-              <div className="font-semibold text-foreground">Connec8 Platform Admin</div>
-              <div className="text-xs text-muted-foreground">Internal clinic oversight</div>
+      <header className="sticky top-0 z-40 border-b border-border bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60">
+        <div className="mx-auto flex max-w-[1440px] items-center gap-4 px-4 py-3 sm:px-8">
+          {/* Brand */}
+          <Link href="/platform-admin" className="flex shrink-0 items-center gap-3 mr-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+              <Shield className="h-4 w-4 text-[#0D9488]" />
+            </span>
+            <div className="hidden sm:block">
+              <div className="text-sm font-semibold leading-tight text-foreground">Connec8 Admin</div>
             </div>
+          </Link>
+
+          {/* Primary nav — visible on lg+ */}
+          <nav className="hidden lg:flex items-center gap-1 flex-1">
+            {NAV.map(item => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  'px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
+                  isActive(item)
+                    ? 'bg-accent text-accent-foreground'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                )}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+
+          {/* Mobile nav — dropdown */}
+          <div className="flex lg:hidden flex-1">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-1.5 text-sm">
+                  {NAV.find(isActive)?.label || 'Navigate'}
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48">
+                {NAV.map(item => (
+                  <DropdownMenuItem key={item.href} asChild>
+                    <Link href={item.href}>{item.label}</Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-          <div className="flex items-center gap-3">
-            <Badge variant="outline" className="hidden sm:inline-flex">{me?.user?.email}</Badge>
+
+          {/* Right side actions */}
+          <div className="flex items-center gap-2">
+            <div className="hidden md:block">
+              <GlobalSearch />
+            </div>
+            <NotificationBell />
+            <Badge variant="outline" className="hidden font-normal text-muted-foreground xl:inline-flex text-xs">
+              {me?.user?.email}
+            </Badge>
             <Button variant="outline" size="sm" onClick={logout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Log out
+              <LogOut className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Log out</span>
             </Button>
           </div>
         </div>
       </header>
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">{children}</main>
+      <main className="mx-auto max-w-[1440px] px-4 py-8 sm:px-8 sm:py-10">{children}</main>
     </div>
   )
 }

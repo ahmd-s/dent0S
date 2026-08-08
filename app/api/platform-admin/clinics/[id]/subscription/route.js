@@ -1,10 +1,6 @@
 import { NextResponse } from 'next/server'
-import {
-  requirePlatformAdmin,
-  logPlatformAudit,
-  AUDIT_ACTIONS,
-  PLATFORM_STATUS,
-} from '@/lib/platform-admin'
+import { requirePlatformAdmin } from '@/lib/platform-admin'
+import { setPlatformOverride } from '@/lib/subscription-engine'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -27,34 +23,10 @@ export async function PUT(request, { params }) {
     if (!clinic) return notFound()
 
     const b = await request.json()
-    const nextStatus = b.platform_status === null || b.platform_status === '' ? null : b.platform_status
-    if (nextStatus !== null && !PLATFORM_STATUS.includes(nextStatus)) {
-      return err('Invalid platform_status')
-    }
+    const result = await setPlatformOverride(db, profile, params.id, { platformStatus: b.platform_status })
+    if (!result.ok) return err(result.error)
 
-    const existing = await db.collection('subscriptions').findOne({ clinic_id: params.id })
-    const from = existing?.platform_status ?? null
-
-    await db.collection('subscriptions').updateOne(
-      { clinic_id: params.id },
-      {
-        $set: {
-          platform_status: nextStatus,
-          updated_at: new Date(),
-        },
-      },
-      { upsert: true }
-    )
-
-    await logPlatformAudit(db, {
-      actor: profile,
-      action: AUDIT_ACTIONS.SUBSCRIPTION_STATUS_CHANGED,
-      targetClinicId: clinic.id,
-      targetClinicName: clinic.name,
-      meta: { from, to: nextStatus },
-    })
-
-    return json({ ok: true, platform_status: nextStatus })
+    return json({ ok: true, platform_status: result.state.platformStatus })
   } catch (e) {
     console.error('Platform admin subscription update error:', e)
     return cors(NextResponse.json({ error: 'Internal server error' }, { status: 500 }))
