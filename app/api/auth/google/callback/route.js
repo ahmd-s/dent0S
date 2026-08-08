@@ -228,7 +228,11 @@ export async function GET(request) {
       { detail, host: new URL(request.url).host },
       'H1'
     )
-    return loginErrorRedirect(origin, 'Google sign-in failed. Please try again.', {
+    const isInvalidClient = detail.startsWith('invalid_client')
+    const message = isInvalidClient
+      ? 'Google sign-in is misconfigured (invalid client secret).'
+      : 'Google sign-in failed. Please try again.'
+    return loginErrorRedirect(origin, message, {
       step: 'catch',
       detail,
     })
