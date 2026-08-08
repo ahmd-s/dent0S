@@ -78,7 +78,10 @@ export default function AppShell({ children }) {
     }, 300)
   }, [q])
 
-  const logout = async () => { await fetch('/api/auth/logout', { method:'POST' }); router.push('/login') }
+  const logout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' })
+    window.location.assign('/login')
+  }
 
   const title = Object.entries(PAGE_TITLES).find(([k]) => pathname === k || pathname.startsWith(k+'/'))?.[1] || 'DentOS'
 

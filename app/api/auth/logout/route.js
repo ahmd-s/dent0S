@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
-import { clearAuthCookie, getCurrentUser } from '@/lib/auth'
+import { clearAuthCookie, getCurrentUser, authCookieOptions, AUTH_COOKIE_NAME } from '@/lib/auth'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -24,7 +24,26 @@ async function requireUser() {
 
 export async function POST() {
   try {
-    clearAuthCookie(); return json({ ok:true })
+    clearAuthCookie()
+    const res = json({ ok: true })
+    res.cookies.set(AUTH_COOKIE_NAME, '', { ...authCookieOptions(0), maxAge: 0 })
+    // #region agent log
+    fetch('http://127.0.0.1:7366/ingest/f3641e0b-1a49-4955-8e0b-16987fcc4471', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '87f42d' },
+      body: JSON.stringify({
+        sessionId: '87f42d',
+        location: 'app/api/auth/logout/route.js:POST',
+        message: 'logout clearAuthCookie',
+        data: {
+          cookieDomain: process.env.NODE_ENV === 'production' ? '.dent-os.in' : '(host-only)',
+        },
+        timestamp: Date.now(),
+        hypothesisId: 'H1',
+      }),
+    }).catch(() => {})
+    // #endregion
+    return res
   } catch (e) {
     console.error('Auth logout error:', e)
     return err('Internal server error', 500)

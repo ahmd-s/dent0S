@@ -13,26 +13,15 @@ import {
 import { issueClinicSession } from '@/lib/clinic-session'
 import { isPlatformAdminProfile } from '@/lib/platform-admin'
 import { issuePendingToken } from '@/lib/platform-admin-auth'
+import { AUTH_COOKIE_NAME, authCookieOptions } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
-const AUTH_COOKIE = 'dentos_token'
 const AUTH_MAX_AGE = 60 * 60 * 24 * 30
-
-function sessionCookieOptions(maxAge) {
-  return {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-    maxAge,
-    ...(process.env.NODE_ENV === 'production' ? { domain: '.dent-os.in' } : {}),
-  }
-}
 
 function redirectWithCookie(origin, path, name, value, maxAge) {
   const res = NextResponse.redirect(new URL(path, origin))
-  res.cookies.set(name, value, sessionCookieOptions(maxAge))
+  res.cookies.set(name, value, authCookieOptions(maxAge))
   return res
 }
 
@@ -120,7 +109,7 @@ export async function GET(request) {
       return redirectWithCookie(
         origin,
         onboarding_complete ? '/dashboard' : '/onboarding',
-        AUTH_COOKIE,
+        AUTH_COOKIE_NAME,
         token,
         AUTH_MAX_AGE
       )
