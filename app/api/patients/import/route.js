@@ -4,6 +4,14 @@ import { getCurrentUser } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { nextPatientCode } from '@/lib/patient-code'
 import { isClinicAccessBlocked, clinicAccessPausedResponse } from '@/lib/clinic-access'
+import {
+  transformRows,
+  validatePatient,
+  normalizePhone,
+  normalizeGender,
+  normalizeDate,
+  ageFromDob,
+} from '@/lib/patient-import'
 import { v4 as uuidv4 } from 'uuid'
 
 function cors(res) {
@@ -27,17 +35,19 @@ async function requireUser() {
   return { profile, clinic, db }
 }
 
-function normalizeColumn(col) {
-  return col.toLowerCase().replace(/[^a-z0-9]/g, '_')
-}
-
-function parseCSVRow(row, headers) {
-  const values = row.split(',').map(v => v.trim().replace(/^"|"$/g, ''))
-  const obj = {}
-  headers.forEach((h, i) => {
-    obj[h] = values[i] || ''
-  })
-  return obj
+function normalizeLegacyRow(p) {
+  return {
+    name: (p.name || p.Name || '').trim(),
+    phone: normalizePhone(p.phone || p.Phone || p.mobile || p.Mobile || ''),
+    email: (p.email || p.Email || '').trim(),
+    dob: normalizeDate(p.date_of_birth || p.Date_of_Birth || p.dob || p.DOB || ''),
+    gender: normalizeGender(p.gender || p.Gender || ''),
+    address: (p.address || p.Address || '').trim(),
+    allergies: (p.allergies || p.Allergies || '').trim(),
+    blood_group: (p.blood_group || p.Blood_Group || '').trim(),
+    medical_history: (p.medical_history || p.Medical_History || '').trim(),
+    referral_source: (p.referral_source || p.Referral_Source || 'csv_import').trim(),
+  }
 }
 
 export async function POST(request) {
@@ -51,89 +61,83 @@ export async function POST(request) {
 
     if (!hasPermission(profile, 'patients', 'create')) return err('Forbidden', 403)
 
-    const { patients } = await request.json()
-    if (!Array.isArray(patients)) return err('Invalid input: patients array required')
+    const body = await request.json()
+    const { patients, rows, mapping, source } = body
+
+    let normalized = []
+
+    if (Array.isArray(rows) && mapping && typeof mapping === 'object') {
+      const { patients: transformed } = transformRows(rows, mapping, source || 'practo')
+      normalized = transformed.map((p, i) => ({
+        ...p,
+        _row: p._row ?? i + 2,
+      }))
+    } else if (Array.isArray(patients)) {
+      normalized = patients.map((p, i) => {
+        const row = normalizeLegacyRow(p)
+        return { ...row, _row: i + 2, _issues: validatePatient(row, i + 2) }
+      })
+    } else {
+      return err('Invalid input: provide patients array or rows + mapping')
+    }
 
     let imported = 0
     let skipped = 0
     const errors = []
 
-    for (let i = 0; i < patients.length; i++) {
-      const p = patients[i]
-      const row = i + 2 // +2 because row 1 is header
+    for (const p of normalized) {
+      const row = p._row
+
+      if (p._issues?.length) {
+        errors.push({ row, error: p._issues.join('; ') })
+        continue
+      }
 
       try {
-        // Normalize and validate required fields
-        const name = p.name || p.Name || ''
-        const phone = p.phone || p.Phone || ''
-        const email = p.email || p.Email || ''
-        const dob = p.date_of_birth || p.Date_of_Birth || p.dob || p.DOB || ''
-        const gender = p.gender || p.Gender || ''
-        const address = p.address || p.Address || ''
-        const allergies = p.allergies || p.Allergies || ''
-        const blood_group = p.blood_group || p.Blood_Group || ''
+        const { name, phone, email, dob, gender, address, allergies, blood_group, medical_history, referral_source } = p
 
-        if (!name || !phone) {
-          errors.push({ row, error: 'Missing required fields: name and phone' })
-          continue
-        }
-
-        // Clean phone number
-        const cleanPhone = phone.toString().trim().replace(/\D/g, '')
-        if (!/^\d{10}$/.test(cleanPhone)) {
-          errors.push({ row, error: 'Invalid phone number (must be 10 digits)' })
-          continue
-        }
-
-        // Check if patient already exists (same clinic + phone + name)
         const nameRegex = new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')
-        const existing = await db.collection('patients').findOne(
-          { clinic_id: cid, phone: cleanPhone, name: { $regex: nameRegex }, is_archived: { $ne: true } }
-        )
+        const existing = await db.collection('patients').findOne({
+          clinic_id: cid,
+          phone,
+          name: { $regex: nameRegex },
+          is_archived: { $ne: true },
+        })
 
         if (existing) {
           skipped++
           continue
         }
 
-        // Calculate age from DOB if provided
-        let age = null
-        if (dob) {
-          const dobDate = new Date(dob)
-          const today = new Date()
-          age = today.getFullYear() - dobDate.getFullYear() - 
-                (today < new Date(today.getFullYear(), dobDate.getMonth(), dobDate.getDate()) ? 1 : 0)
-        }
+        const age = ageFromDob(dob)
 
-        // Generate patient code
         const patientCode = await nextPatientCode(db, cid)
 
-        // Insert patient
         await db.collection('patients').insertOne({
           id: uuidv4(),
           clinic_id: cid,
-          name: name.trim(),
-          phone: cleanPhone,
+          name,
+          phone,
           email: email || null,
           dob: dob || null,
-          age: age,
-          gender: gender?.toLowerCase() || '',
+          age,
+          gender: gender || '',
           blood_group: blood_group || '',
           allergies: allergies || '',
-          medical_history: '',
+          medical_history: medical_history || '',
           address: address || '',
-          referral_source: 'csv_import',
+          referral_source: referral_source || (source ? `${source}_import` : 'csv_import'),
           patient_code: patientCode,
           total_visits: 0,
           is_archived: false,
           created_by: profile.id,
           created_via: 'csv_import',
-          created_at: new Date()
+          created_at: new Date(),
         })
 
         imported++
-      } catch (err) {
-        errors.push({ row, error: err.message })
+      } catch (e) {
+        errors.push({ row, error: e.message })
       }
     }
 
@@ -141,9 +145,8 @@ export async function POST(request) {
       imported,
       skipped,
       errors,
-      total: patients.length
+      total: normalized.length,
     })
-
   } catch (error) {
     console.error('Patient import error:', error)
     return err('Internal server error', 500)

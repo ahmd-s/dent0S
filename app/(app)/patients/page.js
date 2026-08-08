@@ -60,7 +60,7 @@ function App() {
                 onClick={() => setImportModalOpen(true)}
               >
                 <Upload className="w-4 h-4" />
-                Import Patients
+                Import / Migrate
               </Button>
             </>
           )}
