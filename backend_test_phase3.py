@@ -723,6 +723,208 @@ def test_phase3_invoices_crud(session_a, session_b, invoice_id):
             results.add_fail("GET /invoices/:id Clinic B", str(e))
 
 # ============================================================================
+# PHASE 3 TEST 3b: INVOICE DATE EDIT
+# ============================================================================
+
+AUDIT_FIELDS = [
+    'invoice_date_original',
+    'invoice_date_history',
+    'invoice_date_updated_at',
+    'invoice_date_updated_by',
+    'invoice_date_updated_by_name',
+    'invoice_date_update_reason',
+]
+
+def test_invoice_date_edit(session_a, invoice_id):
+    print_test("PHASE 3.3b: INVOICE DATE EDIT")
+    if not invoice_id:
+        print_fail("Skipping invoice date edit tests - no invoice_id")
+        return
+
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    two_days_ago = (date.today() - timedelta(days=2)).isoformat()
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    created_at_before = None
+    share_token = None
+
+    print_info("3b.1 Fetch invoice baseline...")
+    try:
+        resp = session_a.get(f"{BASE_URL}/invoices/{invoice_id}")
+        if resp.status_code != 200:
+            results.add_fail("GET invoice baseline", f"Status {resp.status_code}: {resp.text}")
+            return
+        inv = resp.json().get('invoice', {})
+        created_at_before = inv.get('created_at')
+        share_token = inv.get('share_token')
+        original_date = inv.get('invoice_date')
+        results.add_pass(f"Baseline invoice_date: {original_date}")
+    except Exception as e:
+        results.add_fail("GET invoice baseline", str(e))
+        return
+
+    print_info("3b.2 Admin edits invoice date with valid reason...")
+    try:
+        resp = session_a.put(f"{BASE_URL}/invoices/{invoice_id}", json={
+            "invoice_date": yesterday,
+            "invoice_date_update_reason": "Insurance reimbursement",
+        })
+        if resp.status_code == 200 and resp.json().get('invoice'):
+            inv = resp.json()['invoice']
+            if inv.get('invoice_date') == yesterday:
+                results.add_pass("Admin updated invoice_date")
+            else:
+                results.add_fail("Invoice date update", f"Expected {yesterday}, got {inv.get('invoice_date')}")
+            if inv.get('invoice_date_original') == original_date:
+                results.add_pass("invoice_date_original preserved from first edit")
+            else:
+                results.add_fail("invoice_date_original", f"Expected {original_date}, got {inv.get('invoice_date_original')}")
+            if inv.get('invoice_date_update_reason') == 'Insurance reimbursement':
+                results.add_pass("Audit reason stored")
+            else:
+                results.add_fail("Audit reason", inv.get('invoice_date_update_reason'))
+            history = inv.get('invoice_date_history') or []
+            if len(history) == 1:
+                results.add_pass("History has one entry after first edit")
+            else:
+                results.add_fail("History length", f"Expected 1, got {len(history)}")
+        else:
+            results.add_fail("PUT invoice date", f"Status {resp.status_code}: {resp.text}")
+    except Exception as e:
+        results.add_fail("PUT invoice date", str(e))
+
+    print_info("3b.3 Second edit appends to history...")
+    try:
+        resp = session_a.put(f"{BASE_URL}/invoices/{invoice_id}", json={
+            "invoice_date": two_days_ago,
+            "invoice_date_update_reason": "Billing correction",
+        })
+        if resp.status_code == 200:
+            inv = resp.json().get('invoice', {})
+            history = inv.get('invoice_date_history') or []
+            if len(history) == 2:
+                results.add_pass("History has two entries after second edit")
+            else:
+                results.add_fail("History after second edit", f"Expected 2, got {len(history)}")
+            if inv.get('invoice_date_original') == original_date:
+                results.add_pass("invoice_date_original unchanged after second edit")
+            else:
+                results.add_fail("invoice_date_original after second edit", inv.get('invoice_date_original'))
+        else:
+            results.add_fail("Second date edit", f"Status {resp.status_code}: {resp.text}")
+    except Exception as e:
+        results.add_fail("Second date edit", str(e))
+
+    print_info("3b.4 Reject future date...")
+    try:
+        resp = session_a.put(f"{BASE_URL}/invoices/{invoice_id}", json={
+            "invoice_date": tomorrow,
+            "invoice_date_update_reason": "Should fail",
+        })
+        if resp.status_code == 400:
+            results.add_pass("Future date rejected")
+        else:
+            results.add_fail("Future date", f"Expected 400, got {resp.status_code}")
+    except Exception as e:
+        results.add_fail("Future date", str(e))
+
+    print_info("3b.5 Reject missing reason...")
+    try:
+        resp = session_a.put(f"{BASE_URL}/invoices/{invoice_id}", json={
+            "invoice_date": two_days_ago,
+            "invoice_date_update_reason": "   ",
+        })
+        if resp.status_code == 400:
+            results.add_pass("Empty reason rejected")
+        else:
+            results.add_fail("Empty reason", f"Expected 400, got {resp.status_code}")
+    except Exception as e:
+        results.add_fail("Empty reason", str(e))
+
+    print_info("3b.6 Reject same date...")
+    try:
+        resp = session_a.put(f"{BASE_URL}/invoices/{invoice_id}", json={
+            "invoice_date": two_days_ago,
+            "invoice_date_update_reason": "No change",
+        })
+        if resp.status_code == 400:
+            results.add_pass("Same date rejected")
+        else:
+            results.add_fail("Same date", f"Expected 400, got {resp.status_code}")
+    except Exception as e:
+        results.add_fail("Same date", str(e))
+
+    print_info("3b.7 created_at unchanged...")
+    try:
+        resp = session_a.get(f"{BASE_URL}/invoices/{invoice_id}")
+        inv = resp.json().get('invoice', {})
+        if inv.get('created_at') == created_at_before:
+            results.add_pass("created_at unchanged after date edits")
+        else:
+            results.add_fail("created_at", "created_at was modified")
+    except Exception as e:
+        results.add_fail("created_at check", str(e))
+
+    if share_token:
+        print_info("3b.8 Public invoice strips audit fields...")
+        try:
+            resp = session_a.get(f"{BASE_URL}/public/invoice/{share_token}")
+            if resp.status_code == 200:
+                inv = resp.json().get('invoice', {})
+                leaked = [f for f in AUDIT_FIELDS if f in inv]
+                if not leaked:
+                    results.add_pass("Public invoice has no audit fields")
+                else:
+                    results.add_fail("Public invoice audit leak", f"Found: {leaked}")
+                if inv.get('invoice_date') == two_days_ago:
+                    results.add_pass("Public invoice shows current invoice_date only")
+                else:
+                    results.add_fail("Public invoice date", inv.get('invoice_date'))
+            else:
+                results.add_fail("Public invoice GET", f"Status {resp.status_code}")
+        except Exception as e:
+            results.add_fail("Public invoice GET", str(e))
+
+    print_info("3b.9 Receptionist cannot edit invoice date...")
+    try:
+        team_data = {
+            "full_name": "Reception Test",
+            "email": f"reception.{datetime.now().timestamp()}@test.in",
+            "password": "password123",
+            "role": "receptionist",
+        }
+        resp = session_a.post(f"{BASE_URL}/team", json=team_data)
+        if resp.status_code != 200:
+            results.add_fail("Create receptionist", f"Status {resp.status_code}: {resp.text}")
+        else:
+            rec_session = requests.Session()
+            login = rec_session.post(f"{BASE_URL}/auth/login", json={
+                "email": team_data["email"],
+                "password": team_data["password"],
+            })
+            if login.status_code == 200 and login.json().get('ok'):
+                resp = rec_session.put(f"{BASE_URL}/invoices/{invoice_id}", json={
+                    "invoice_date": yesterday,
+                    "invoice_date_update_reason": "Unauthorized attempt",
+                })
+                if resp.status_code == 403:
+                    results.add_pass("Receptionist edit rejected with 403")
+                else:
+                    results.add_fail("Receptionist edit", f"Expected 403, got {resp.status_code}")
+
+                resp = rec_session.get(f"{BASE_URL}/invoices/{invoice_id}")
+                if resp.status_code == 200:
+                    inv = resp.json().get('invoice', {})
+                    leaked = [f for f in AUDIT_FIELDS if f in inv]
+                    if not leaked:
+                        results.add_pass("Receptionist GET strips audit fields")
+                    else:
+                        results.add_fail("Receptionist audit leak", f"Found: {leaked}")
+            else:
+                results.add_fail("Receptionist login", f"Status {login.status_code}: {login.text}")
+    except Exception as e:
+        results.add_fail("Receptionist permission test", str(e))
+
+# ============================================================================
 # PHASE 3 TEST 4: CLINIC UPDATE + SLUG CHANGE
 # ============================================================================
 
@@ -1096,6 +1298,7 @@ def main():
         # Test 3: Invoices CRUD with Summary
         if invoice_id:
             test_phase3_invoices_crud(session_a, session_b, invoice_id)
+            test_invoice_date_edit(session_a, invoice_id)
         else:
             print_fail("Skipping invoices CRUD tests - no invoice_id from previous test")
         

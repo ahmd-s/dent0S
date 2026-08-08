@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
+import { stripInvoiceAuditFields } from '@/lib/invoice-audit'
 import { getCurrentUser } from '@/lib/auth'
 
 function cors(res) {
@@ -36,7 +37,8 @@ export async function GET(request, { params }) {
     ])
     const doctor = visit?.doctor_id ? await db.collection('profiles').findOne({ id: visit.doctor_id }) : null
     const { items: _invItems, ...cleanInv } = clean(inv)
-    return json({ invoice: { ...cleanInv, patient: clean(p), items: items.map(clean), visit: visit ? clean(visit) : null, doctor_name: doctor?.full_name || '', clinic: clean(clinic) } })
+    const safeInv = stripInvoiceAuditFields(cleanInv)
+    return json({ invoice: { ...safeInv, patient: clean(p), items: items.map(clean), visit: visit ? clean(visit) : null, doctor_name: doctor?.full_name || '', clinic: clean(clinic) } })
   } catch (e) {
     console.error('Public invoice GET error:', e)
     return err('Internal server error', 500)

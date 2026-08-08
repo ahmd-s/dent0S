@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import {
   canManageBilling,
+  canEditInvoiceDate,
   canManageInventory,
   canManageStaff,
   canAccessClinical,
@@ -99,6 +100,7 @@ export function RoleProvider({ children }) {
       canEditClinical: () => canEditClinical(roleCtx),
       canAccessSettings: () => canAccessSettings(roleCtx),
       canManageBilling: () => canManageBilling(roleCtx),
+      canEditInvoiceDate: () => canEditInvoiceDate(roleCtx),
       canManageInventory: () => canManageInventory(roleCtx),
       canManageStaff: () => canManageStaff(roleCtx),
     }

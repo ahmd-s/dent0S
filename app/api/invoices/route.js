@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
+import { stripInvoiceAuditFields } from '@/lib/invoice-audit'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -38,7 +39,7 @@ export async function GET(request) {
     const pids = [...new Set(list.map(i=>i.patient_id).filter(Boolean))]
     const pts = pids.length ? await db.collection('patients').find({ id: { $in: pids }, clinic_id: cid }).toArray() : []
     let pmap = Object.fromEntries(pts.map(p=>[p.id, p.name]))
-    let arr = list.map(i => ({ ...clean(i), patient_name: pmap[i.patient_id] || '—' }))
+    let arr = list.map(i => stripInvoiceAuditFields({ ...clean(i), patient_name: pmap[i.patient_id] || '—' }))
     if (q) { const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'i'); arr = arr.filter(i => re.test(i.patient_name) || re.test(i.invoice_number||'')) }
     // monthly summary
     const mStart = monthBack(1)

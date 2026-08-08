@@ -1,42 +1,74 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Printer, MessageCircle, Loader2 } from 'lucide-react'
+import { useParams } from 'next/navigation'
+import { ArrowLeft, Printer, MessageCircle, Loader2, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { ClinicLogo } from '@/components/dentos/Logo'
+import { EditInvoiceDateDialog, fmtDateLong } from '@/components/dentos/EditInvoiceDateDialog'
+import { useRole } from '@/components/dentos/RoleContext'
 import { toast } from 'sonner'
 
 const inr = n => '₹' + (n||0).toLocaleString('en-IN')
 const fmtDate = d => d ? `${String(new Date(d+'T00:00:00').getDate()).padStart(2,'0')}/${String(new Date(d+'T00:00:00').getMonth()+1).padStart(2,'0')}/${new Date(d+'T00:00:00').getFullYear()}` : '—'
+const fmtAuditDateTime = d => d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
+
 const statusBadge = s => {
   const m = { pending:'bg-orange-100 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300', paid:'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-300', partial:'bg-yellow-100 text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-300', waived:'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400' }
   return <span className={`text-xs px-3 py-1 rounded-full capitalize font-medium ${m[s]||'bg-slate-100 dark:bg-slate-800'}`}>{s}</span>
 }
 
+function InvoiceDateAuditBadge({ invoice }) {
+  if (!invoice?.invoice_date_updated_at) return null
+  const editor = invoice.invoice_date_updated_by_name || 'Unknown'
+  const original = invoice.invoice_date_original
+  const reason = invoice.invoice_date_update_reason
+
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 cursor-help">
+            Edited
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="max-w-xs text-left space-y-1 p-3">
+          {original && (
+            <div><span className="opacity-70">Originally:</span> {fmtDateLong(original)}</div>
+          )}
+          <div><span className="opacity-70">Changed By:</span> {editor}</div>
+          <div><span className="opacity-70">Changed On:</span> {fmtAuditDateTime(invoice.invoice_date_updated_at)}</div>
+          {reason && <div><span className="opacity-70">Reason:</span> {reason}</div>}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
 function App() {
   const { id } = useParams()
-  const router = useRouter()
+  const { canEditInvoiceDate } = useRole()
   const [inv, setInv] = useState(null)
   const [payOpen, setPayOpen] = useState(false)
+  const [editDateOpen, setEditDateOpen] = useState(false)
+  const canEditDate = canEditInvoiceDate()
 
   const load = async () => {
     const r = await fetch(`/api/invoices/${id}`)
     if (r.ok) {
       const data = await r.json()
       setInv(data.invoice)
-      // Auto-generate share_token if missing
       if (!data.invoice.share_token) {
         await fetch(`/api/invoices/${id}`, {
           method:'PATCH',
           headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ generate_share_token: true })
         })
-        // Reload to get the share_token
         const r2 = await fetch(`/api/invoices/${id}`)
         if (r2.ok) setInv((await r2.json()).invoice)
       }
@@ -66,6 +98,26 @@ function App() {
           {(inv.payment_status==='pending' || inv.payment_status==='partial') && <Button onClick={()=>setPayOpen(true)} className="bg-[#0D9488] hover:bg-[#0B7E73]">Mark Paid</Button>}
         </div>
       </div>
+
+      {canEditDate && (
+        <div className="mb-4 print:hidden rounded-lg border border-border bg-muted/30 px-4 py-3">
+          <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Invoice Date</div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-base font-medium">{fmtDateLong(inv.invoice_date)}</span>
+            <InvoiceDateAuditBadge invoice={inv} />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 text-[#0D9488] hover:text-[#0B7E73] hover:bg-[#0D9488]/10 ml-auto"
+              onClick={() => setEditDateOpen(true)}
+            >
+              <Pencil className="w-3.5 h-3.5 mr-1.5" />
+              Edit Date
+            </Button>
+          </div>
+        </div>
+      )}
 
       <Card id="invoice-print" className="p-10 bg-card text-card-foreground border-border rounded-lg print:shadow-none print:border-0 print:bg-white print:text-black">
         <div className="flex items-start justify-between border-b-2 border-[#0D9488] pb-6">
@@ -135,6 +187,12 @@ function App() {
       </Card>
 
       <MarkPaidDialog open={payOpen} onClose={()=>setPayOpen(false)} invoice={inv} onSaved={load}/>
+      <EditInvoiceDateDialog
+        open={editDateOpen}
+        onClose={() => setEditDateOpen(false)}
+        invoice={inv}
+        onSaved={updated => setInv(updated)}
+      />
       <style jsx global>{`
         @media print {
           body * { visibility: hidden; }

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
+import { stripInvoiceAuditFields } from '@/lib/invoice-audit'
 import { v4 as uuidv4 } from 'uuid'
 
 function cors(res) {
@@ -47,7 +48,7 @@ export async function GET(request, { params }) {
   const items = inv ? await db.collection('invoice_items').find({ invoice_id: inv.id, clinic_id: cid }).toArray() : []
   const { items: _invItems, ...cleanInv } = inv ? clean(inv) : {}
   const { prescriptions: _vRx, ...cleanV } = clean(v)
-  return json({ visit: { ...cleanV, patient: clean(p), doctor_name: doc?.full_name || '', prescriptions: rxs.map(clean), previous_visit: prevList[0] ? clean(prevList[0]) : null, invoice: inv ? { ...cleanInv, items: items.map(clean) } : null } })
+  return json({ visit: { ...cleanV, patient: clean(p), doctor_name: doc?.full_name || '', prescriptions: rxs.map(clean), previous_visit: prevList[0] ? clean(prevList[0]) : null, invoice: inv ? stripInvoiceAuditFields({ ...cleanInv, items: items.map(clean) }) : null } })
 }
 
 export async function PUT(request, { params }) {

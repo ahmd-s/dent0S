@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
 import { timeToMinutes } from '@/lib/block-times'
+import { stripInvoiceAuditFields } from '@/lib/invoice-audit'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -416,7 +417,8 @@ async function handle(request, { params }) {
       ])
       const doctor = visit?.doctor_id ? await db.collection('profiles').findOne({ id: visit.doctor_id }) : null
       const { items: _invItems, ...cleanInv } = clean(inv)
-      return json({ invoice: { ...cleanInv, patient: clean(p), items: items.map(clean), visit: visit ? clean(visit) : null, doctor_name: doctor?.full_name || '', clinic: clean(clinic) } })
+      const safeInv = stripInvoiceAuditFields(cleanInv)
+      return json({ invoice: { ...safeInv, patient: clean(p), items: items.map(clean), visit: visit ? clean(visit) : null, doctor_name: doctor?.full_name || '', clinic: clean(clinic) } })
     }
 
     // ============ INVOICES ============
@@ -432,7 +434,7 @@ async function handle(request, { params }) {
       const pids = [...new Set(list.map(i=>i.patient_id).filter(Boolean))]
       const pts = pids.length ? await db.collection('patients').find({ id: { $in: pids }, clinic_id: cid }).toArray() : []
       let pmap = Object.fromEntries(pts.map(p=>[p.id, p.name]))
-      let arr = list.map(i => ({ ...clean(i), patient_name: pmap[i.patient_id] || '—' }))
+      let arr = list.map(i => stripInvoiceAuditFields({ ...clean(i), patient_name: pmap[i.patient_id] || '—' }))
       if (q) { const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'i'); arr = arr.filter(i => re.test(i.patient_name) || re.test(i.invoice_number||'')) }
       // monthly summary
       const mStart = monthBack(1)
