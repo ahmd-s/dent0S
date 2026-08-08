@@ -39,13 +39,14 @@ function consumeOAuthErrorFromBrowserUrl() {
   const params = new URLSearchParams(window.location.search)
   const code = params.get(OAUTH_ERROR_PARAM)
   if (!code) return null
-  reportOAuthDebugToAgent(params.get(OAUTH_DEBUG_PARAM))
+  const debug = params.get(OAUTH_DEBUG_PARAM)
+  reportOAuthDebugToAgent(debug)
   params.delete(OAUTH_ERROR_PARAM)
   params.delete(OAUTH_DEBUG_PARAM)
   const rest = params.toString()
   const nextPath = rest ? `/login?${rest}` : '/login'
   window.history.replaceState(null, '', nextPath)
-  return code
+  return debug ? `${code} (${debug})` : code
 }
 
 function LoginPageContent() {
