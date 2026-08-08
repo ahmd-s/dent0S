@@ -14,13 +14,34 @@ import { toast } from 'sonner'
 
 const FOUNDER_QR_NOTE = 'Both founders should scan this same QR code into their own authenticator app now — it will not be shown again after setup is confirmed.'
 const OAUTH_ERROR_PARAM = 'oauth_error'
+const OAUTH_DEBUG_PARAM = 'oauth_debug'
+
+function reportOAuthDebugToAgent(detail) {
+  if (!detail) return
+  // #region agent log
+  fetch('http://127.0.0.1:7366/ingest/f3641e0b-1a49-4955-8e0b-16987fcc4471', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '87f42d' },
+    body: JSON.stringify({
+      sessionId: '87f42d',
+      location: 'login/page.js:oauth_debug',
+      message: 'OAuth debug from redirect URL',
+      data: { detail },
+      timestamp: Date.now(),
+      hypothesisId: 'client',
+    }),
+  }).catch(() => {})
+  // #endregion
+}
 
 function consumeOAuthErrorFromBrowserUrl() {
   if (typeof window === 'undefined') return null
   const params = new URLSearchParams(window.location.search)
   const code = params.get(OAUTH_ERROR_PARAM)
   if (!code) return null
+  reportOAuthDebugToAgent(params.get(OAUTH_DEBUG_PARAM))
   params.delete(OAUTH_ERROR_PARAM)
+  params.delete(OAUTH_DEBUG_PARAM)
   const rest = params.toString()
   const nextPath = rest ? `/login?${rest}` : '/login'
   window.history.replaceState(null, '', nextPath)
