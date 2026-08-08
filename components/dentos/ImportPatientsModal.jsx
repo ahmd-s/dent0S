@@ -19,6 +19,7 @@ import {
   IMPORT_SOURCES,
   getSampleCSV,
 } from '@/lib/patient-import'
+import PatientMigrationGuide from '@/components/dentos/PatientMigrationGuide'
 
 const STEPS = ['Upload', 'Map fields', 'Review', 'Done']
 
@@ -69,6 +70,7 @@ export default function ImportPatientsModal({ open, onOpenChange, onImportComple
   const [importing, setImporting] = useState(false)
   const [result, setResult] = useState(null)
   const [dragActive, setDragActive] = useState(false)
+  const [showGuide, setShowGuide] = useState(true)
 
   const transformed = useMemo(() => {
     if (!parsed?.data || !mapping) return null
@@ -173,11 +175,12 @@ export default function ImportPatientsModal({ open, onOpenChange, onImportComple
 
   const reset = () => {
     setStep(0)
-    setSourceId('auto')
+    setSourceId('practo')
     setFile(null)
     setParsed(null)
     setMapping({})
     setResult(null)
+    setShowGuide(true)
   }
 
   const handleClose = () => {
@@ -191,11 +194,31 @@ export default function ImportPatientsModal({ open, onOpenChange, onImportComple
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose() }}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Migrate Patient Data</DialogTitle>
-          <p className="text-sm text-muted-foreground">
-            Import from <strong>Practo Ray</strong> in one click, or map columns from any other clinic software.
-          </p>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <DialogTitle>Migrate Patient Data</DialogTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Import from <strong>Practo Ray</strong> in one click, or map columns from any other clinic software.
+              </p>
+            </div>
+            {step < 3 && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="flex-shrink-0 text-[#0D9488] hover:text-[#0B7E73] hover:bg-[#0D9488]/10 gap-1.5"
+                onClick={() => setShowGuide(v => !v)}
+              >
+                <FileText className="w-4 h-4" />
+                {showGuide ? 'Hide guide' : 'Migration guide'}
+              </Button>
+            )}
+          </div>
         </DialogHeader>
+
+        {step < 3 && showGuide && (
+          <PatientMigrationGuide sourceId={sourceId} defaultOpen={step === 0} />
+        )}
 
         <StepIndicator step={step} />
 
@@ -216,16 +239,6 @@ export default function ImportPatientsModal({ open, onOpenChange, onImportComple
                 </SelectContent>
               </Select>
             </div>
-
-            {sourceId === 'practo' && (
-              <div className="p-3 rounded-lg bg-[#0D9488]/5 border border-[#0D9488]/20 text-sm">
-                <p className="font-medium text-[#0D9488] mb-1">Practo Ray export steps</p>
-                <p className="text-muted-foreground text-xs leading-relaxed">
-                  Practo Ray → Patients → Export / Download CSV. Upload that file here — columns like
-                  &quot;Patient Name&quot;, &quot;Mobile Number&quot;, and &quot;Date of Birth&quot; are mapped automatically.
-                </p>
-              </div>
-            )}
 
             <div className="flex items-center justify-between p-4 bg-muted rounded-lg gap-3">
               <div className="flex items-center gap-3 min-w-0">
