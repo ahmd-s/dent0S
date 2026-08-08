@@ -41,12 +41,12 @@ export default function LabStlUploadPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4">
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 w-full max-w-md">
-        <h1 className="text-xl font-semibold text-gray-900 text-center">
+    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+      <div className="bg-card text-card-foreground rounded-lg shadow-sm border border-border p-8 w-full max-w-md">
+        <h1 className="text-xl font-semibold text-foreground text-center">
           Upload 3D Scan File
         </h1>
-        <p className="mt-2 text-sm text-gray-500 text-center">
+        <p className="mt-2 text-sm text-muted-foreground text-center">
           Upload your STL file for this case
         </p>
 

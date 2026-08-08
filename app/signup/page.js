@@ -56,7 +56,7 @@ function App() {
       </form>
       <AuthOrDivider />
       <GoogleSignInButton label="Sign up with Google" />
-      <p className="text-center text-sm mt-6">Already have an account? <Link href="/login" className="text-[#0D9488] font-medium hover:underline">Sign in</Link></p>
+      <p className="text-center text-sm text-muted-foreground mt-6">Already have an account? <Link href="/login" className="text-[#0D9488] font-medium hover:underline">Sign in</Link></p>
     </AuthSplit>
   )
 }

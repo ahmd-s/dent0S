@@ -281,7 +281,7 @@ function LoginPageContent() {
       </form>
       <AuthOrDivider />
       <GoogleSignInButton />
-      <p className="text-center text-sm mt-6">New to DentOS? <Link href="/signup" className="text-[#0D9488] font-medium hover:underline">Create your clinic</Link></p>
+      <p className="text-center text-sm text-muted-foreground mt-6">New to DentOS? <Link href="/signup" className="text-[#0D9488] font-medium hover:underline">Create your clinic</Link></p>
     </AuthSplit>
   )
 }

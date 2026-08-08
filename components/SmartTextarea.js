@@ -114,14 +114,14 @@ export default function SmartTextarea({ value, onChange, category, placeholder, 
       {showDropdown && suggestions.length > 0 && (
         <div
           ref={dropdownRef}
-          className="absolute z-50 w-full mt-1 bg-white border border-border rounded-md shadow-lg max-h-60 overflow-y-auto"
+          className="absolute z-50 w-full mt-1 bg-popover text-popover-foreground border border-border rounded-md shadow-lg max-h-60 overflow-y-auto"
         >
           {suggestions.map((template, index) => (
             <button
               key={template.trigger}
               type="button"
               onClick={() => handleSelect(template)}
-              className={`w-full text-left px-3 py-2 hover:bg-[#F8FAFC] border-b border-border last:border-b-0 ${
+              className={`w-full text-left px-3 py-2 hover:bg-muted border-b border-border last:border-b-0 ${
                 index === selectedIndex ? 'bg-[#0D9488]/10' : ''
               }`}
             >

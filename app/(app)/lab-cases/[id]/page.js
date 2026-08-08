@@ -235,7 +235,7 @@ function App() {
             )}
           </Card>
 
-          <Card className="mt-4 p-4 bg-white border-border rounded-lg">
+          <Card className="mt-4 p-4 bg-card border-border rounded-lg">
             <h3 className="font-semibold text-sm mb-3">3D Scan File</h3>
             {lc?.stl_file_url ? (
               <STLViewer url={lc.stl_file_url} height="400px" />

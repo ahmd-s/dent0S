@@ -72,7 +72,7 @@ export default function ConsentSigningPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin mx-auto text-[#0D9488]"/>
           <p className="mt-3 text-muted-foreground">Loading consent form...</p>
@@ -83,10 +83,10 @@ export default function ConsentSigningPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="max-w-md w-full p-8 text-center">
           <AlertCircle className="w-12 h-12 mx-auto text-red-500"/>
-          <h2 className="mt-4 text-xl font-semibold text-gray-900">Error</h2>
+          <h2 className="mt-4 text-xl font-semibold text-foreground">Error</h2>
           <p className="mt-2 text-muted-foreground">{error}</p>
         </Card>
       </div>
@@ -95,10 +95,10 @@ export default function ConsentSigningPage() {
 
   if (signed) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="max-w-md w-full p-8 text-center">
           <CheckCircle2 className="w-16 h-16 mx-auto text-green-500"/>
-          <h2 className="mt-4 text-2xl font-semibold text-gray-900">Thank You!</h2>
+          <h2 className="mt-4 text-2xl font-semibold text-foreground">Thank You!</h2>
           <p className="mt-2 text-muted-foreground">Your consent has been successfully recorded.</p>
           <p className="mt-4 text-sm text-muted-foreground">You can close this page now.</p>
         </Card>
@@ -111,7 +111,7 @@ export default function ConsentSigningPage() {
   const consentRequest = data?.consent_request || {}
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="bg-[#0D9488] text-white py-6 px-4">
         <div className="max-w-2xl mx-auto">

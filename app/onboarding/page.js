@@ -84,13 +84,13 @@ function App() {
   if (!user) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]"/></div>
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC]">
+    <div className="min-h-screen bg-background">
       <div className="max-w-2xl mx-auto px-6 py-10">
         <div className="flex justify-center mb-8"><DentosLogo /></div>
         <div className="flex items-center justify-center gap-2 mb-10">
           {[1,2,3].map(s => (
             <div key={s} className="flex items-center">
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-medium border-2 ${step>=s?'bg-[#0D9488] border-[#0D9488] text-white':'bg-white border-border text-muted-foreground'}`}>
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-medium border-2 ${step>=s?'bg-[#0D9488] border-[#0D9488] text-white':'bg-card border-border text-muted-foreground'}`}>
                 {step>s ? <Check className="w-4 h-4"/> : s}
               </div>
               {s<3 && <div className={`w-16 h-0.5 ${step>s?'bg-[#0D9488]':'bg-border'}`}/>}
@@ -98,10 +98,10 @@ function App() {
           ))}
         </div>
 
-        <div className="bg-white rounded-lg border border-border p-8 shadow-sm">
+        <div className="bg-card text-card-foreground rounded-lg border border-border p-8 shadow-sm">
           {step===1 && (
             <>
-              <h2 className="text-2xl font-bold text-[#0F172A]">Tell us about your clinic</h2>
+              <h2 className="text-2xl font-bold text-foreground">Tell us about your clinic</h2>
               <p className="text-muted-foreground text-sm mt-1">This appears on invoices and patient records.</p>
               <div className="mt-6 space-y-4">
                 <div className="space-y-1.5"><Label>Clinic Name</Label><Input value={clinic.name} onChange={e=>setClinic({...clinic,name:e.target.value})} /></div>
@@ -129,7 +129,7 @@ function App() {
           )}
           {step===2 && (
             <>
-              <h2 className="text-2xl font-bold text-[#0F172A]">When is your clinic open?</h2>
+              <h2 className="text-2xl font-bold text-foreground">When is your clinic open?</h2>
               <p className="text-muted-foreground text-sm mt-1">Set default working hours.</p>
               <div className="mt-6 space-y-3">
                 {hours.map((h,i) => (
@@ -160,7 +160,7 @@ function App() {
           )}
           {step===3 && (
             <>
-              <h2 className="text-2xl font-bold text-[#0F172A]">Add your team <span className="text-muted-foreground font-normal text-base">(optional)</span></h2>
+              <h2 className="text-2xl font-bold text-foreground">Add your team <span className="text-muted-foreground font-normal text-base">(optional)</span></h2>
               <p className="text-muted-foreground text-sm mt-1">You can always add more people later from Settings.</p>
               <div className="mt-6 grid grid-cols-2 gap-3">
                 <div className="space-y-1.5"><Label>Full Name</Label><Input value={staff.full_name} onChange={e=>setStaff({...staff,full_name:e.target.value})}/></div>
@@ -179,7 +179,7 @@ function App() {
               <Button variant="outline" onClick={addStaff} className="mt-4 w-full border-dashed"><Plus className="w-4 h-4 mr-2"/>Add Team Member</Button>
               {team.length>0 && <div className="mt-5 space-y-2">
                 {team.map((t,i)=>(
-                  <div key={i} className="flex items-center justify-between bg-[#F8FAFC] rounded-md p-3">
+                  <div key={i} className="flex items-center justify-between bg-muted rounded-md p-3">
                     <div><div className="font-medium text-sm">{t.full_name}</div><div className="text-xs text-muted-foreground">{t.email} • {t.role}</div></div>
                     <span className="text-xs text-success">Added</span>
                   </div>

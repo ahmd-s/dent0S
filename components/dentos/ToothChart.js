@@ -365,7 +365,7 @@ function ToothChart({ visitId, patientId, readOnly = false, onChartChange }) {
 
   if (loading) {
     return (
-      <Card className="p-6 bg-white border-border rounded-lg">
+      <Card className="p-6 bg-card border-border rounded-lg">
         <div className="flex items-center justify-center py-8">
           <Loader2 className="w-6 h-6 animate-spin text-[#0D9488]" />
         </div>
@@ -374,7 +374,7 @@ function ToothChart({ visitId, patientId, readOnly = false, onChartChange }) {
   }
 
   return (
-    <Card className="p-6 bg-white border-border rounded-lg relative">
+    <Card className="p-6 bg-card border-border rounded-lg relative">
       {/* Save status indicator */}
       <div className="absolute top-4 right-4 flex items-center gap-2">
         {saveStatus === 'saving' && (
@@ -393,7 +393,7 @@ function ToothChart({ visitId, patientId, readOnly = false, onChartChange }) {
       </div>
 
       <div className="mb-4">
-        <h3 className="text-lg font-semibold text-[#0F172A] flex items-center gap-2">
+        <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
           🦷 Tooth Chart (FDI)
         </h3>
         {lastUpdated && (
@@ -458,7 +458,7 @@ function ToothChart({ visitId, patientId, readOnly = false, onChartChange }) {
 
       {/* Condition legend */}
       <div className="border-t border-border pt-4">
-        <h4 className="text-sm font-medium text-[#0F172A] mb-3">Condition Legend</h4>
+        <h4 className="text-sm font-medium text-foreground mb-3">Condition Legend</h4>
         <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
           {Object.entries(CONDITIONS).map(([key, { color, label }]) => (
             <div key={key} className="flex items-center gap-2">
@@ -476,7 +476,7 @@ function ToothChart({ visitId, patientId, readOnly = false, onChartChange }) {
       {showPicker && !readOnly && (
         <div
           ref={pickerRef}
-          className="fixed z-50 bg-white rounded-lg shadow-xl border border-border p-4 w-64"
+          className="fixed z-50 bg-popover text-popover-foreground rounded-lg shadow-xl border border-border p-4 w-64"
           style={{
             left: `${pickerPosition.x - 128}px`,
             top: `${pickerPosition.y}px`,
@@ -485,7 +485,7 @@ function ToothChart({ visitId, patientId, readOnly = false, onChartChange }) {
           }}
         >
           <div className="mb-3">
-            <h4 className="text-sm font-medium text-[#0F172A]">
+            <h4 className="text-sm font-medium text-foreground">
               {selectedSurface 
                 ? `Tooth ${selectedTooth} - Surface ${getSurfaceLabel(selectedTooth, selectedSurface)}`
                 : `Tooth ${selectedTooth} - All Surfaces`

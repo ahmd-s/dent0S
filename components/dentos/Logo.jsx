@@ -7,7 +7,7 @@ export function DentosLogo({ className = '', dark = false }) {
       <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${dark ? 'bg-white/15' : 'bg-[#0D9488]'}`}>
         <ToothIcon className="w-5 h-5 text-white" />
       </div>
-      <span className={`text-xl font-bold tracking-tight ${dark ? 'text-white' : 'text-[#0F172A]'}`}>DentOS</span>
+      <span className={`text-xl font-bold tracking-tight ${dark ? 'text-white' : 'text-foreground'}`}>DentOS</span>
     </div>
   )
 }

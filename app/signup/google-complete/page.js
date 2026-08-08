@@ -103,7 +103,7 @@ export default function GoogleCompleteSignupPage() {
         </Button>
         {err && <p className="text-sm text-[#EF4444]">{err}</p>}
       </form>
-      <p className="text-center text-sm mt-6">
+      <p className="text-center text-sm text-muted-foreground mt-6">
         <Link href="/login" className="text-[#0D9488] font-medium hover:underline">Back to sign in</Link>
       </p>
     </AuthSplit>

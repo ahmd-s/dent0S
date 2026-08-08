@@ -96,7 +96,7 @@ export default function SignaturePad({ value, onChange, className = '' }) {
 
   return (
     <div className={`relative ${className}`}>
-      <div className="border-2 border-dashed border-gray-300 rounded-lg bg-white">
+      <div className="border-2 border-dashed border-border rounded-lg bg-card">
         <canvas
           ref={canvasRef}
           onMouseDown={startDrawing}
