@@ -30,9 +30,33 @@ function cors(res) {
 const json = (d, s = 200) => cors(NextResponse.json(d, { status: s }))
 const err = (msg, s = 400) => json({ error: msg }, s)
 
+function getMongoEnvHint() {
+  const url = process.env.MONGO_URL || ''
+  return {
+    present: url.length > 0,
+    length: url.length,
+    looksLocalhost: /localhost|127\.0\.0\.1/.test(url),
+    dbName: process.env.DB_NAME || '(unset)',
+  }
+}
+
+function loginErrorResponse(message, status, debugData) {
+  const res = json({ error: message }, status)
+  if (debugData) {
+    res.headers.set('X-Login-Debug', JSON.stringify(debugData))
+  }
+  return res
+}
+
 export async function POST(request) {
+  // #region agent log
+  fetch('http://127.0.0.1:7366/ingest/f3641e0b-1a49-4955-8e0b-16987fcc4471',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'87f42d'},body:JSON.stringify({sessionId:'87f42d',location:'app/api/auth/login/route.js:POST:entry',message:'login POST start',data:{mongo:getMongoEnvHint(),hasJwtSecret:!!process.env.JWT_SECRET},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
   try {
     const db = await getDb()
+    // #region agent log
+    fetch('http://127.0.0.1:7366/ingest/f3641e0b-1a49-4955-8e0b-16987fcc4471',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'87f42d'},body:JSON.stringify({sessionId:'87f42d',location:'app/api/auth/login/route.js:POST:db',message:'getDb ok',data:{},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     const b = await request.json()
     if (!b.email || !b.password) return err('Email and password required')
     const email = b.email.toLowerCase().trim()
@@ -124,6 +148,14 @@ export async function POST(request) {
     return json({ ok: true, onboarding_complete: !!c?.onboarding_complete })
   } catch (e) {
     console.error('Auth login error:', e)
-    return err('Internal server error', 500)
+    const debugData = {
+      errorName: e?.name || 'Error',
+      errorCode: e?.code || null,
+      mongo: getMongoEnvHint(),
+    }
+    // #region agent log
+    fetch('http://127.0.0.1:7366/ingest/f3641e0b-1a49-4955-8e0b-16987fcc4471',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'87f42d'},body:JSON.stringify({sessionId:'87f42d',location:'app/api/auth/login/route.js:POST:catch',message:'login POST failed',data:debugData,timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    return loginErrorResponse('Internal server error', 500, debugData)
   }
 }

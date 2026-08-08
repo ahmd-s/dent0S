@@ -3,11 +3,6 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  env: {
-    MONGO_URL: 'mongodb://localhost:27017/dentos_local',
-    JWT_SECRET: 'dentos_local_secret_2024',
-    DB_NAME: 'dentos_local'
-  },
   experimental: {
     // Remove if not using Server Components
     serverComponentsExternalPackages: ['mongodb'],

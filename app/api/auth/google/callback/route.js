@@ -98,6 +98,9 @@ export async function GET(request) {
     return appRedirect(origin, '/signup/google-complete')
   } catch (e) {
     console.error('Google OAuth callback error:', e)
+    // #region agent log
+    fetch('http://127.0.0.1:7366/ingest/f3641e0b-1a49-4955-8e0b-16987fcc4471',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'87f42d'},body:JSON.stringify({sessionId:'87f42d',location:'app/api/auth/google/callback/route.js:catch',message:'google callback failed',data:{errorName:e?.name||'Error',errorCode:e?.code||null,mongoPresent:!!process.env.MONGO_URL,mongoLooksLocalhost:/localhost|127\.0\.0\.1/.test(process.env.MONGO_URL||'')},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     return loginErrorRedirect(origin, 'Google sign-in failed. Please try again.')
   }
 }
