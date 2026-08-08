@@ -43,8 +43,13 @@ export async function GET(request) {
     console.error(
       'Google OAuth start: missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET at runtime'
     )
+    const idPresent = diagnostic.GOOGLE_CLIENT_ID.present
+    const secretPresent = diagnostic.GOOGLE_CLIENT_SECRET.present
+    let oauthError = 'google_not_configured'
+    if (idPresent && !secretPresent) oauthError = 'google_missing_secret'
+    else if (!idPresent && secretPresent) oauthError = 'google_missing_client_id'
     return redirectWithEnvDiagnostic(
-      new URL('/login?oauth_error=google_not_configured', origin),
+      new URL(`/login?oauth_error=${oauthError}`, origin),
       diagnostic
     )
   }
