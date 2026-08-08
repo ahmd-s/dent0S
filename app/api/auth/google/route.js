@@ -10,27 +10,41 @@ export const dynamic = 'force-dynamic'
 
 const GOOGLE_ENV_KEYS = ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET']
 
-function logGoogleOAuthEnvDiagnostic() {
+/** Safe runtime snapshot — never includes secret values. */
+function buildGoogleOAuthEnvDiagnostic() {
   const id = process.env.GOOGLE_CLIENT_ID
   const secret = process.env.GOOGLE_CLIENT_SECRET
-  console.info('[google-oauth-env-diagnostic]', {
+  return {
     variableNamesChecked: GOOGLE_ENV_KEYS,
     GOOGLE_CLIENT_ID: { present: id != null && id !== '', length: id?.length ?? 0 },
     GOOGLE_CLIENT_SECRET: { present: secret != null && secret !== '', length: secret?.length ?? 0 },
     nodeEnv: process.env.NODE_ENV ?? '(unset)',
     vercelEnv: process.env.VERCEL_ENV ?? '(unset)',
-  })
+  }
+}
+
+function logGoogleOAuthEnvDiagnostic() {
+  console.info('[google-oauth-env-diagnostic]', buildGoogleOAuthEnvDiagnostic())
+}
+
+function redirectWithEnvDiagnostic(url, diagnostic) {
+  const res = NextResponse.redirect(url)
+  // Lets curl -I read the snapshot when Vercel runtime logs are unavailable.
+  res.headers.set('X-Google-OAuth-Env-Diagnostic', JSON.stringify(diagnostic))
+  return res
 }
 
 export async function GET(request) {
+  const diagnostic = buildGoogleOAuthEnvDiagnostic()
   logGoogleOAuthEnvDiagnostic()
   const origin = new URL(request.url).origin
   if (!isGoogleOAuthConfigured()) {
     console.error(
       'Google OAuth start: missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET at runtime'
     )
-    return NextResponse.redirect(
-      new URL('/login?oauth_error=google_not_configured', origin)
+    return redirectWithEnvDiagnostic(
+      new URL('/login?oauth_error=google_not_configured', origin),
+      diagnostic
     )
   }
   try {
@@ -40,6 +54,9 @@ export async function GET(request) {
   } catch (e) {
     console.error('Google OAuth start error:', e)
     const message = encodeURIComponent('Google sign-in failed. Please try again.')
-    return NextResponse.redirect(new URL(`/login?oauth_error=${message}`, origin))
+    return redirectWithEnvDiagnostic(
+      new URL(`/login?oauth_error=${message}`, origin),
+      diagnostic
+    )
   }
 }
