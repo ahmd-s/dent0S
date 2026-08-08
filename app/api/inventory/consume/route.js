@@ -13,6 +13,10 @@ export async function POST(request) {
     if (!b.visit_id) return err('Visit ID is required')
     if (!b.patient_name) return err('Patient name is required')
     if (!b.items || !Array.isArray(b.items) || b.items.length === 0) return err('Items array is required')
+
+    // Verify visit belongs to this clinic
+    const visit = await db.collection('visits').findOne({ id: b.visit_id, clinic_id: cid })
+    if (!visit) return err('Not found', 404)
     
     // Filter out zero/invalid quantities
     const validItems = b.items.filter(item => 

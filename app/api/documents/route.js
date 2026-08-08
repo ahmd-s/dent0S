@@ -100,7 +100,8 @@ export async function DELETE(request) {
 
     // Delete from MongoDB
     await db.collection('documents').deleteOne({
-      _id: new ObjectId(docId)
+      _id: new ObjectId(docId),
+      clinic_id: user.clinic_id,
     })
 
     return NextResponse.json({ success: true })

@@ -39,7 +39,7 @@ export async function GET(request) {
   // Enrich with doctor names
   const doctorIds = [...new Set(blocks.map(b => b.doctor_id).filter(Boolean))]
   const doctors = doctorIds.length > 0 
-    ? await db.collection('profiles').find({ id: { $in: doctorIds } }).toArray()
+    ? await db.collection('profiles').find({ id: { $in: doctorIds }, clinic_id: cid }).toArray()
     : []
   const doctorMap = Object.fromEntries(doctors.map(d => [d.id, d.full_name]))
 

@@ -85,7 +85,7 @@ export async function PUT(request, { params }) {
     const total = Math.max(0, subtotal - discount + gst)
     const invoiceData = { subtotal, discount, gst_amount: gst, total_amount: total, payment_status: b.payment_status || 'pending', payment_mode: b.payment_mode || null, notes: b.invoice_notes || '' }
     if (existing) {
-      await db.collection('invoices').updateOne({ id: existing.id }, { $set: invoiceData })
+      await db.collection('invoices').updateOne({ id: existing.id, clinic_id: cid }, { $set: invoiceData })
       await db.collection('invoice_items').deleteMany({ invoice_id: existing.id, clinic_id: cid })
       invoiceId = existing.id
     } else {

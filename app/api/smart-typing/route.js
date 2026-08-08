@@ -29,7 +29,7 @@ export async function GET(request) {
     const url = new URL(request.url)
     const q = url.searchParams.get('q') || ''
     const category = url.searchParams.get('category') || ''
-    const clinicId = url.searchParams.get('clinic_id')
+    const clinicId = ctx.profile.clinic_id
     
     if (!q) return json({ templates: [] })
     

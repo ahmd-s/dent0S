@@ -74,6 +74,16 @@ export async function POST(request) {
   const b = await request.json()
   if (!b.appointment_date || !b.appointment_time) return err('Date and time required')
   
+  // Verify patient_id and doctor_id belong to this clinic
+  if (b.patient_id) {
+    const patient = await db.collection('patients').findOne({ id: b.patient_id, clinic_id: cid })
+    if (!patient) return err('Not found', 404)
+  }
+  if (b.doctor_id) {
+    const doctor = await db.collection('profiles').findOne({ id: b.doctor_id, clinic_id: cid })
+    if (!doctor) return err('Not found', 404)
+  }
+
   // conflict check using shared helper
   const doctorToCheck = b.doctor_id || profile.id
   const hasConflict = await checkAppointmentConflict(db, cid, doctorToCheck, b.appointment_date, b.appointment_time)

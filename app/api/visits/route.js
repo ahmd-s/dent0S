@@ -92,7 +92,7 @@ export async function POST(request) {
               // Silently link to existing patient
               patientId = existingPatient.id
               await db.collection('appointments').updateOne(
-                { id: appointment.id },
+                { id: appointment.id, clinic_id: cid },
                 { $set: {
                   patient_id: patientId,
                   visitor_type: 'new_auto_matched'
@@ -123,7 +123,7 @@ export async function POST(request) {
             created_at: new Date()
           })
           await db.collection('appointments').updateOne(
-            { id: appointment.id },
+            { id: appointment.id, clinic_id: cid },
             { $set: { patient_id: patientId } }
           )
         }
@@ -146,7 +146,7 @@ export async function POST(request) {
               patientId = existingPatient.id
               // Update appointment to link to existing patient
               await db.collection('appointments').updateOne(
-                { id: appointment.id },
+                { id: appointment.id, clinic_id: cid },
                 { $set: { patient_id: patientId } }
               )
             }
@@ -171,7 +171,7 @@ export async function POST(request) {
               created_at: new Date()
             })
             await db.collection('appointments').updateOne(
-              { id: appointment.id },
+              { id: appointment.id, clinic_id: cid },
               { $set: { patient_id: patientId } }
             )
           }
@@ -182,6 +182,8 @@ export async function POST(request) {
   }
 
   if (!b.patient_id) return err('patient_id required')
+  const ownedPatient = await db.collection('patients').findOne({ id: b.patient_id, clinic_id: cid })
+  if (!ownedPatient) return err('Not found', 404)
   const id = uuidv4()
   await db.collection('visits').insertOne({ id, clinic_id: cid, patient_id: b.patient_id, doctor_id: b.doctor_id || profile.id, appointment_id: b.appointment_id || null, visit_date: todayIso(), chief_complaint: b.chief_complaint || '', clinical_notes: '', diagnosis: '', treatment_done: '', treatment_plan: '', next_visit_recommended: false, next_visit_date: null, created_at: new Date() })
   if (b.appointment_id) await db.collection('appointments').updateOne({ id: b.appointment_id, clinic_id: cid }, { $set: { status: 'in_progress' } })

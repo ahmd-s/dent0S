@@ -49,6 +49,17 @@ export async function PUT(request, { params }) {
 
   if (!hasPermission(profile.role, 'visits', 'update')) return err('Forbidden', 403)
   const b = await request.json()
+
+  // Verify visit belongs to this clinic
+  const visit = await db.collection('visits').findOne({ id: visitId, clinic_id: cid })
+  if (!visit) return err('Not found', 404)
+
+  // Verify patient belongs to this clinic
+  if (b.patient_id) {
+    const patient = await db.collection('patients').findOne({ id: b.patient_id, clinic_id: cid })
+    if (!patient) return err('Not found', 404)
+  }
+
   const existing = await db.collection('tooth_charts').findOne({
     visit_id: visitId, clinic_id: cid
   })

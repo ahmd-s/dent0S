@@ -39,9 +39,9 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Consent must be signed to generate PDF' }, { status: 400 })
     }
     
-    const template = await db.collection('consent_templates').findOne({ id: consentRequest.template_id })
+    const template = await db.collection('consent_templates').findOne({ id: consentRequest.template_id, clinic_id: cid })
     const clinic = await db.collection('clinics').findOne({ id: consentRequest.clinic_id })
-    const patient = await db.collection('patients').findOne({ id: consentRequest.patient_id })
+    const patient = await db.collection('patients').findOne({ id: consentRequest.patient_id, clinic_id: cid })
     
     // Generate HTML for PDF
     const html = `

@@ -46,6 +46,12 @@ export async function POST(request) {
       )
     }
 
+    // Verify patient belongs to this clinic
+    const patient = await db.collection('patients').findOne({ id: patientId, clinic_id: profile.clinic_id })
+    if (!patient) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+
     if (file.size > 10 * 1024 * 1024) {
       return NextResponse.json(
         { error: 'File too large. Maximum size is 10MB' },

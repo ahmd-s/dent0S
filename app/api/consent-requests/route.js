@@ -52,8 +52,8 @@ export async function GET(request) {
     
     // Enrich with template and patient names
     const enriched = await Promise.all(requests.map(async (req) => {
-      const template = await db.collection('consent_templates').findOne({ id: req.template_id })
-      const patient = await db.collection('patients').findOne({ id: req.patient_id })
+      const template = await db.collection('consent_templates').findOne({ id: req.template_id, clinic_id: cid })
+      const patient = await db.collection('patients').findOne({ id: req.patient_id, clinic_id: cid })
       return {
         ...clean(req),
         template_name: template?.name || 'Unknown Template',
