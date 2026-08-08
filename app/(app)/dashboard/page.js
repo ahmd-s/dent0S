@@ -76,34 +76,39 @@ function App() {
   const cont = (apt) => apt.visit_id ? router.push(`/visits/${apt.visit_id}`) : startVisit(apt)
 
   const cards = [
-    { label:'Patients Seen Today', val: stats?.patients_seen_today ?? '—', sub: stats ? `${stats.patients_seen_yesterday>=0?`vs ${stats.patients_seen_yesterday} yesterday`:''}` : '', icon: UserCheck, color:'#0D9488' },
-    { label:'Revenue Collected', val: stats ? inr(stats.revenue_today) : '—', sub:'Across paid invoices today', icon: IndianRupee, color:'#22C55E' },
-    { label:'Pending Payments', val: stats ? inr(stats.pending_today) : '—', sub:'Pending & partial today', icon: AlertCircle, color: stats?.pending_today>0?'#F59E0B':'#94A3B8' },
-    { label:'Follow-ups Due', val: stats?.followups_due_count ?? '—', sub:'Patients due for return visit', icon: Calendar, color: stats?.followups_due_count>0?'#EF4444':'#94A3B8' },
-    { label:'Awaiting Lab Acceptance', val: stats?.awaiting_lab_acceptance ?? '—', sub:'Sent, not yet received by lab', icon: FlaskConical, color:'#6366F1', href:'/lab-cases?status=sent' },
-    { label:'Cases In Production', val: stats?.in_production_lab_cases ?? '—', sub:'Being made at the lab', icon: FlaskConical, color:'#0D9488', href:'/lab-cases?status=lab_received,in_production,in_progress' },
-    { label:'Cases Ready', val: stats?.ready_lab_cases ?? '—', sub:'Ready / awaiting delivery', icon: FlaskConical, color:'#22C55E', href:'/lab-cases?status=ready' },
-    { label:'Overdue Cases', val: stats?.overdue_lab_cases ?? '—', sub:'Past expected delivery', icon: AlertTriangle, color: stats?.overdue_lab_cases>0?'#EF4444':'#94A3B8', href:'/lab-cases?status=overdue' },
+    { label:'Patients Seen Today', shortLabel:'Seen Today', val: stats?.patients_seen_today ?? '—', sub: stats ? `${stats.patients_seen_yesterday>=0?`vs ${stats.patients_seen_yesterday} yesterday`:''}` : '', icon: UserCheck, color:'#0D9488' },
+    { label:'Revenue Collected', shortLabel:'Revenue', val: stats ? inr(stats.revenue_today) : '—', sub:'Across paid invoices today', icon: IndianRupee, color:'#22C55E' },
+    { label:'Pending Payments', shortLabel:'Pending', val: stats ? inr(stats.pending_today) : '—', sub:'Pending & partial today', icon: AlertCircle, color: stats?.pending_today>0?'#F59E0B':'#94A3B8' },
+    { label:'Follow-ups Due', shortLabel:'Follow-ups', val: stats?.followups_due_count ?? '—', sub:'Patients due for return visit', icon: Calendar, color: stats?.followups_due_count>0?'#EF4444':'#94A3B8' },
+    { label:'Awaiting Lab Acceptance', shortLabel:'Awaiting', val: stats?.awaiting_lab_acceptance ?? '—', sub:'Sent, not yet received by lab', icon: FlaskConical, color:'#6366F1', href:'/lab-cases?status=sent' },
+    { label:'Cases In Production', shortLabel:'Production', val: stats?.in_production_lab_cases ?? '—', sub:'Being made at the lab', icon: FlaskConical, color:'#0D9488', href:'/lab-cases?status=lab_received,in_production,in_progress' },
+    { label:'Cases Ready', shortLabel:'Ready', val: stats?.ready_lab_cases ?? '—', sub:'Ready / awaiting delivery', icon: FlaskConical, color:'#22C55E', href:'/lab-cases?status=ready' },
+    { label:'Overdue Cases', shortLabel:'Overdue', val: stats?.overdue_lab_cases ?? '—', sub:'Past expected delivery', icon: AlertTriangle, color: stats?.overdue_lab_cases>0?'#EF4444':'#94A3B8', href:'/lab-cases?status=overdue' },
   ]
 
   return (
     <div className="max-w-7xl mx-auto space-y-4 md:space-y-5">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+      <div className="grid grid-cols-4 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
         {cards.map(c => {
           const Icon = c.icon
           const inner = (
-            <Card className={`p-4 md:p-5 bg-card border-border rounded-lg h-full ${c.href?'hover:border-[#0D9488]/40 transition-colors cursor-pointer':''}`}>
-              <div className="flex items-start justify-between">
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs md:text-sm text-muted-foreground">{c.label}</div>
-                  <div className="text-2xl md:text-3xl font-bold mt-1 md:mt-2" style={{color: c.color}}>{c.val}</div>
-                  <div className="text-xs text-muted-foreground mt-1 truncate">{c.sub}</div>
+            <Card className={`p-2.5 sm:p-4 md:p-5 bg-card border-border rounded-lg h-full min-h-[88px] sm:min-h-0 ${c.href?'hover:border-[#0D9488]/40 transition-colors cursor-pointer active:scale-[0.98]':''}`}>
+              <div className="flex items-start justify-between gap-1 sm:gap-2 h-full">
+                <div className="flex-1 min-w-0 flex flex-col justify-between">
+                  <div className="text-[10px] leading-tight sm:text-xs md:text-sm text-muted-foreground line-clamp-2">
+                    <span className="sm:hidden">{c.shortLabel}</span>
+                    <span className="hidden sm:inline">{c.label}</span>
+                  </div>
+                  <div className="text-lg sm:text-2xl md:text-3xl font-bold mt-1 sm:mt-2 leading-none tabular-nums" style={{color: c.color}}>{c.val}</div>
+                  <div className="text-[9px] sm:text-xs text-muted-foreground mt-1 line-clamp-2 leading-snug hidden min-[380px]:block sm:block">{c.sub}</div>
                 </div>
-                <div className="w-9 h-9 md:w-10 md:h-10 rounded-lg flex items-center justify-center flex-shrink-0 ml-2" style={{backgroundColor: c.color+'15'}}><Icon className="w-4 h-4 md:w-5 md:h-5" style={{color: c.color}}/></div>
+                <div className="w-7 h-7 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-md sm:rounded-lg flex items-center justify-center flex-shrink-0" style={{backgroundColor: c.color+'15'}}>
+                  <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" style={{color: c.color}}/>
+                </div>
               </div>
             </Card>
           )
-          return c.href ? <Link key={c.label} href={c.href}>{inner}</Link> : <div key={c.label}>{inner}</div>
+          return c.href ? <Link key={c.label} href={c.href} className="min-w-0">{inner}</Link> : <div key={c.label} className="min-w-0">{inner}</div>
         })}
       </div>
 
