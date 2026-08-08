@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import {
   generateOAuthState,
   buildGoogleAuthUrl,
+  probeGoogleOAuthCredentials,
 } from '@/lib/google-oauth'
 import { isGoogleOAuthConfigured } from '@/lib/google-oauth'
 import { setOAuthStateCookie } from '@/lib/google-oauth-cookies'
@@ -48,6 +49,21 @@ export async function GET(request) {
     )
   }
   try {
+    const probe = await probeGoogleOAuthCredentials()
+    if (!probe.ok) {
+      console.error('[google-oauth-credential-probe]', probe)
+      let oauthError = 'google_invalid_secret'
+      if (probe.likelyClientIdCopiedAsSecret) {
+        oauthError = 'google_secret_is_client_id'
+      } else if (probe.reason === 'redirect_uri_mismatch') {
+        oauthError = 'google_redirect_uri_mismatch'
+      }
+      return redirectWithEnvDiagnostic(
+        new URL(`/login?oauth_error=${oauthError}`, origin),
+        { ...diagnostic, credentialProbe: probe }
+      )
+    }
+
     const state = generateOAuthState()
     setOAuthStateCookie(state)
     return NextResponse.redirect(buildGoogleAuthUrl(state))
