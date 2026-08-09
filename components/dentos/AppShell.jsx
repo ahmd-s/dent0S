@@ -2,28 +2,21 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { LayoutDashboard, Users, Calendar, Receipt, Settings, LogOut, Search, Plus, Menu, X, Moon, Sun, FlaskConical, Building2, ChevronUp, CreditCard, Package } from 'lucide-react'
+import { LogOut, Search, Plus, Menu, X, Moon, Sun, ChevronUp, CreditCard, Settings } from 'lucide-react'
 import NotificationBell from './NotificationBell'
 import { ClinicLogo } from './Logo'
 import { useRole } from './RoleContext'
+import { useWorkspace } from '@/components/workspace/useWorkspace'
+import WorkspaceGate from '@/components/workspace/WorkspaceGate'
 import { Badge } from '@/components/ui/badge'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { canAccessRoute, canAccessSettings } from '@/lib/rbac'
 import { getProfileRoles, roleBadgeLabel } from '@/lib/profile-roles'
+import { NAV_REGISTRY } from '@/lib/workspace-nav-registry'
 import { CLINIC_ACCESS_PAUSED_MESSAGE } from '@/lib/clinic-access'
 import { ImpersonationBanner } from '@/components/platform-admin/ImpersonationBanner'
-
-const NAV_ALL = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/patients', label: 'Patients', icon: Users },
-  { href: '/appointments', label: 'Appointments', icon: Calendar },
-  { href: '/lab-cases', label: 'Lab Cases', icon: FlaskConical },
-  { href: '/vendors', label: 'Vendors', icon: Building2 },
-  { href: '/inventory', label: 'Inventory', icon: Package },
-  { href: '/billing', label: 'Billing', icon: Receipt },
-  { href: '/settings', label: 'Settings', icon: Settings },
-]
 
 const INVENTORY_SUBNAV = [
   { href: '/inventory', label: 'Dashboard' },
@@ -57,10 +50,18 @@ export default function AppShell({ children }) {
   const pathname = usePathname()
   const router = useRouter()
   const { me, roles } = useRole()
+  const { navigationOrder, layoutClasses } = useWorkspace()
   const { theme, setTheme } = useTheme()
   const navItems = useMemo(() => {
-    return NAV_ALL.filter(n => canAccessRoute(roles, n.href))
-  }, [roles])
+    return navigationOrder
+      .map(key => {
+        const reg = NAV_REGISTRY[key]
+        if (!reg) return null
+        return { key, href: reg.href, label: reg.label, icon: reg.icon }
+      })
+      .filter(Boolean)
+      .filter(n => canAccessRoute(roles, n.href))
+  }, [navigationOrder, roles])
   const [q, setQ] = useState('')
   const [results, setResults] = useState([])
   const [showResults, setShowResults] = useState(false)
@@ -112,7 +113,7 @@ export default function AppShell({ children }) {
             const active = pathname === n.href || pathname.startsWith(n.href + '/')
             const Icon = n.icon
             return (
-              <div key={n.href}>
+              <div key={n.key}>
                 <Link href={n.href} onClick={()=>setMobileOpen(false)}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition ${active?'bg-[#0D9488] text-white':'text-white/70 hover:bg-white/5 hover:text-white'}`}>
                   <Icon className="w-4 h-4"/>{n.label}
@@ -155,6 +156,7 @@ export default function AppShell({ children }) {
                 <div className="text-xs text-white/50 truncate">{me.profile?.email}</div>
               </div>
               {canAccessSettings(me.profile) && (
+              <WorkspaceGate module="subscription">
               <Link
                 href="/subscription"
                 onClick={() => { setProfileOpen(false); setMobileOpen(false) }}
@@ -163,7 +165,9 @@ export default function AppShell({ children }) {
                 <CreditCard className="w-4 h-4" />
                 Subscription & Plan
               </Link>
+              </WorkspaceGate>
               )}
+              <WorkspaceGate module="settings">
               <Link
                 href="/settings"
                 onClick={() => { setProfileOpen(false); setMobileOpen(false) }}
@@ -172,6 +176,7 @@ export default function AppShell({ children }) {
                 <Settings className="w-4 h-4" />
                 Settings
               </Link>
+              </WorkspaceGate>
               <button
                 onClick={logout}
                 className="flex items-center gap-3 px-3 py-2.5 w-full text-sm text-white/70 hover:bg-white/5 hover:text-red-400 transition"
@@ -228,7 +233,9 @@ export default function AppShell({ children }) {
               <Moon className="absolute w-4 h-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
               <span className="sr-only">Toggle theme</span>
             </Button>
+            <WorkspaceGate section="dashboard" flag="notifications">
             <NotificationBell />
+            </WorkspaceGate>
           </div>
         </header>
 
@@ -278,7 +285,7 @@ export default function AppShell({ children }) {
           </div>
         )}
 
-        <main className="p-4 md:p-6 bg-background min-h-[calc(100vh-4rem)] overflow-x-hidden">{children}</main>
+        <main className={cn('p-4 md:p-6 bg-background min-h-[calc(100vh-4rem)] overflow-x-hidden', layoutClasses)}>{children}</main>
       </div>
       </div>
     </div>

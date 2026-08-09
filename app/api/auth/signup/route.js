@@ -4,6 +4,7 @@ import slugify from 'slugify'
 import { getDb } from '@/lib/mongo'
 import { hashPassword } from '@/lib/auth'
 import { createTrial } from '@/lib/subscription-engine'
+import { createDefaultWorkspace } from '@/lib/workspace-engine'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -45,6 +46,7 @@ export async function POST(request) {
       created_at: new Date(),
     })
     await createTrial(db, clinicId, { trialEnd, createdAt: now })
+    await createDefaultWorkspace(db, clinicId)
     return json({ ok: true })
   } catch (e) {
     console.error('Auth signup error:', e)

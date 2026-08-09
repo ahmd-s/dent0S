@@ -14,6 +14,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { useRole } from '@/components/dentos/RoleContext'
+import WorkspaceGate from '@/components/workspace/WorkspaceGate'
+import { useWorkspace } from '@/components/workspace/useWorkspace'
 import { DocumentsTab } from '@/components/dentos/DocumentsTab'
 import { ConsentFormsTab } from '@/components/dentos/ConsentFormsTab'
 import { NewLabCaseDialog } from '@/components/dentos/NewLabCaseDialog'
@@ -32,6 +34,7 @@ function App() {
   const { id } = useParams()
   const router = useRouter()
   const { canViewClinical, canEditClinical } = useRole()
+  const { layoutClasses } = useWorkspace()
   const canStartWalkin = canEditClinical()
   const clinicalLocked = !canEditClinical()
   const [patient, setPatient] = useState(null)
@@ -75,19 +78,22 @@ const loadLabCases = async () => {
   const past = appts.filter(a => a.appointment_date < todayIso())
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className={`max-w-7xl mx-auto ${layoutClasses}`}>
       <Link href="/patients" className="text-sm text-muted-foreground hover:text-[#0D9488] flex items-center gap-1 mb-4"><ArrowLeft className="w-4 h-4"/>Back to Patients</Link>
       <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
+        <WorkspaceGate section="patient_page" flag="basic_info">
         <div className="lg:col-span-3">
           <Card className="p-6 bg-card border-border rounded-lg sticky top-20">
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <h1 className="text-2xl font-bold text-foreground truncate">{patient.name}</h1>
+                  <WorkspaceGate section="patient_page" flag="billing">
                   <BalanceBadge
                     patientId={id}
                     onClick={() => setBalanceModalOpen(true)}
                   />
+                  </WorkspaceGate>
                 </div>
                 <div className="text-xs text-muted-foreground mt-0.5">{patient.patient_code}</div>
               </div>
@@ -108,10 +114,12 @@ const loadLabCases = async () => {
               ) : <div className="text-xs text-muted-foreground">No known allergies</div>}
             </div>
             {patient.medical_history && (
+              <WorkspaceGate section="patient_page" flag="medical_history">
               <div className="mt-4">
                 <button onClick={()=>setShowHistory(s=>!s)} className="text-sm font-medium text-foreground flex items-center gap-1">Medical History {showHistory?<ChevronUp className="w-3.5 h-3.5"/>:<ChevronDown className="w-3.5 h-3.5"/>}</button>
                 {showHistory && <div className="text-sm text-muted-foreground mt-2 whitespace-pre-line">{patient.medical_history}</div>}
               </div>
+              </WorkspaceGate>
             )}
             <dl className="mt-5 space-y-2 text-sm">
               {patient.address && <div><dt className="text-xs text-muted-foreground">Address</dt><dd>{patient.address}</dd></div>}
@@ -120,22 +128,48 @@ const loadLabCases = async () => {
               <div><dt className="text-xs text-muted-foreground">Total visits</dt><dd className="font-semibold text-foreground">{patient.total_visits || visits.length}</dd></div>
             </dl>
             <div className="mt-6 space-y-2">
+              <WorkspaceGate section="quick_actions" flag="new_appointment">
               <Button onClick={()=>setBookOpen(true)} className="w-full bg-[#0D9488] hover:bg-[#0B7E73]"><CalendarPlus className="w-4 h-4 mr-2"/>Book Appointment</Button>
-              {canStartWalkin && <Button onClick={startWalkin} variant="outline" className="w-full"><FilePlus className="w-4 h-4 mr-2"/>New Walk-in Visit</Button>}
+              </WorkspaceGate>
+              {canStartWalkin && (
+              <WorkspaceGate section="quick_actions" flag="new_visit">
+              <Button onClick={startWalkin} variant="outline" className="w-full"><FilePlus className="w-4 h-4 mr-2"/>New Walk-in Visit</Button>
+              </WorkspaceGate>
+              )}
             </div>
           </Card>
         </div>
+        </WorkspaceGate>
 
-        <div className="lg:col-span-7">
+        <div className={layoutClasses.includes('workspace-view-two-column') ? 'lg:col-span-7' : 'lg:col-span-7'}>
           <Tabs defaultValue={canViewClinical() ? "visits" : "appointments"}>
             <TabsList className="bg-muted">
-              {canViewClinical() && <TabsTrigger value="visits">Visit History</TabsTrigger>}
+              {canViewClinical() && (
+              <WorkspaceGate section="patient_page" flag="treatment_history">
+              <TabsTrigger value="visits">Visit History</TabsTrigger>
+              </WorkspaceGate>
+              )}
               <TabsTrigger value="appointments">Appointments</TabsTrigger>
-              {canEditClinical() && <TabsTrigger value="documents">Documents</TabsTrigger>}
-              {canEditClinical() && <TabsTrigger value="lab-cases">Lab Cases</TabsTrigger>}
+              {canEditClinical() && (
+              <WorkspaceGate section="patient_page" flag="documents">
+              <TabsTrigger value="documents">Documents</TabsTrigger>
+              </WorkspaceGate>
+              )}
+              {canEditClinical() && (
+              <WorkspaceGate section="patient_page" flag="lab_reports">
+              <TabsTrigger value="lab-cases">Lab Cases</TabsTrigger>
+              </WorkspaceGate>
+              )}
+              <WorkspaceGate section="patient_page" flag="consents">
               <TabsTrigger value="consents">Consent Forms</TabsTrigger>
-              {canEditClinical() && <TabsTrigger value="ai">AI Summary</TabsTrigger>}
+              </WorkspaceGate>
+              {canEditClinical() && (
+              <WorkspaceGate section="quick_actions" flag="generate_ai_summary">
+              <TabsTrigger value="ai">AI Summary</TabsTrigger>
+              </WorkspaceGate>
+              )}
             </TabsList>
+            <WorkspaceGate section="patient_page" flag="treatment_history">
             <TabsContent value="visits" className="mt-4">
               {visits.length===0 && (
                 <Card className="p-12 text-center bg-card border-border rounded-lg">
@@ -165,11 +199,15 @@ const loadLabCases = async () => {
                         </button>
                         {expanded[v.id] && (
                           <div className="mt-3 pt-3 border-t border-border space-y-2 text-sm">
+                            <WorkspaceGate section="patient_page" flag="clinical_notes">
                             {v.clinical_notes && <div><span className="text-xs text-muted-foreground">Clinical Notes</span><div className="whitespace-pre-line">{v.clinical_notes}</div></div>}
+                            </WorkspaceGate>
                             {v.treatment_plan && <div><span className="text-xs text-muted-foreground">Treatment Plan</span><div className="whitespace-pre-line">{v.treatment_plan}</div></div>}
+                            <WorkspaceGate section="patient_page" flag="prescriptions">
                             {v.prescriptions?.length>0 && <div><span className="text-xs text-muted-foreground">Prescriptions</span>
                               <ul className="mt-1 space-y-1">{v.prescriptions.map(p => <li key={p.id} className="text-sm">• <span className="font-medium">{p.medicine_name}</span> {p.dosage} · {p.frequency} · {p.duration}</li>)}</ul>
                             </div>}
+                            </WorkspaceGate>
                           </div>
                         )}
                       </Card>
@@ -178,6 +216,7 @@ const loadLabCases = async () => {
                 </div>
               )}
             </TabsContent>
+            </WorkspaceGate>
             <TabsContent value="appointments" className="mt-4 space-y-3">
               {upcoming.length===0 && past.length===0 && <Card className="p-8 text-center text-muted-foreground bg-card border-border rounded-lg">No appointments yet</Card>}
               {upcoming.length>0 && <>
@@ -199,9 +238,12 @@ const loadLabCases = async () => {
                 ))}
               </>}
             </TabsContent>
+            <WorkspaceGate section="patient_page" flag="documents">
             <TabsContent value="documents" className="mt-4">
               {patient && <DocumentsTab patientId={id} />}
             </TabsContent>
+            </WorkspaceGate>
+            <WorkspaceGate section="patient_page" flag="lab_reports">
             <TabsContent value="lab-cases" className="mt-4">
               <div className="flex items-center justify-between mb-3">
                 <h4 className="text-sm font-semibold text-foreground flex items-center gap-2"><FlaskConical className="w-4 h-4 text-[#0D9488]"/>Lab Cases</h4>
@@ -248,13 +290,18 @@ const loadLabCases = async () => {
                 </Card>
               )}
             </TabsContent>
+            </WorkspaceGate>
+            <WorkspaceGate section="patient_page" flag="consents">
             <TabsContent value="consents" className="mt-4">
               {patient && <ConsentFormsTab patientId={id} patientName={patient.name} patientPhone={patient.phone} />}
             </TabsContent>
+            </WorkspaceGate>
             {canEditClinical() && (
+            <WorkspaceGate section="quick_actions" flag="generate_ai_summary">
             <TabsContent value="ai" className="mt-4">
               <AISummaryPanel patient={patient} visits={visits} onUpdated={load}/>
             </TabsContent>
+            </WorkspaceGate>
             )}
           </Tabs>
         </div>

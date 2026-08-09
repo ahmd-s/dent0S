@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Loader2, Plus, Copy, ExternalLink, Trash2, Edit2, FileText, Check } from 'lucide-react'
+import Link from 'next/link'
+import { Loader2, Plus, Copy, ExternalLink, Trash2, Edit2, FileText, Check, LayoutGrid } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -35,6 +36,23 @@ function App() {
   useEffect(() => { fetch('/api/auth/me').then(r=>r.json()).then(setMe) }, [])
   return (
     <div className="max-w-4xl mx-auto">
+      {me?.profile && canAccessSettings(me.profile) && (
+        <Link
+          href="/settings/workspace"
+          className="mb-4 flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3 hover:bg-muted/40 transition-colors group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-[#0D9488]/10 text-[#0D9488]">
+              <LayoutGrid className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">Workspace Builder</p>
+              <p className="text-xs text-muted-foreground">Customize navigation, dashboard, and layout per role</p>
+            </div>
+          </div>
+          <span className="text-xs text-muted-foreground group-hover:text-foreground">Open →</span>
+        </Link>
+      )}
       <Tabs defaultValue="clinic">
         <TabsList className="bg-muted"><TabsTrigger value="clinic">Clinic Profile</TabsTrigger><TabsTrigger value="team">Team</TabsTrigger><TabsTrigger value="availability">Doctor Availability</TabsTrigger><TabsTrigger value="consent">Consent Forms</TabsTrigger></TabsList>
         <TabsContent value="clinic" className="mt-4 space-y-5"><ClinicTab me={me} reload={()=>fetch('/api/auth/me').then(r=>r.json()).then(setMe)}/></TabsContent>
