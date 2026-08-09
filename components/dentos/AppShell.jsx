@@ -30,10 +30,12 @@ const PAGE_TITLES = {
   '/dashboard': 'Dashboard',
   '/patients': 'Patients',
   '/appointments': 'Appointments',
+  '/visits': 'Visits',
   '/lab-cases': 'Lab Cases',
   '/vendors': 'Vendors',
   '/inventory': 'Inventory',
   '/billing': 'Billing',
+  '/reports': 'Reports',
   '/settings': 'Settings',
 }
 const fmtDate = d => d ? `${String(new Date(d).getDate()).padStart(2,'0')}/${String(new Date(d).getMonth()+1).padStart(2,'0')}/${new Date(d).getFullYear()}` : ''
