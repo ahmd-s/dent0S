@@ -36,6 +36,8 @@ const PAGE_TITLES = {
   '/inventory': 'Inventory',
   '/billing': 'Billing',
   '/reports': 'Reports',
+  '/ai': 'AI',
+  '/marketing': 'Marketing',
   '/settings': 'Settings',
 }
 const fmtDate = d => d ? `${String(new Date(d).getDate()).padStart(2,'0')}/${String(new Date(d).getMonth()+1).padStart(2,'0')}/${new Date(d).getFullYear()}` : ''

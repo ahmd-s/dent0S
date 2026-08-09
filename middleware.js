@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { authorizeRouteSync } from '@/lib/authorization-engine'
 
 const PUBLIC_PATHS = ['/login', '/signup', '/signup/google-complete', '/forgot-password', '/reset-password', '/verify-email', '/verify-email-pending']
-const PROTECTED_PREFIXES = ['/dashboard', '/onboarding', '/patients', '/appointments', '/lab-cases', '/vendors', '/billing', '/settings', '/visits', '/inventory', '/subscription', '/reports']
+const PROTECTED_PREFIXES = ['/dashboard', '/onboarding', '/patients', '/appointments', '/lab-cases', '/vendors', '/billing', '/settings', '/visits', '/inventory', '/subscription', '/reports', '/ai', '/marketing']
 
 function jwtPayload(token) {
   try {
@@ -100,5 +100,9 @@ export const config = {
     '/subscription',
     '/reports',
     '/reports/:path*',
+    '/ai',
+    '/ai/:path*',
+    '/marketing',
+    '/marketing/:path*',
   ],
 }
