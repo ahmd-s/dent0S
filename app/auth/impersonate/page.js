@@ -1,9 +1,19 @@
 'use client'
-import { useEffect, useState } from 'react'
+
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Loader2, ShieldAlert } from 'lucide-react'
 
-export default function ImpersonatePage() {
+function ImpersonateLoading() {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background gap-4">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <p className="text-sm text-muted-foreground">Opening clinic session…</p>
+    </div>
+  )
+}
+
+function ImpersonateContent() {
   const router = useRouter()
   const params = useSearchParams()
   const [error, setError] = useState(null)
@@ -44,10 +54,13 @@ export default function ImpersonatePage() {
     )
   }
 
+  return <ImpersonateLoading />
+}
+
+export default function ImpersonatePage() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background gap-4">
-      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      <p className="text-sm text-muted-foreground">Opening clinic session…</p>
-    </div>
+    <Suspense fallback={<ImpersonateLoading />}>
+      <ImpersonateContent />
+    </Suspense>
   )
 }
