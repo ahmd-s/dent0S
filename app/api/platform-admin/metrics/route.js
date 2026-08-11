@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requirePlatformAdmin } from '@/lib/platform-admin'
+import { getPlatformBusinessAnalytics } from '@/lib/analytics-engine'
 import { getDb } from '@/lib/mongo'
 
 function cors(res) {
@@ -38,6 +39,10 @@ export async function GET() {
       expiringTrials,
       expiringGrace,
       platformSettings,
+      flowEventsToday,
+      labEventsToday,
+      inventoryEventsToday,
+      inventoryValueAgg,
     ] = await Promise.all([
       // Clinic breakdown by status
       db.collection('clinics').aggregate([
@@ -146,7 +151,30 @@ export async function GET() {
 
       // Platform settings for infra health
       db.collection('platform_settings').findOne({ _type: 'global' }),
+
+      // Sprint 13 — flow events today for platform-wide queue health
+      db.collection('activity_events').aggregate([
+        { $match: { module: 'appointments', created_at: { $gte: todayStart } } },
+        { $group: { _id: '$event', count: { $sum: 1 } } },
+      ]).toArray(),
+
+      db.collection('activity_events').aggregate([
+        { $match: { module: 'lab', created_at: { $gte: todayStart } } },
+        { $group: { _id: '$event', count: { $sum: 1 } } },
+      ]).toArray(),
+
+      db.collection('activity_events').aggregate([
+        { $match: { module: 'inventory', created_at: { $gte: todayStart } } },
+        { $group: { _id: '$event', count: { $sum: 1 } } },
+      ]).toArray(),
+
+      db.collection('inventory_items').aggregate([
+        { $group: { _id: '$clinic_id', value: { $sum: { $multiply: [{ $ifNull: ['$current_stock', 0] }, { $ifNull: ['$purchase_price', 0] }] } } } },
+        { $group: { _id: null, total_value: { $sum: '$value' }, clinics: { $sum: 1 } } },
+      ]).toArray(),
     ])
+
+    const platformBi = await getPlatformBusinessAnalytics(db)
 
     // Mongo health via ping
     let mongoHealthy = true
@@ -162,6 +190,11 @@ export async function GET() {
     const clinicRow = clinicStats[0] || {}
     const roleMap = Object.fromEntries(profileCounts.map(r => [r._id, r.count]))
     const paymentMap = Object.fromEntries(paymentCounts.map(r => [r._id, r.count]))
+    const flowMap = Object.fromEntries((flowEventsToday || []).map(r => [r._id, r.count]))
+    const labMap = Object.fromEntries((labEventsToday || []).map(r => [r._id, r.count]))
+    const inventoryMap = Object.fromEntries((inventoryEventsToday || []).map(r => [r._id, r.count]))
+    const avgWaitEvents = flowMap.DOCTOR_READY || flowMap.APPOINTMENT_CALLED || 0
+    const platformInventoryValue = inventoryValueAgg?.[0]?.total_value || 0
 
     return json({
       platform: {
@@ -199,6 +232,38 @@ export async function GET() {
         server_time: now.toISOString(),
         environment: process.env.NODE_ENV || 'development',
       },
+      flow: {
+        average_waiting_events_today: avgWaitEvents,
+        chair_assignments_today: flowMap.CHAIR_ASSIGNED || 0,
+        treatments_started_today: flowMap.TREATMENT_STARTED || 0,
+        visits_completed_today: flowMap.VISIT_COMPLETED || flowMap.APPOINTMENT_COMPLETED || 0,
+        daily_throughput: flowMap.VISIT_COMPLETED || flowMap.APPOINTMENT_COMPLETED || visitsToday,
+        queue_health: avgWaitEvents > 50 ? 'critical' : avgWaitEvents > 20 ? 'moderate' : 'good',
+        appointments_today: appointmentsToday,
+      },
+      lab: {
+        cases_created_today: labMap.LAB_CREATED || 0,
+        cases_sent_today: labMap.LAB_SENT || 0,
+        cases_delivered_today: labMap.LAB_DELIVERED || 0,
+        cases_completed_today: labMap.LAB_COMPLETED || 0,
+        stl_uploads_today: (labMap.STL_UPLOADED || 0) + (labMap.STL_REPLACED || 0),
+        delayed_events_today: labMap.DELIVERY_DELAYED || 0,
+        average_turnaround_events: labMap.LAB_DELIVERED || 0,
+        top_vendors_activity: labMap.VENDOR_CHANGED || 0,
+        case_volume_today: labMap.LAB_CREATED || 0,
+      },
+      inventory: {
+        platform_inventory_value: platformInventoryValue,
+        stock_received_today: inventoryMap.STOCK_RECEIVED || inventoryMap.INVENTORY_STOCK_IN || 0,
+        stock_consumed_today: inventoryMap.STOCK_CONSUMED || inventoryMap.INVENTORY_CONSUMED || 0,
+        low_stock_alerts_today: inventoryMap.LOW_STOCK || 0,
+        critical_stock_alerts_today: inventoryMap.CRITICAL_STOCK || 0,
+        purchase_requests_today: inventoryMap.PURCHASE_CREATED || 0,
+        purchases_received_today: inventoryMap.PURCHASE_RECEIVED || 0,
+        expired_items_today: inventoryMap.ITEM_EXPIRED || 0,
+        most_used_events: inventoryMap.STOCK_CONSUMED || 0,
+      },
+      business: platformBi,
     })
   } catch (e) {
     console.error('Metrics error:', e)

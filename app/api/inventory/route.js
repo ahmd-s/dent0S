@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { requireUser, json, err, clean, cors, isClinicAccessBlocked, clinicAccessPausedResponse } from '@/lib/api-helpers'
 import { canManageInventory } from '@/lib/rbac'
+import { logActivity } from '@/lib/activity-helpers'
+import { ACTIVITY_EVENTS } from '@/lib/activity-event-registry'
 
 export async function OPTIONS() { return cors(new NextResponse(null, { status: 200 })) }
 
@@ -20,7 +22,9 @@ export async function GET(request) {
       f.$or = [{ item_name: re }, { description: re }]
     }
     if (category) f.category = category
-    if (lowStock === 'true') f.$and = [{ current_stock: { $lte: '$minimum_stock' } }]
+    if (lowStock === 'true') {
+      f.$expr = { $lte: ['$current_stock', '$minimum_stock'] }
+    }
     
     const items = await db.collection('inventory_items').find(f).sort({ item_name: 1 }).toArray()
     return json({ items: items.map(clean) })
@@ -53,16 +57,22 @@ export async function POST(request) {
       category: b.category,
       unit: b.unit,
       current_stock: 0,
+      reserved_stock: 0,
       minimum_stock: b.minimum_stock,
       vendor_id: b.vendor_id || null,
       purchase_price: b.purchase_price || 0,
       description: b.description || '',
       batch_number: b.batch_number || null,
       expiry_date: b.expiry_date || null,
+      flow_status: 'created',
       is_active: true,
       created_by: profile.id,
       created_at: new Date(),
       updated_at: new Date(),
+    })
+
+    await logActivity(db, profile, ACTIVITY_EVENTS.ITEM_CREATED, {
+      metadata: { item_id: id, item_name: b.item_name.trim(), category: b.category },
     })
     
     // Create indexes on first use
