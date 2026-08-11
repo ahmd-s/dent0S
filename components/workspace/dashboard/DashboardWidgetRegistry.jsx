@@ -47,17 +47,17 @@ const statusBadge = s => {
   )
 }
 
-function StatCard({ label, val, sub, icon: Icon, color, href }) {
+function StatCard({ label, val, sub, icon: Icon, color, href, compact = false }) {
   const inner = (
-    <Card className={`p-3.5 sm:p-4 md:p-5 bg-card border-border rounded-xl h-full ${href ? 'hover:border-[#0D9488]/40 transition-colors cursor-pointer active:scale-[0.98]' : ''}`}>
-      <div className="flex items-start justify-between gap-2.5">
+    <Card className={`bg-card border-border h-full ${compact ? 'p-2.5 sm:p-3 rounded-lg' : 'p-3.5 sm:p-4 md:p-5 rounded-xl'} ${href ? 'hover:border-[#0D9488]/40 transition-colors cursor-pointer active:scale-[0.98]' : ''}`}>
+      <div className={`flex ${compact ? 'items-center' : 'items-start'} justify-between gap-2`}>
         <div className="flex-1 min-w-0">
-          <div className="text-xs md:text-sm text-muted-foreground leading-snug line-clamp-2">{label}</div>
-          <div className="text-2xl md:text-3xl font-bold mt-1.5 md:mt-2 leading-none tabular-nums" style={{ color }}>{val}</div>
-          <div className="text-[11px] sm:text-xs text-muted-foreground mt-1.5 line-clamp-2 leading-snug">{sub}</div>
+          <div className={`text-muted-foreground leading-snug ${compact ? 'text-[11px] line-clamp-1' : 'text-xs md:text-sm line-clamp-2'}`}>{label}</div>
+          <div className={`font-bold leading-none tabular-nums ${compact ? 'text-lg sm:text-xl mt-0.5' : 'text-2xl md:text-3xl mt-1.5 md:mt-2'}`} style={{ color }}>{val}</div>
+          {!compact && sub && <div className="text-[11px] sm:text-xs text-muted-foreground mt-1.5 line-clamp-2 leading-snug">{sub}</div>}
         </div>
-        <div className="w-9 h-9 md:w-10 md:h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: color + '15' }}>
-          <Icon className="w-4 h-4 md:w-5 md:h-5" style={{ color }} />
+        <div className={`rounded-md flex items-center justify-center flex-shrink-0 ${compact ? 'w-7 h-7' : 'w-9 h-9 md:w-10 md:h-10 rounded-lg'}`} style={{ backgroundColor: color + '15' }}>
+          <Icon className={compact ? 'w-3.5 h-3.5' : 'w-4 h-4 md:w-5 md:h-5'} style={{ color }} />
         </div>
       </div>
     </Card>
@@ -66,9 +66,10 @@ function StatCard({ label, val, sub, icon: Icon, color, href }) {
   return <div className="min-w-0 h-full">{inner}</div>
 }
 
-export function TodaysPatientsWidget({ stats }) {
+export function TodaysPatientsWidget({ stats, compact }) {
   return (
     <StatCard
+      compact={compact}
       label="Patients Seen Today"
       val={stats?.patients_seen_today ?? '—'}
       sub={stats ? `vs ${stats.patients_seen_yesterday ?? 0} yesterday` : ''}
@@ -78,9 +79,10 @@ export function TodaysPatientsWidget({ stats }) {
   )
 }
 
-export function RevenueWidget({ stats }) {
+export function RevenueWidget({ stats, compact }) {
   return (
     <StatCard
+      compact={compact}
       label="Revenue Collected"
       val={stats ? inr(stats.revenue_today) : '—'}
       sub="Across paid invoices today"
@@ -90,9 +92,10 @@ export function RevenueWidget({ stats }) {
   )
 }
 
-export function PendingBillsWidget({ stats }) {
+export function PendingBillsWidget({ stats, compact }) {
   return (
     <StatCard
+      compact={compact}
       label="Pending Payments"
       val={stats ? inr(stats.pending_today) : '—'}
       sub="Pending & partial today"
@@ -114,18 +117,42 @@ export function FollowupsStatWidget({ stats }) {
   )
 }
 
-export function LabCasesWidget({ stats }) {
-  const cards = [
-    { label: 'Awaiting Lab Acceptance', val: stats?.awaiting_lab_acceptance ?? '—', sub: 'Sent, not yet received by lab', icon: FlaskConical, color: '#6366F1', href: '/lab-cases?status=sent' },
-    { label: 'Cases In Production', val: stats?.in_production_lab_cases ?? '—', sub: 'Being made at the lab', icon: FlaskConical, color: '#0D9488', href: '/lab-cases?status=lab_received,in_production,in_progress' },
-    { label: 'Cases Ready', val: stats?.ready_lab_cases ?? '—', sub: 'Ready / awaiting delivery', icon: FlaskConical, color: '#22C55E', href: '/lab-cases?status=ready' },
-    { label: 'Overdue Cases', val: stats?.overdue_lab_cases ?? '—', sub: 'Past expected delivery', icon: AlertTriangle, color: stats?.overdue_lab_cases > 0 ? '#EF4444' : '#94A3B8', href: '/lab-cases?status=overdue' },
-  ]
+const LAB_CASE_SECONDARY_CARDS = stats => [
+  { label: 'Cases In Production', val: stats?.in_production_lab_cases ?? '—', sub: 'Being made at the lab', icon: FlaskConical, color: '#0D9488', href: '/lab-cases?status=lab_received,in_production,in_progress' },
+  { label: 'Cases Ready', val: stats?.ready_lab_cases ?? '—', sub: 'Ready / awaiting delivery', icon: FlaskConical, color: '#22C55E', href: '/lab-cases?status=ready' },
+  { label: 'Overdue Cases', val: stats?.overdue_lab_cases ?? '—', sub: 'Past expected delivery', icon: AlertTriangle, color: stats?.overdue_lab_cases > 0 ? '#EF4444' : '#94A3B8', href: '/lab-cases?status=overdue' },
+]
+
+export function AwaitingLabAcceptanceWidget({ stats, compact }) {
+  return (
+    <StatCard
+      compact={compact}
+      label="Awaiting Lab Acceptance"
+      val={stats?.awaiting_lab_acceptance ?? '—'}
+      sub="Sent, not yet received by lab"
+      icon={FlaskConical}
+      color="#6366F1"
+      href="/lab-cases?status=sent"
+    />
+  )
+}
+
+export function LabCasesSecondaryWidgets({ stats }) {
   return (
     <>
-      {cards.map(c => (
+      {LAB_CASE_SECONDARY_CARDS(stats).map(c => (
         <StatCard key={c.label} {...c} />
       ))}
+    </>
+  )
+}
+
+/** @deprecated Use AwaitingLabAcceptanceWidget + LabCasesSecondaryWidgets */
+export function LabCasesWidget({ stats }) {
+  return (
+    <>
+      <AwaitingLabAcceptanceWidget stats={stats} />
+      <LabCasesSecondaryWidgets stats={stats} />
     </>
   )
 }
@@ -337,7 +364,7 @@ export const DASHBOARD_WIDGET_REGISTRY = {
   revenue: RevenueWidget,
   pending_bills: PendingBillsWidget,
   followups: FollowupsStatWidget,
-  lab_cases: LabCasesWidget,
+  lab_cases: AwaitingLabAcceptanceWidget,
   queue: QueueWidget,
   followups_panel: FollowupsPanelWidget,
   recent_patients: RecentPatientsWidget,
@@ -354,6 +381,17 @@ export const DASHBOARD_WIDGET_REGISTRY = {
 }
 
 export { RecentActivityWidget } from './RecentActivityWidget'
+
+/** Primary KPI row — always shown first, compact */
+export const PRIMARY_DASHBOARD_STAT_IDS = [
+  'todays_patients',
+  'revenue',
+  'pending_bills',
+  'lab_cases',
+]
+
+/** Widgets pinned to the bottom of the dashboard */
+export const BOTTOM_DASHBOARD_WIDGET_IDS = new Set(['recent_patients', 'recent_activity'])
 
 /** Stat-card widgets rendered in the top grid */
 export const DASHBOARD_STAT_WIDGET_IDS = new Set([

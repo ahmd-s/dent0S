@@ -15,7 +15,7 @@ const SIZE_CLASSES = {
  * Renders a dashboard widget by workspace id when enabled.
  * Unknown ids render nothing.
  */
-export default function WorkspaceWidget({ id, className, ...props }) {
+export default function WorkspaceWidget({ id, className, compact, ...props }) {
   const { isDashboardEnabled, getWidgetMeta } = useWorkspace()
   if (!isDashboardEnabled(id)) return null
 
@@ -27,7 +27,7 @@ export default function WorkspaceWidget({ id, className, ...props }) {
 
   return (
     <div className={cn(sizeClass, meta.collapsed && 'opacity-80', className)}>
-      <Component {...props} collapsedDefault={meta.collapsed} refreshPriority={meta.refresh_priority} />
+      <Component {...props} compact={compact} collapsedDefault={meta.collapsed} refreshPriority={meta.refresh_priority} />
     </div>
   )
 }

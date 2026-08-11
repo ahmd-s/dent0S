@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Plus, Search } from 'lucide-react'
+import { Plus, Search, ChevronDown, LayoutGrid } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,13 +11,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useRole } from '@/components/dentos/RoleContext'
 import { useWorkspace } from '@/components/workspace/useWorkspace'
 import WorkspaceWidget from '@/components/workspace/WorkspaceWidget'
 import WorkspaceGate from '@/components/workspace/WorkspaceGate'
-import { DASHBOARD_STAT_WIDGET_IDS, DASHBOARD_PANEL_WIDGET_IDS, FollowupsPanelWidget, shouldShowFollowupsPanel } from '@/components/workspace/dashboard/DashboardWidgetRegistry'
+import {
+  DASHBOARD_STAT_WIDGET_IDS,
+  PRIMARY_DASHBOARD_STAT_IDS,
+  BOTTOM_DASHBOARD_WIDGET_IDS,
+  FollowupsPanelWidget,
+  LabCasesSecondaryWidgets,
+  shouldShowFollowupsPanel,
+} from '@/components/workspace/dashboard/DashboardWidgetRegistry'
 import { RecentActivityWidget } from '@/components/workspace/dashboard/RecentActivityWidget'
 import BalanceBadge from '@/components/dentos/BalanceBadge'
 import OutstandingBalanceModal from '@/components/dentos/OutstandingBalanceModal'
@@ -43,17 +51,27 @@ function App() {
   const [stats, setStats] = useState(null)
   const [statsLoading, setStatsLoading] = useState(true)
   const [bookOpen, setBookOpen] = useState(false)
+  const [metricsExpanded, setMetricsExpanded] = useState(false)
 
-  const statWidgetIds = useMemo(
-    () => dashboardWidgets.filter(id => DASHBOARD_STAT_WIDGET_IDS.has(id)),
-    [dashboardWidgets]
-  )
-  const showQueueWidget = dashboardWidgets.includes('queue') && isDashboardEnabled('queue')
-  const showFollowupsPanel = shouldShowFollowupsPanel(dashboardWidgets)
-  const patientPanelIds = useMemo(
-    () => dashboardWidgets.filter(id => ['recent_patients', 'active_treatments', 'critical_patients', 'todays_followups'].includes(id) && isDashboardEnabled(id)),
+  const primaryStatIds = useMemo(
+    () => PRIMARY_DASHBOARD_STAT_IDS.filter(id => dashboardWidgets.includes(id) && isDashboardEnabled(id)),
     [dashboardWidgets, isDashboardEnabled]
   )
+  const secondaryStatIds = useMemo(
+    () => dashboardWidgets.filter(
+      id => DASHBOARD_STAT_WIDGET_IDS.has(id)
+        && !PRIMARY_DASHBOARD_STAT_IDS.includes(id)
+        && !BOTTOM_DASHBOARD_WIDGET_IDS.has(id)
+    ),
+    [dashboardWidgets]
+  )
+  const showLabSecondary = dashboardWidgets.includes('lab_cases') && isDashboardEnabled('lab_cases')
+  const hasSecondaryMetrics = secondaryStatIds.length > 0 || showLabSecondary
+  const showRecentPatients = dashboardWidgets.includes('recent_patients') && isDashboardEnabled('recent_patients')
+  const showRecentActivity = dashboardWidgets.includes('recent_activity') && isDashboardEnabled('recent_activity')
+
+  const showQueueWidget = dashboardWidgets.includes('queue') && isDashboardEnabled('queue')
+  const showFollowupsPanel = shouldShowFollowupsPanel(dashboardWidgets)
 
   const load = () => fetch('/api/dashboard/stats').then(r => r.json()).then(d => { setStats(d); setStatsLoading(false) })
   useEffect(() => { load() }, [])
@@ -102,14 +120,41 @@ function App() {
     <div className={cn('max-w-7xl mx-auto space-y-4 md:space-y-5', layoutClasses)}>
       <GettingStarted stats={stats} />
 
-      {statsLoading && statWidgetIds.length > 0 ? (
-        <StatGridSkeleton count={Math.min(statWidgetIds.length, 4)} />
-      ) : statWidgetIds.length > 0 && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-          {statWidgetIds.map(id => (
-            <WorkspaceWidget key={id} id={id} {...widgetProps} />
+      {/* Primary KPI row — 4 compact blocks */}
+      {statsLoading && primaryStatIds.length > 0 ? (
+        <StatGridSkeleton count={primaryStatIds.length} compact />
+      ) : primaryStatIds.length > 0 && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-3">
+          {primaryStatIds.map(id => (
+            <WorkspaceWidget key={id} id={id} compact {...widgetProps} />
           ))}
         </div>
+      )}
+
+      {/* Secondary metrics — collapsed by default */}
+      {hasSecondaryMetrics && (
+        <Collapsible open={metricsExpanded} onOpenChange={setMetricsExpanded}>
+          <div className="flex items-center justify-between gap-2">
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 px-2 text-muted-foreground hover:text-foreground gap-1.5">
+                <ChevronDown className={cn('w-4 h-4 transition-transform', metricsExpanded && 'rotate-180')} />
+                {metricsExpanded ? 'Hide metrics' : 'More metrics'}
+              </Button>
+            </CollapsibleTrigger>
+            <Link href="/settings/workspace" className="text-xs text-muted-foreground hover:text-[#0D9488] flex items-center gap-1">
+              <LayoutGrid className="w-3.5 h-3.5" />
+              Customize
+            </Link>
+          </div>
+          <CollapsibleContent className="pt-2">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+              {secondaryStatIds.map(id => (
+                <WorkspaceWidget key={id} id={id} {...widgetProps} />
+              ))}
+              {showLabSecondary && <LabCasesSecondaryWidgets stats={stats} />}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       )}
 
       <WorkspaceGate section="quick_actions" flag="new_appointment">
@@ -137,16 +182,15 @@ function App() {
         </div>
       )}
 
-      {patientPanelIds.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {patientPanelIds.map(id => (
-            <WorkspaceWidget key={id} id={id} {...widgetProps} />
-          ))}
+      {/* Bottom section — recently viewed & activity */}
+      {(showRecentPatients || showRecentActivity) && (
+        <div className={cn(
+          'grid gap-4',
+          showRecentPatients && showRecentActivity ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'
+        )}>
+          {showRecentPatients && <WorkspaceWidget id="recent_patients" {...widgetProps} />}
+          {showRecentActivity && <RecentActivityWidget />}
         </div>
-      )}
-
-      {dashboardWidgets.includes('recent_activity') && (
-        <RecentActivityWidget />
       )}
 
       <BookAppointmentModal open={bookOpen} setOpen={setBookOpen} onCreated={load} />
