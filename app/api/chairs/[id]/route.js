@@ -16,6 +16,7 @@ export async function PUT(request, { params }) {
   if (body.color) update.color = body.color
   if (body.sort_order != null) update.sort_order = body.sort_order
   if (body.is_active != null) update.is_active = body.is_active
+  if (body.status) update.status = body.status
 
   await ctx.db.collection('clinic_chairs').updateOne({ id, clinic_id: cid }, { $set: update })
   return json({ ok: true })
@@ -31,7 +32,7 @@ export async function DELETE(request, { params }) {
   const inUse = await ctx.db.collection('appointments').findOne({
     clinic_id: cid,
     chair_id: id,
-    status: { $in: ['scheduled', 'confirmed', 'checked_in', 'waiting', 'called', 'in_treatment', 'arrived', 'in_progress'] },
+    status: { $in: ['scheduled', 'confirmed', 'checked_in', 'waiting', 'called', 'doctor_ready', 'in_treatment', 'treatment_paused', 'lab_pending', 'billing', 'arrived', 'in_progress'] },
   })
   if (inUse) return err('Chair has active appointments', 409)
 

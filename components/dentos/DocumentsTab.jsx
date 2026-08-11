@@ -17,7 +17,19 @@ function formatDate(date) {
   return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`
 }
 
-export function DocumentsTab({ patientId }) {
+function matchCategory(doc, category) {
+  const name = (doc.file_name || '').toLowerCase()
+  const type = (doc.file_format || doc.file_type || doc.mime_type || '').toLowerCase()
+  if (category === 'pdf') return type.includes('pdf') || name.endsWith('.pdf')
+  if (category === 'xray') return name.includes('xray') || name.includes('x-ray') || name.includes('radiograph')
+  if (category === 'photo') return type.includes('image') || name.match(/\.(jpg|jpeg|png)$/)
+  if (category === 'scan') return name.includes('scan') || name.includes('cbct') || name.includes('opg')
+  if (category === 'consent') return name.includes('consent')
+  if (category === 'prescription') return name.includes('prescription') || name.includes('rx')
+  return true
+}
+
+export function DocumentsTab({ patientId, readOnly = false, categoryFilter = null }) {
   const router = useRouter()
   const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(true)
@@ -120,9 +132,13 @@ export function DocumentsTab({ patientId }) {
     )
   }
 
+  const filtered = categoryFilter
+    ? documents.filter(d => matchCategory(d, categoryFilter))
+    : documents
+
   return (
     <div className="space-y-4">
-      {/* Upload Area */}
+      {!readOnly && (
       <div
         onClick={() => !uploading && fileInputRef.current?.click()}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
@@ -162,23 +178,19 @@ export function DocumentsTab({ patientId }) {
           className="hidden"
         />
       </div>
+      )}
 
-      {/* Documents Grid */}
-      {documents.length === 0 ? (
+      {filtered.length === 0 ? (
         <div className="text-center py-12">
           <FileText className="w-10 h-10 text-gray-300 mx-auto mb-3"/>
           <p className="text-sm font-medium text-gray-500">
-            No documents uploaded yet
-          </p>
-          <p className="text-xs text-gray-400 mt-1">
-            Upload X-rays, reports, and images for this patient
+            No documents{categoryFilter ? ' in this category' : ''} yet
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {documents.map(doc => (
+          {filtered.map(doc => (
             <Card key={doc._id} className="p-3 space-y-2 rounded-lg hover:shadow-md transition-all duration-200">
-              {/* Preview */}
               <div className="w-full h-32 rounded-md overflow-hidden bg-gray-100 flex items-center justify-center">
                 {doc.file_format === 'pdf' || doc.file_type === 'raw' ? (
                   <div className="flex flex-col items-center gap-1">
@@ -193,45 +205,27 @@ export function DocumentsTab({ patientId }) {
                   />
                 )}
               </div>
-
-              {/* File Info */}
               <div>
-                <p className="text-xs font-medium text-gray-700 truncate">
-                  {doc.file_name}
-                </p>
+                <p className="text-xs font-medium text-gray-700 truncate">{doc.file_name}</p>
                 {doc.visit_id && (
                   <button
                     onClick={() => router.push(`/visits/${doc.visit_id}`)}
-                    className="inline-flex items-center gap-1 text-xs bg-[#0D9488] text-white rounded-full px-2 py-0.5 mt-1 hover:bg-[#0B7E75] hover:scale-105 transition-all duration-200"
+                    className="inline-flex items-center gap-1 text-xs bg-[#0D9488] text-white rounded-full px-2 py-0.5 mt-1 hover:bg-[#0B7E75]"
                   >
-                    <ExternalLink className="w-3 h-3" />
-                    View Visit →
+                    <ExternalLink className="w-3 h-3" />View Visit
                   </button>
                 )}
-                <p className="text-xs text-gray-400">
-                  {formatDate(doc.uploaded_at)} · {formatSize(doc.file_size)}
-                </p>
+                <p className="text-xs text-gray-400">{formatDate(doc.uploaded_at)} · {formatSize(doc.file_size)}</p>
               </div>
-
-              {/* Actions */}
               <div className="flex gap-1">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="flex-1 h-7 text-xs"
-                  onClick={() => window.open(doc.file_url, '_blank')}
-                >
-                  <Download className="w-3 h-3 mr-1"/>
-                  View
+                <Button size="sm" variant="outline" className="flex-1 h-7 text-xs" onClick={() => window.open(doc.file_url, '_blank')}>
+                  <Download className="w-3 h-3 mr-1"/>View
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 w-7 p-0 hover:bg-red-50 hover:border-red-200"
-                  onClick={() => handleDelete(doc)}
-                >
+                {!readOnly && (
+                <Button size="sm" variant="outline" className="h-7 w-7 p-0 hover:bg-red-50 hover:border-red-200" onClick={() => handleDelete(doc)}>
                   <Trash2 className="w-3 h-3 text-red-500"/>
                 </Button>
+                )}
               </div>
             </Card>
           ))}

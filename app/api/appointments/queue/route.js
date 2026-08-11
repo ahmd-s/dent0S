@@ -38,8 +38,12 @@ export async function GET(request) {
 
   const stats = {
     waiting: allEnriched.filter(a => normalizeStatus(a.status) === 'waiting').length,
-    called: allEnriched.filter(a => normalizeStatus(a.status) === 'called').length,
+    called: allEnriched.filter(a => ['called', 'doctor_ready'].includes(normalizeStatus(a.status))).length,
+    doctor_ready: allEnriched.filter(a => normalizeStatus(a.status) === 'doctor_ready').length,
     in_treatment: allEnriched.filter(a => normalizeStatus(a.status) === 'in_treatment').length,
+    treatment_paused: allEnriched.filter(a => normalizeStatus(a.status) === 'treatment_paused').length,
+    lab_pending: allEnriched.filter(a => normalizeStatus(a.status) === 'lab_pending').length,
+    billing: allEnriched.filter(a => normalizeStatus(a.status) === 'billing').length,
     checked_in: allEnriched.filter(a => ['checked_in', 'arrived'].includes(a.status)).length,
     scheduled: allEnriched.filter(a => ['scheduled', 'confirmed'].includes(a.status)).length,
     completed: allEnriched.filter(a => a.status === 'completed').length,
@@ -85,10 +89,10 @@ export async function POST(request) {
     const next = waiting[0]
     await ctx.db.collection('appointments').updateOne(
       { id: next.id, clinic_id: cid },
-      { $set: { status: 'called' } }
+      { $set: { status: 'doctor_ready', doctor_ready_at: new Date() } }
     )
-    await logAppointmentChanges(ctx.db, ctx.profile, next, { status: 'called' })
-    return json({ ok: true, appointment: clean({ ...next, status: 'called' }) })
+    await logAppointmentChanges(ctx.db, ctx.profile, next, { status: 'doctor_ready' })
+    return json({ ok: true, appointment: clean({ ...next, status: 'doctor_ready' }) })
   }
 
   if (body.action === 'walk_in') {

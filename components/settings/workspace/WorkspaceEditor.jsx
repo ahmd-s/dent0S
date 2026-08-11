@@ -8,6 +8,9 @@ import {
 import DashboardBuilder from './DashboardBuilder'
 import SidebarBuilder from './SidebarBuilder'
 import PatientPageBuilder from './PatientPageBuilder'
+import FlowPageBuilder from './FlowPageBuilder'
+import LabPageBuilder from './LabPageBuilder'
+import InventoryPageBuilder from './InventoryPageBuilder'
 import ActionsBuilder from './ActionsBuilder'
 import QuickActionsBuilder from './QuickActionsBuilder'
 import HomepageBuilder from './HomepageBuilder'
@@ -113,6 +116,12 @@ export default function WorkspaceEditor({
       return <DashboardBuilder config={config} onChange={onChange} />
     case 'patient_page':
       return <PatientPageBuilder config={config} onChange={onChange} />
+    case 'flow_page':
+      return <FlowPageBuilder config={config} onChange={onChange} />
+    case 'lab_os_page':
+      return <LabPageBuilder config={config} onChange={onChange} />
+    case 'inventory_os_page':
+      return <InventoryPageBuilder config={config} onChange={onChange} />
     case 'actions':
       return <ActionsBuilder config={config} onChange={onChange} />
     case 'quick_actions':

@@ -6,11 +6,15 @@ import { Input } from '@/components/ui/input'
 import { addDays, todayIso } from '@/lib/appointment-time'
 
 const VIEWS = [
+  { id: 'reception', label: 'Reception' },
+  { id: 'flow', label: 'Flow Queue' },
+  { id: 'chairs', label: 'Chairs' },
+  { id: 'doctor_flow', label: 'Doctor' },
   { id: 'day', label: 'Day' },
   { id: 'week', label: 'Week' },
   { id: 'month', label: 'Month' },
-  { id: 'doctor', label: 'Doctor' },
-  { id: 'chair', label: 'Chair' },
+  { id: 'doctor', label: 'Doctor Cal' },
+  { id: 'chair', label: 'Chair Cal' },
   { id: 'queue', label: 'Queue' },
 ]
 

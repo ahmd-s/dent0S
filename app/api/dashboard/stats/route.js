@@ -4,6 +4,10 @@ import { getCurrentUser } from '@/lib/auth'
 import { AWAITING_ACCEPTANCE_STATUSES, IN_PRODUCTION_STATUSES, READY_STATUSES, CLOSED_STATUSES } from '@/lib/lab-case-helpers'
 import { getProfileRoles } from '@/lib/profile-roles'
 import { doctorAppointmentFilter } from '@/lib/doctor-scope'
+import { computeFlowMetrics } from '@/lib/dental-flow-engine'
+import { computeLabMetrics } from '@/lib/lab-workflow-engine'
+import { computeInventoryMetrics } from '@/lib/inventory-workflow-engine'
+import { getKpis } from '@/lib/analytics-engine'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -55,12 +59,16 @@ export async function GET() {
     ])
     const followups = await db.collection('patients').find({ clinic_id: cid, is_archived: { $ne: true }, next_followup_date: { $ne: null, $lte: today } }).limit(5).toArray()
     const fcount = await db.collection('patients').countDocuments({ clinic_id: cid, is_archived: { $ne: true }, next_followup_date: { $ne: null, $lte: today } })
-    const [activeLabCases, overdueLabCases, awaitingLabAcceptance, inProductionLabCases, readyLabCases] = await Promise.all([
+    const [activeLabCases, overdueLabCases, awaitingLabAcceptance, inProductionLabCases, readyLabCases, flowMetrics, labMetrics, inventoryMetrics, analyticsKpis] = await Promise.all([
       db.collection('lab_cases').countDocuments({ clinic_id: cid, status: { $nin: CLOSED_STATUSES } }),
       db.collection('lab_cases').countDocuments({ clinic_id: cid, status: { $nin: CLOSED_STATUSES }, expected_delivery_date: { $ne: null, $lt: today } }),
       db.collection('lab_cases').countDocuments({ clinic_id: cid, status: { $in: AWAITING_ACCEPTANCE_STATUSES } }),
       db.collection('lab_cases').countDocuments({ clinic_id: cid, status: { $in: IN_PRODUCTION_STATUSES } }),
       db.collection('lab_cases').countDocuments({ clinic_id: cid, status: { $in: READY_STATUSES } }),
+      computeFlowMetrics(db, cid, today, doctorAppointmentFilter(roles, profile.id)),
+      computeLabMetrics(db, cid),
+      computeInventoryMetrics(db, cid),
+      getKpis(db, cid, { days: 30 }),
     ])
     return json({
       clinic_name: clinic?.name,
@@ -71,6 +79,10 @@ export async function GET() {
       awaiting_lab_acceptance: awaitingLabAcceptance, in_production_lab_cases: inProductionLabCases, ready_lab_cases: readyLabCases,
       today_queue: todayAppts.map(a => ({ ...clean(a), patient_name: pmap[a.patient_id]?.name||a.patient_name_temp, patient_phone: pmap[a.patient_id]?.phone||a.patient_phone_temp, doctor_name: dmap[a.doctor_id]||'', visit_id: vmap[a.id]||null })),
       followups: followups.map(p => ({ ...clean(p), last_visit_reason: '' })),
+      flow: flowMetrics,
+      lab: labMetrics,
+      inventory: inventoryMetrics,
+      analytics: analyticsKpis,
     })
   } catch (e) {
     console.error('Dashboard stats error:', e)

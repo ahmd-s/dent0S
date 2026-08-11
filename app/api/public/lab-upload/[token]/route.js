@@ -19,6 +19,8 @@ function isStlFile(file) {
   return name.endsWith('.stl') || type === 'model/stl' || type === 'application/sla' || type === 'application/vnd.ms-pki.stl'
 }
 
+import { addStlFile } from '@/lib/lab-workflow-engine'
+
 export async function OPTIONS() { return cors(new NextResponse(null, { status: 200 })) }
 
 // PUBLIC (no auth). Accepts an STL upload for a lab case via its unguessable token.
@@ -48,22 +50,12 @@ export async function POST(request, { params }) {
       ).end(buffer)
     })
 
-    await db.collection('lab_cases').updateOne(
-      { id: lc.id },
-      {
-        $set: {
-          stl_file_url: uploadResult.secure_url,
-          updated_at: new Date(),
-        },
-        $push: {
-          update_log: {
-            status: 'scan_uploaded',
-            updated_via: 'public_link',
-            timestamp: new Date(),
-          },
-        },
-      }
-    )
+    await addStlFile(db, null, lc, {
+      file_name: file.name || 'scan.stl',
+      file_url: uploadResult.secure_url,
+      file_size: buffer.length,
+      uploaded_by_name: 'Public Upload',
+    })
 
     return json({ ok: true, message: 'File uploaded successfully' })
   } catch (e) {

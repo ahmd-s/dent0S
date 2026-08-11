@@ -15,6 +15,10 @@ import { normalizeStatus } from '@/lib/appointment-status'
 import CalendarToolbar from '@/components/appointments/CalendarToolbar'
 import AppointmentCalendar from '@/components/appointments/AppointmentCalendar'
 import QueueBoard from '@/components/appointments/QueueBoard'
+import ReceptionDashboard from '@/components/dental-flow/ReceptionDashboard'
+import ChairBoard from '@/components/dental-flow/ChairBoard'
+import FlowQueueBoard from '@/components/dental-flow/FlowQueueBoard'
+import DoctorFlowDashboard from '@/components/dental-flow/DoctorFlowDashboard'
 import WalkInModal from '@/components/appointments/WalkInModal'
 import ConflictWarnings from '@/components/appointments/ConflictWarnings'
 import AppointmentCard from '@/components/appointments/AppointmentCard'
@@ -82,6 +86,7 @@ export default function AppointmentsPage() {
     if (!silent) setLoading(true)
     const { from, to } = getDateRange(view, date)
     const params = view === 'day' || view === 'queue' || view === 'doctor' || view === 'chair'
+      || view === 'reception' || view === 'flow' || view === 'chairs' || view === 'doctor_flow'
       ? `date=${date}`
       : `date_from=${from}&date_to=${to}`
     const [apptRes, docRes, chairRes] = await Promise.all([
@@ -117,7 +122,7 @@ export default function AppointmentsPage() {
   }
 
   const startVisit = async (a) => {
-    if (a.status !== 'called' && a.status !== 'checked_in' && a.status !== 'arrived' && a.status !== 'waiting') {
+    if (a.status !== 'called' && a.status !== 'doctor_ready' && a.status !== 'checked_in' && a.status !== 'arrived' && a.status !== 'waiting') {
       await setStatus(a.id, 'checked_in')
     }
     const r = await fetch('/api/visits', {
@@ -175,6 +180,14 @@ export default function AppointmentsPage() {
 
       {loading ? (
         <div className="flex justify-center py-16"><Loader2 className="w-8 h-8 animate-spin text-[#0D9488]" /></div>
+      ) : view === 'reception' ? (
+        <ReceptionDashboard date={date} onRefresh={load} />
+      ) : view === 'flow' ? (
+        <FlowQueueBoard date={date} onRefresh={load} onStartVisit={startVisit} />
+      ) : view === 'chairs' ? (
+        <ChairBoard date={date} onRefresh={load} />
+      ) : view === 'doctor_flow' ? (
+        <DoctorFlowDashboard date={date} onRefresh={load} />
       ) : view === 'queue' ? (
         <QueueBoard date={date} onRefresh={load} onStartVisit={startVisit} onBalanceClick={pid => { setSelectedPatientId(pid); setBalanceModalOpen(true) }} />
       ) : list.length === 0 && view === 'day' ? (
@@ -214,7 +227,7 @@ export default function AppointmentsPage() {
                 {canCheckIn && selected.status === 'checked_in' && (
                   <Button size="sm" variant="outline" onClick={() => setStatus(selected.id, 'waiting')}>Move to Waiting</Button>
                 )}
-                {selected.status === 'called' && (
+                {['called', 'doctor_ready'].includes(selected.status) && (
                   <Button size="sm" className="bg-[#0D9488]" onClick={() => startVisit(selected)}>Start Visit</Button>
                 )}
                 {selected.visit_id && (

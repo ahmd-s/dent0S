@@ -2,8 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireUser, json, err, clean, cors } from '@/lib/api-helpers'
 import { LAB_CASE_STATUSES, safeIsoDate, populateNames, secureToken } from '@/lib/lab-case-helpers'
 import { logAudit, AUDIT_ACTIONS, AUDIT_SOURCE } from '@/lib/audit'
-import { logActivity } from '@/lib/activity-helpers'
-import { ACTIVITY_EVENTS } from '@/lib/activity-event-registry'
+import { logLabStatusChange } from '@/lib/lab-activity'
 import { canManageInventory } from '@/lib/rbac'
 
 export async function OPTIONS() { return cors(new NextResponse(null, { status: 200 })) }
@@ -72,18 +71,12 @@ export async function PUT(request, { params }) {
     await db.collection('lab_cases').updateOne({ id: params.id, clinic_id: cid }, ops)
     if (statusChanged) {
       await logAudit(db, { clinicId: cid, labCaseId: lc.id, caseNumber: lc.case_number, action: AUDIT_ACTIONS.STATUS_UPDATED, source: AUDIT_SOURCE.CLINIC, actorId: profile.id, actorName: profile.full_name || '', meta: { status: statusChanged, note: b.status_note || '' } })
-      const statusEventMap = {
-        sent: ACTIVITY_EVENTS.LAB_SENT,
-        lab_received: ACTIVITY_EVENTS.LAB_RECEIVED,
-        ready: ACTIVITY_EVENTS.LAB_DELIVERED,
-        delivered: ACTIVITY_EVENTS.LAB_DELIVERED,
-      }
-      const event = statusEventMap[statusChanged] || ACTIVITY_EVENTS.LAB_STATUS_UPDATED
-      await logActivity(db, profile, event, {
-        patientId: lc.patient_id,
-        labCaseId: lc.id,
-        metadata: { case_number: lc.case_number, status: statusChanged },
-      })
+      await logLabStatusChange(db, profile, lc, statusChanged, { note: b.status_note || '' })
+    }
+    if ('vendor_id' in b && b.vendor_id && b.vendor_id !== lc.vendor_id) {
+      const { logLabFieldChange } = await import('@/lib/lab-activity')
+      const { ACTIVITY_EVENTS } = await import('@/lib/activity-event-registry')
+      await logLabFieldChange(db, profile, lc, ACTIVITY_EVENTS.VENDOR_CHANGED, { from_vendor: lc.vendor_id, to_vendor: b.vendor_id })
     }
     const fresh = await db.collection('lab_cases').findOne({ id: params.id, clinic_id: cid })
     const enriched = await populateNames(db, cid, clean(fresh))

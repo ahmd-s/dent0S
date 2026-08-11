@@ -279,6 +279,29 @@ export function FollowupsPanelWidget({ stats }) {
   )
 }
 
+import {
+  RecentPatientsWidget,
+  ActiveTreatmentsWidget,
+  CriticalPatientsWidget,
+  TodaysFollowupsWidget,
+} from './PatientDashboardWidgets'
+import {
+  DENTAL_FLOW_WIDGET_MAP,
+  DENTAL_FLOW_STAT_WIDGET_IDS,
+} from '@/components/dental-flow/DentalFlowWidgets'
+import {
+  LAB_FLOW_WIDGET_MAP,
+  LAB_FLOW_STAT_WIDGET_IDS,
+} from '@/components/lab-os/LabFlowWidgets'
+import {
+  INVENTORY_FLOW_WIDGET_MAP,
+  INVENTORY_FLOW_STAT_WIDGET_IDS,
+} from '@/components/inventory-os/InventoryFlowWidgets'
+import {
+  ANALYTICS_FLOW_WIDGET_MAP,
+  ANALYTICS_FLOW_STAT_WIDGET_IDS,
+} from '@/components/analytics-os/AnalyticsFlowWidgets'
+
 /** Registry: workspace dashboard id → component */
 export const DASHBOARD_WIDGET_REGISTRY = {
   todays_patients: TodaysPatientsWidget,
@@ -288,6 +311,14 @@ export const DASHBOARD_WIDGET_REGISTRY = {
   lab_cases: LabCasesWidget,
   queue: QueueWidget,
   followups_panel: FollowupsPanelWidget,
+  recent_patients: RecentPatientsWidget,
+  active_treatments: ActiveTreatmentsWidget,
+  critical_patients: CriticalPatientsWidget,
+  todays_followups: TodaysFollowupsWidget,
+  ...DENTAL_FLOW_WIDGET_MAP,
+  ...LAB_FLOW_WIDGET_MAP,
+  ...INVENTORY_FLOW_WIDGET_MAP,
+  ...ANALYTICS_FLOW_WIDGET_MAP,
 }
 
 export { RecentActivityWidget } from './RecentActivityWidget'
@@ -300,15 +331,22 @@ export const DASHBOARD_STAT_WIDGET_IDS = new Set([
   'followups',
   'lab_cases',
   'recent_patients',
+  'active_treatments',
+  'critical_patients',
+  'todays_followups',
   'calendar',
   'ai_summary',
   'inventory_alerts',
   'broadcast',
   'notifications',
   'upcoming_appointments',
+  ...DENTAL_FLOW_STAT_WIDGET_IDS,
+  ...LAB_FLOW_STAT_WIDGET_IDS,
+  ...INVENTORY_FLOW_STAT_WIDGET_IDS,
+  ...ANALYTICS_FLOW_STAT_WIDGET_IDS,
 ])
 
-export const DASHBOARD_PANEL_WIDGET_IDS = new Set(['queue'])
+export const DASHBOARD_PANEL_WIDGET_IDS = new Set(['queue', 'recent_patients', 'active_treatments', 'critical_patients', 'todays_followups'])
 
 /** followups panel uses same flag as followups stat — rendered separately when followups enabled */
 export function shouldShowFollowupsPanel(widgetIds) {

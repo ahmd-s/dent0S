@@ -32,8 +32,10 @@ export async function GET(request) {
     const status = url.searchParams.get('status')
     const from = url.searchParams.get('from'); const to = url.searchParams.get('to')
     const q = url.searchParams.get('q')
+    const patient_id = url.searchParams.get('patient_id')
     const f = { clinic_id: cid }
     if (status && status !== 'all') f.payment_status = status
+    if (patient_id) f.patient_id = patient_id
     if (from || to) { f.invoice_date = {}; if (from) f.invoice_date.$gte = from; if (to) f.invoice_date.$lte = to }
     const list = await db.collection('invoices').find(f).sort({ invoice_date: -1, created_at: -1 }).toArray()
     const pids = [...new Set(list.map(i=>i.patient_id).filter(Boolean))]

@@ -36,7 +36,11 @@ export async function GET(request) {
   const cancelled = counts[ACTIVITY_EVENTS.APPOINTMENT_CANCELLED] || 0
   const noShow = counts[ACTIVITY_EVENTS.APPOINTMENT_NO_SHOW] || 0
   const rescheduled = counts[ACTIVITY_EVENTS.APPOINTMENT_RESCHEDULED] || 0
-  const checkedIn = counts[ACTIVITY_EVENTS.PATIENT_CHECKED_IN] || 0
+  const checkedIn = counts[ACTIVITY_EVENTS.PATIENT_CHECKED_IN] || counts[ACTIVITY_EVENTS.APPOINTMENT_CHECKED_IN] || 0
+  const chairAssigned = counts[ACTIVITY_EVENTS.CHAIR_ASSIGNED] || 0
+  const doctorReady = counts[ACTIVITY_EVENTS.DOCTOR_READY] || counts[ACTIVITY_EVENTS.APPOINTMENT_CALLED] || 0
+  const treatmentStarted = counts[ACTIVITY_EVENTS.TREATMENT_STARTED] || 0
+  const billingStarted = counts[ACTIVITY_EVENTS.BILLING_STARTED] || 0
 
   const totalScheduled = created + rescheduled
   const noShowRate = totalScheduled ? Math.round((noShow / totalScheduled) * 1000) / 10 : 0
@@ -45,7 +49,7 @@ export async function GET(request) {
   const completionRate = checkedIn ? Math.round((completed / checkedIn) * 1000) / 10 : 0
 
   const waitTimes = events
-    .filter(e => e.event === ACTIVITY_EVENTS.APPOINTMENT_CALLED && e.metadata?.wait_minutes != null)
+    .filter(e => (e.event === ACTIVITY_EVENTS.DOCTOR_READY || e.event === ACTIVITY_EVENTS.APPOINTMENT_CALLED) && e.metadata?.wait_minutes != null)
     .map(e => e.metadata.wait_minutes)
   const avgWait = waitTimes.length
     ? Math.round(waitTimes.reduce((a, b) => a + b, 0) / waitTimes.length)
@@ -62,7 +66,7 @@ export async function GET(request) {
   const doctorChanges = counts[ACTIVITY_EVENTS.APPOINTMENT_DOCTOR_CHANGED] || 0
 
   const durationEvents = events.filter(e =>
-    e.event === ACTIVITY_EVENTS.APPOINTMENT_COMPLETED && e.metadata?.duration_minutes != null
+    (e.event === ACTIVITY_EVENTS.VISIT_COMPLETED || e.event === ACTIVITY_EVENTS.APPOINTMENT_COMPLETED) && e.metadata?.duration_minutes != null
   )
   const avgDuration = durationEvents.length
     ? Math.round(durationEvents.reduce((s, e) => s + e.metadata.duration_minutes, 0) / durationEvents.length)
@@ -85,6 +89,13 @@ export async function GET(request) {
       chair_changes: chairChanges,
       doctor_changes: doctorChanges,
       queue_reorders: counts[ACTIVITY_EVENTS.QUEUE_POSITION_CHANGED] || 0,
+      chair_assignments: chairAssigned,
+      doctor_ready_count: doctorReady,
+      treatment_started_count: treatmentStarted,
+      billing_started_count: billingStarted,
+      chair_utilization_events: chairAssigned + (counts[ACTIVITY_EVENTS.CHAIR_CHANGED] || 0),
+      busiest_doctor_changes: doctorChanges,
+      busiest_chair_changes: chairChanges,
     },
     event_counts: counts,
   })

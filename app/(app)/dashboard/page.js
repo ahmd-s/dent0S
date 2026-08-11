@@ -17,7 +17,7 @@ import { useRole } from '@/components/dentos/RoleContext'
 import { useWorkspace } from '@/components/workspace/useWorkspace'
 import WorkspaceWidget from '@/components/workspace/WorkspaceWidget'
 import WorkspaceGate from '@/components/workspace/WorkspaceGate'
-import { DASHBOARD_STAT_WIDGET_IDS, FollowupsPanelWidget, shouldShowFollowupsPanel } from '@/components/workspace/dashboard/DashboardWidgetRegistry'
+import { DASHBOARD_STAT_WIDGET_IDS, DASHBOARD_PANEL_WIDGET_IDS, FollowupsPanelWidget, shouldShowFollowupsPanel } from '@/components/workspace/dashboard/DashboardWidgetRegistry'
 import { RecentActivityWidget } from '@/components/workspace/dashboard/RecentActivityWidget'
 import BalanceBadge from '@/components/dentos/BalanceBadge'
 import OutstandingBalanceModal from '@/components/dentos/OutstandingBalanceModal'
@@ -47,6 +47,10 @@ function App() {
   )
   const showQueueWidget = dashboardWidgets.includes('queue') && isDashboardEnabled('queue')
   const showFollowupsPanel = shouldShowFollowupsPanel(dashboardWidgets)
+  const patientPanelIds = useMemo(
+    () => dashboardWidgets.filter(id => ['recent_patients', 'active_treatments', 'critical_patients', 'todays_followups'].includes(id) && isDashboardEnabled(id)),
+    [dashboardWidgets, isDashboardEnabled]
+  )
 
   const load = () => fetch('/api/dashboard/stats').then(r => r.json()).then(setStats)
   useEffect(() => { load() }, [])
@@ -123,6 +127,14 @@ function App() {
               <FollowupsPanelWidget stats={stats} />
             </div>
           )}
+        </div>
+      )}
+
+      {patientPanelIds.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {patientPanelIds.map(id => (
+            <WorkspaceWidget key={id} id={id} {...widgetProps} />
+          ))}
         </div>
       )}
 
