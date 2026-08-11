@@ -146,7 +146,7 @@ Expected response (HTTP 200):
 
 ### 9c. Background Jobs
 
-- [ ] Cron `/api/cron/jobs` scheduled (every 15 min in vercel.json).
+- [ ] Cron `/api/cron/jobs` scheduled (daily at 03:00 UTC — Hobby plan limit; Pro allows sub-daily)
 - [ ] Communication queue processing runs without failed jobs.
 
 ### 10. Email Sending

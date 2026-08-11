@@ -13,7 +13,7 @@
 
 1. Platform Admin → Monitoring → Queues tab
 2. Review recent failures
-3. Cron `/api/cron/jobs` runs every 15 minutes with automatic retry (max 3 attempts)
+3. Cron `/api/cron/jobs` runs daily at 03:00 UTC on Vercel Hobby (use external scheduler for more frequent runs on Pro)
 
 ### Offline Write Queue (Client)
 
