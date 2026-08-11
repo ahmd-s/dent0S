@@ -124,7 +124,7 @@ function App() {
       {statsLoading && primaryStatIds.length > 0 ? (
         <StatGridSkeleton count={primaryStatIds.length} compact />
       ) : primaryStatIds.length > 0 && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           {primaryStatIds.map(id => (
             <WorkspaceWidget key={id} id={id} compact {...widgetProps} />
           ))}
@@ -218,12 +218,12 @@ function QuickSearchBar({ onBook, canStartVisit }) {
 
   return (
     <>
-      <Card className="p-4 md:p-5 bg-card border-border rounded-lg">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+      <Card className="p-3 md:p-4 bg-card border-border rounded-lg">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
           <WorkspaceGate section="quick_actions" flag="new_patient">
             <div className="flex-1 relative min-w-0">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Search by name or phone number…" className="pl-9 h-11 text-base" />
+              <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Search by name or phone number…" className="pl-9 h-10 text-sm" />
               {q && (
                 <div className="absolute top-12 left-0 right-0 bg-card border border-border rounded-md shadow-lg z-10 max-h-96 overflow-y-auto">
                   {results.length === 0 ? (
@@ -261,7 +261,7 @@ function QuickSearchBar({ onBook, canStartVisit }) {
             </div>
           </WorkspaceGate>
           <WorkspaceGate section="quick_actions" flag="new_appointment">
-            <Button onClick={onBook} className="bg-[#0D9488] hover:bg-[#0B7E73] h-11 px-4 sm:w-auto w-full">
+            <Button onClick={onBook} className="bg-[#0D9488] hover:bg-[#0B7E73] h-10 px-4 sm:w-auto w-full">
               <Plus className="w-4 h-4 mr-1" />Quick Book
             </Button>
           </WorkspaceGate>

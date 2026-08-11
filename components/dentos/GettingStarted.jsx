@@ -35,11 +35,11 @@ export function GettingStarted({ stats, className }) {
 
   return (
     <Card className={cn('border-primary/30 bg-gradient-to-br from-teal-50/80 to-background dark:from-teal-950/20', className)}>
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-2 pt-4 px-4">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <CardTitle className="text-lg">Getting started with DentOS</CardTitle>
-            <CardDescription className="mt-1">
+            <CardTitle className="text-base">Getting started with DentOS</CardTitle>
+            <CardDescription className="mt-0.5 text-sm">
               Complete these steps to set up your clinic for daily use.
             </CardDescription>
           </div>
@@ -48,7 +48,7 @@ export function GettingStarted({ stats, className }) {
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="grid gap-2 sm:grid-cols-3">
+      <CardContent className="grid gap-2 sm:grid-cols-3 px-4 pb-4">
         {STEPS.map(step => {
           const done = step.id === 'patient' ? hasPatients : step.id === 'appointment' ? hasAppointments : false
           const Icon = step.icon
@@ -57,7 +57,7 @@ export function GettingStarted({ stats, className }) {
               key={step.id}
               href={step.href}
               className={cn(
-                'flex items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50 min-h-[44px]',
+                'flex items-center gap-2.5 rounded-lg border p-2.5 transition-colors hover:bg-muted/50 min-h-[40px]',
                 done ? 'border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-950/20' : 'border-border'
               )}
             >

@@ -49,15 +49,17 @@ const statusBadge = s => {
 
 function StatCard({ label, val, sub, icon: Icon, color, href, compact = false }) {
   const inner = (
-    <Card className={`bg-card border-border h-full ${compact ? 'p-2.5 sm:p-3 rounded-lg' : 'p-3.5 sm:p-4 md:p-5 rounded-xl'} ${href ? 'hover:border-[#0D9488]/40 transition-colors cursor-pointer active:scale-[0.98]' : ''}`}>
-      <div className={`flex ${compact ? 'items-center' : 'items-start'} justify-between gap-2`}>
+    <Card className={`bg-card border-border h-full rounded-xl ${compact ? 'p-3.5 sm:p-4' : 'p-3.5 sm:p-4 md:p-5'} ${href ? 'hover:border-[#0D9488]/40 transition-colors cursor-pointer active:scale-[0.98]' : ''}`}>
+      <div className="flex items-start justify-between gap-2.5">
         <div className="flex-1 min-w-0">
-          <div className={`text-muted-foreground leading-snug ${compact ? 'text-[11px] line-clamp-1' : 'text-xs md:text-sm line-clamp-2'}`}>{label}</div>
-          <div className={`font-bold leading-none tabular-nums ${compact ? 'text-lg sm:text-xl mt-0.5' : 'text-2xl md:text-3xl mt-1.5 md:mt-2'}`} style={{ color }}>{val}</div>
-          {!compact && sub && <div className="text-[11px] sm:text-xs text-muted-foreground mt-1.5 line-clamp-2 leading-snug">{sub}</div>}
+          <div className={`text-muted-foreground leading-snug ${compact ? 'text-xs line-clamp-1' : 'text-xs md:text-sm line-clamp-2'}`}>{label}</div>
+          <div className={`font-bold leading-none tabular-nums ${compact ? 'text-xl sm:text-2xl mt-1' : 'text-2xl md:text-3xl mt-1.5 md:mt-2'}`} style={{ color }}>{val}</div>
+          {sub && (
+            <div className={`text-muted-foreground leading-snug ${compact ? 'text-[11px] mt-1 line-clamp-1' : 'text-[11px] sm:text-xs mt-1.5 line-clamp-2'}`}>{sub}</div>
+          )}
         </div>
-        <div className={`rounded-md flex items-center justify-center flex-shrink-0 ${compact ? 'w-7 h-7' : 'w-9 h-9 md:w-10 md:h-10 rounded-lg'}`} style={{ backgroundColor: color + '15' }}>
-          <Icon className={compact ? 'w-3.5 h-3.5' : 'w-4 h-4 md:w-5 md:h-5'} style={{ color }} />
+        <div className={`rounded-lg flex items-center justify-center flex-shrink-0 ${compact ? 'w-9 h-9' : 'w-9 h-9 md:w-10 md:h-10'}`} style={{ backgroundColor: color + '15' }}>
+          <Icon className="w-4 h-4 md:w-5 md:h-5" style={{ color }} />
         </div>
       </div>
     </Card>
@@ -172,9 +174,9 @@ export function QueueWidget({
   if (showQueueToggle && !showQueue) return null
 
   return (
-    <Card className="lg:col-span-3 p-4 md:p-6 bg-card border-border rounded-lg">
-      <div className="flex items-center justify-between mb-2 md:mb-3 flex-wrap gap-2">
-        <h3 className="font-semibold text-foreground text-base md:text-lg">Today&apos;s Appointment Queue</h3>
+    <Card className="lg:col-span-3 p-4 md:p-5 bg-card border-border rounded-lg">
+      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+        <h3 className="font-semibold text-foreground text-base">Today&apos;s Appointment Queue</h3>
         <div className="flex items-center gap-3">
           {showQueueToggle && (
             <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
@@ -187,10 +189,10 @@ export function QueueWidget({
       </div>
       {!stats && <div className="text-sm text-muted-foreground py-6">Loading…</div>}
       {stats && stats.today_queue.length === 0 && (
-        <div className="text-center py-8 md:py-12">
-          <Calendar className="w-8 h-8 md:w-10 md:h-10 mx-auto text-muted-foreground/50" />
+        <div className="text-center py-6 md:py-8">
+          <Calendar className="w-8 h-8 mx-auto text-muted-foreground/50" />
           <p className="text-sm text-muted-foreground mt-2">No appointments scheduled for today</p>
-          <Button onClick={onBook} className="mt-3 bg-[#0D9488] hover:bg-[#0B7E73] h-11 px-4">
+          <Button onClick={onBook} className="mt-3 bg-[#0D9488] hover:bg-[#0B7E73] h-10 px-4">
             <Plus className="w-4 h-4 mr-1" />Add Appointment
           </Button>
         </div>
@@ -294,9 +296,9 @@ export function QueueWidget({
 
 export function FollowupsPanelWidget({ stats }) {
   return (
-    <Card className="lg:col-span-2 p-4 md:p-6 bg-card border-border rounded-lg">
-      <div className="flex items-center justify-between mb-2 md:mb-3">
-        <h3 className="font-semibold text-foreground text-base md:text-lg">Pending Follow-ups</h3>
+    <Card className="lg:col-span-2 p-4 md:p-5 bg-card border-border rounded-lg">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="font-semibold text-foreground text-base">Pending Follow-ups</h3>
         {stats?.followups?.length > 0 && (
           <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">Due Now</span>
         )}
