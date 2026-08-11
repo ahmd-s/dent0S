@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Loader2, Plus, Copy, ExternalLink, Trash2, Edit2, FileText, Check, LayoutGrid } from 'lucide-react'
+import { Loader2, Plus, Copy, ExternalLink, Trash2, Edit2, FileText, Check, LayoutGrid, Activity } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -37,6 +37,22 @@ function App() {
   return (
     <div className="max-w-4xl mx-auto">
       {me?.profile && canAccessSettings(me.profile) && (
+        <>
+        <Link
+          href="/settings/activity"
+          className="mb-4 flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3 hover:bg-muted/40 transition-colors group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-[#0D9488]/10 text-[#0D9488]">
+              <Activity className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">Activity</p>
+              <p className="text-xs text-muted-foreground">Clinic-wide event stream and filters</p>
+            </div>
+          </div>
+          <span className="text-xs text-muted-foreground group-hover:text-foreground">Open →</span>
+        </Link>
         <Link
           href="/settings/workspace"
           className="mb-4 flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3 hover:bg-muted/40 transition-colors group"
@@ -46,17 +62,19 @@ function App() {
               <LayoutGrid className="w-4 h-4" />
             </div>
             <div>
-              <p className="text-sm font-medium text-foreground">Workspace Builder</p>
-              <p className="text-xs text-muted-foreground">Customize navigation, dashboard, and layout per role</p>
+              <p className="text-sm font-medium text-foreground">Role Experience Builder</p>
+              <p className="text-xs text-muted-foreground">Design dashboard, sidebar, patient page, and actions per role</p>
             </div>
           </div>
           <span className="text-xs text-muted-foreground group-hover:text-foreground">Open →</span>
         </Link>
+        </>
       )}
       <Tabs defaultValue="clinic">
-        <TabsList className="bg-muted"><TabsTrigger value="clinic">Clinic Profile</TabsTrigger><TabsTrigger value="team">Team</TabsTrigger><TabsTrigger value="availability">Doctor Availability</TabsTrigger><TabsTrigger value="consent">Consent Forms</TabsTrigger></TabsList>
+        <TabsList className="bg-muted"><TabsTrigger value="clinic">Clinic Profile</TabsTrigger><TabsTrigger value="team">Team</TabsTrigger><TabsTrigger value="chairs">Chairs</TabsTrigger><TabsTrigger value="availability">Doctor Availability</TabsTrigger><TabsTrigger value="consent">Consent Forms</TabsTrigger></TabsList>
         <TabsContent value="clinic" className="mt-4 space-y-5"><ClinicTab me={me} reload={()=>fetch('/api/auth/me').then(r=>r.json()).then(setMe)}/></TabsContent>
         <TabsContent value="team" className="mt-4"><TeamTab/></TabsContent>
+        <TabsContent value="chairs" className="mt-4"><ChairsTab/></TabsContent>
         <TabsContent value="availability" className="mt-4"><DoctorAvailabilityTab me={me}/></TabsContent>
         <TabsContent value="consent" className="mt-4"><ConsentFormsTab/></TabsContent>
       </Tabs>
@@ -670,6 +688,62 @@ function DoctorAvailabilityTab({ me }) {
           </div>
         </DialogContent>
       </Dialog>
+    </Card>
+  )
+}
+
+function ChairsTab() {
+  const [chairs, setChairs] = useState([])
+  const [name, setName] = useState('')
+  const [loading, setLoading] = useState(true)
+
+  const load = async () => {
+    setLoading(true)
+    const r = await fetch('/api/chairs')
+    const d = await r.json()
+    setChairs(d.chairs || [])
+    setLoading(false)
+  }
+  useEffect(() => { load() }, [])
+
+  const add = async () => {
+    if (!name.trim()) return
+    await fetch('/api/chairs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) })
+    setName('')
+    toast.success('Chair added')
+    load()
+  }
+
+  const remove = async id => {
+    const r = await fetch(`/api/chairs/${id}`, { method: 'DELETE' })
+    if (r.ok) { toast.success('Chair removed'); load() }
+    else toast.error((await r.json()).error || 'Cannot remove')
+  }
+
+  return (
+    <Card className="p-5">
+      <h2 className="font-semibold mb-1">Treatment Chairs</h2>
+      <p className="text-sm text-muted-foreground mb-4">Define chairs for scheduling and utilization tracking.</p>
+      {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+        <>
+          <div className="space-y-2 mb-4">
+            {chairs.map(c => (
+              <div key={c.id} className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: c.color || '#0D9488' }} />
+                  <span className="font-medium text-sm">{c.name}</span>
+                  <span className="text-xs text-muted-foreground">{c.utilization_minutes || 0} min today</span>
+                </div>
+                <Button size="sm" variant="ghost" onClick={() => remove(c.id)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <Input placeholder="Chair name" value={name} onChange={e => setName(e.target.value)} />
+            <Button onClick={add} className="bg-[#0D9488] hover:bg-[#0B7E73] shrink-0"><Plus className="w-4 h-4 mr-1" />Add</Button>
+          </div>
+        </>
+      )}
     </Card>
   )
 }

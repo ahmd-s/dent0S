@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireUser, json, err, clean, cors, isClinicAccessBlocked, clinicAccessPausedResponse } from '@/lib/api-helpers'
+import { logActivity } from '@/lib/activity-helpers'
+import { ACTIVITY_EVENTS } from '@/lib/activity-event-registry'
 
 export async function OPTIONS() { return cors(new NextResponse(null, { status: 200 })) }
 
@@ -92,6 +94,14 @@ export async function POST(request) {
         quantity: itemReq.quantity, 
         stock_before, 
         stock_after 
+      })
+    }
+
+    if (consumed.length) {
+      await logActivity(db, profile, ACTIVITY_EVENTS.INVENTORY_CONSUMED, {
+        patientId: visit.patient_id,
+        visitId: b.visit_id,
+        metadata: { patient_name: b.patient_name, items: consumed.map(c => c.item_name), count: consumed.length },
       })
     }
     

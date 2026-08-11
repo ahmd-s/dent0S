@@ -17,6 +17,7 @@ import { getProfileRoles, roleBadgeLabel } from '@/lib/profile-roles'
 import { NAV_REGISTRY } from '@/lib/workspace-nav-registry'
 import { CLINIC_ACCESS_PAUSED_MESSAGE } from '@/lib/clinic-access'
 import { ImpersonationBanner } from '@/components/platform-admin/ImpersonationBanner'
+import { HomepageRedirect } from '@/components/workspace/HomepageRedirect'
 
 const INVENTORY_SUBNAV = [
   { href: '/inventory', label: 'Dashboard' },
@@ -54,7 +55,7 @@ export default function AppShell({ children }) {
   const pathname = usePathname()
   const router = useRouter()
   const { me, roles } = useRole()
-  const { navigationOrder, layoutClasses } = useWorkspace()
+  const { navigationOrder, layoutClasses, isNavBadgeEnabled } = useWorkspace()
   const { theme, setTheme } = useTheme()
   const navItems = useMemo(() => {
     return navigationOrder
@@ -93,6 +94,7 @@ export default function AppShell({ children }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-background overflow-x-hidden">
+      <HomepageRedirect />
       {me?.is_impersonating && (
         <ImpersonationBanner
           clinicName={me.impersonated_clinic_name || me.clinic?.name}
@@ -120,7 +122,11 @@ export default function AppShell({ children }) {
               <div key={n.key}>
                 <Link href={n.href} onClick={()=>setMobileOpen(false)}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition ${active?'bg-[#0D9488] text-white':'text-white/70 hover:bg-white/5 hover:text-white'}`}>
-                  <Icon className="w-4 h-4"/>{n.label}
+                  <Icon className="w-4 h-4"/>
+                  <span className="flex-1">{n.label}</span>
+                  {isNavBadgeEnabled(n.key) && (
+                    <span className="w-2 h-2 rounded-full bg-[#5EEAD4]" aria-label="Badge enabled" />
+                  )}
                 </Link>
                 {n.href === '/inventory' && pathname.startsWith('/inventory') && (
                   <div className="ml-3 mt-1 space-y-0.5 border-l border-white/20 pl-3">

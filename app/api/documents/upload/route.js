@@ -4,6 +4,8 @@ import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
 import { isClinicAccessBlocked, CLINIC_ACCESS_PAUSED_MESSAGE } from '@/lib/clinic-access'
 import { uploadBuffer } from '@/lib/localStorage'
+import { logActivity } from '@/lib/activity-helpers'
+import { ACTIVITY_EVENTS } from '@/lib/activity-event-registry'
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -100,6 +102,12 @@ export async function POST(request) {
     }
     const result = await db.collection('documents').insertOne(doc)
     doc._id = result.insertedId
+
+    await logActivity(db, profile, ACTIVITY_EVENTS.DOCUMENT_UPLOADED, {
+      patientId,
+      visitId,
+      metadata: { file_name: file.name },
+    })
 
     return NextResponse.json({ document: doc })
 

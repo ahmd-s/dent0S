@@ -4,6 +4,8 @@ import { getCurrentUser } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { stripInvoiceAuditFields } from '@/lib/invoice-audit'
 import { v4 as uuidv4 } from 'uuid'
+import { logActivity } from '@/lib/activity-helpers'
+import { ACTIVITY_EVENTS } from '@/lib/activity-event-registry'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -61,6 +63,9 @@ export async function PUT(request, { params }) {
 
   if (!hasPermission(profile.role, 'visits', 'update')) return err('Forbidden', 403)
   const b = await request.json()
+  const visit = await db.collection('visits').findOne({ id, clinic_id: cid })
+  if (!visit) return err('Not found', 404)
+
   const allowed = ['chief_complaint', 'clinical_notes', 'diagnosis', 'treatment_done', 'treatment_plan', 'next_visit_recommended', 'next_visit_date']
   const update = {}
   for (const k of allowed) if (k in b) update[k] = b[k]
@@ -71,11 +76,16 @@ export async function PUT(request, { params }) {
     const valid = b.prescriptions.filter(r => r.medicine_name?.trim())
     if (valid.length) {
       await db.collection('prescriptions').insertMany(valid.map(r => ({ id: uuidv4(), clinic_id: cid, visit_id: id, medicine_name: r.medicine_name, dosage: r.dosage || '', frequency: r.frequency || '', duration: r.duration || '', instructions: r.instructions || '', created_at: new Date() })))
+      await logActivity(db, profile, ACTIVITY_EVENTS.PRESCRIPTION_CREATED, {
+        patientId: visit.patient_id,
+        visitId: id,
+        metadata: { count: valid.length },
+      })
     }
   }
   // upsert invoice items + invoice (draft mode)
-  const visit = await db.collection('visits').findOne({ id, clinic_id: cid })
   let invoiceId = null
+  let invoiceCreated = false
   if (Array.isArray(b.invoice_items) || b.invoice) {
     const existing = await db.collection('invoices').findOne({ visit_id: id, clinic_id: cid })
     const items = (b.invoice_items || []).filter(it => it.description?.trim())
@@ -88,8 +98,17 @@ export async function PUT(request, { params }) {
       await db.collection('invoices').updateOne({ id: existing.id, clinic_id: cid }, { $set: invoiceData })
       await db.collection('invoice_items').deleteMany({ invoice_id: existing.id, clinic_id: cid })
       invoiceId = existing.id
+      if (b.payment_status === 'paid' && existing.payment_status !== 'paid') {
+        await logActivity(db, profile, ACTIVITY_EVENTS.PAYMENT_RECEIVED, {
+          patientId: visit.patient_id,
+          visitId: id,
+          invoiceId: existing.id,
+          metadata: { amount: total, invoice_number: existing.invoice_number },
+        })
+      }
     } else {
       invoiceId = uuidv4()
+      invoiceCreated = true
       const count = await db.collection('invoices').countDocuments({ clinic_id: cid })
       const invoice_number = `INV-${initials(clinic.name)}-${String(count + 1).padStart(5, '0')}`
       const share_token = uuidv4()
@@ -98,12 +117,33 @@ export async function PUT(request, { params }) {
     if (items.length) {
       await db.collection('invoice_items').insertMany(items.map(it => ({ id: uuidv4(), clinic_id: cid, invoice_id: invoiceId, description: it.description, quantity: parseInt(it.quantity) || 1, unit_price: parseFloat(it.unit_price) || 0, total: (parseFloat(it.unit_price) || 0) * (parseInt(it.quantity) || 1) })))
     }
+    if (invoiceCreated) {
+      const inv = await db.collection('invoices').findOne({ id: invoiceId, clinic_id: cid })
+      await logActivity(db, profile, ACTIVITY_EVENTS.INVOICE_CREATED, {
+        patientId: visit.patient_id,
+        visitId: id,
+        invoiceId,
+        metadata: { invoice_number: inv?.invoice_number, amount: inv?.total_amount },
+      })
+    }
   }
   // complete-visit side effects
   if (b.complete) {
     if (!visit.chief_complaint && !b.chief_complaint) return err('Chief complaint required to complete')
-    if (visit?.appointment_id) await db.collection('appointments').updateOne({ id: visit.appointment_id, clinic_id: cid }, { $set: { status: 'completed' } })
+    if (visit?.appointment_id) {
+      await db.collection('appointments').updateOne({ id: visit.appointment_id, clinic_id: cid }, { $set: { status: 'completed' } })
+      await logActivity(db, profile, ACTIVITY_EVENTS.APPOINTMENT_COMPLETED, {
+        patientId: visit.patient_id,
+        appointmentId: visit.appointment_id,
+        visitId: id,
+      })
+    }
     await db.collection('patients').updateOne({ id: visit.patient_id, clinic_id: cid }, { $set: { last_visit_date: visit.visit_date, next_followup_date: b.next_visit_recommended ? b.next_visit_date : null }, $inc: { total_visits: 1 } })
+    await logActivity(db, profile, ACTIVITY_EVENTS.VISIT_COMPLETED, {
+      patientId: visit.patient_id,
+      visitId: id,
+      appointmentId: visit.appointment_id,
+    })
   }
   return json({ ok: true, invoice_id: invoiceId })
 }

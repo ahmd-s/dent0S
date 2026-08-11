@@ -11,16 +11,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 import WorkspaceEditor from './WorkspaceEditor'
 import {
@@ -29,9 +19,12 @@ import {
   LOCKED_NAV_KEYS,
   configsEqual,
   deepCloneRoleConfig,
+  deepCloneWorkspace,
   normalizeWidgetOrder,
   validateRoleConfigForSave,
 } from '@/lib/workspace-ui-schema'
+import { createPreset } from '@/lib/workspace-engine'
+import { buildBuiltinPresetConfig } from '@/lib/workspace-role-experience'
 
 const ROLES = ['admin', 'doctor', 'receptionist']
 
@@ -52,10 +45,12 @@ export default function WorkspaceBuilder() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [resetting, setResetting] = useState(false)
+  const [presetBusy, setPresetBusy] = useState(false)
   const [error, setError] = useState(null)
 
   const [workspace, setWorkspace] = useState(null)
   const [savedWorkspace, setSavedWorkspace] = useState(null)
+  const [templates, setTemplates] = useState(null)
 
   const [previewRole, setPreviewRole] = useState('admin')
   const [activeTab, setActiveTab] = useState('navigation')
@@ -71,9 +66,9 @@ export default function WorkspaceBuilder() {
       const r = await fetch('/api/settings/workspace')
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || 'Failed to load workspace')
-      const ws = d.workspace
-      setWorkspace(ws)
-      setSavedWorkspace(deepCloneRoleConfig(ws))
+      setWorkspace(d.workspace)
+      setSavedWorkspace(deepCloneWorkspace(d.workspace))
+      setTemplates(d.templates || null)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -102,7 +97,7 @@ export default function WorkspaceBuilder() {
     )
   }, [workspace, savedWorkspace, draft, previewRole])
 
-  const switchPreviewRole = (role) => {
+  const switchPreviewRole = role => {
     if (role === previewRole) return
     if (dirty && !window.confirm('You have unsaved changes. Switch role and discard them?')) return
     setPreviewRole(role)
@@ -112,7 +107,23 @@ export default function WorkspaceBuilder() {
 
   const updateDraft = next => {
     setDraft(normalizeRoleConfig(next))
+    setWorkspace(prev => ({ ...prev, [previewRole]: normalizeRoleConfig(next) }))
     setSaveState('idle')
+  }
+
+  const persistWorkspace = async (nextWorkspace, extraBody = {}) => {
+    const r = await fetch('/api/settings/workspace', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workspace: nextWorkspace, ...extraBody }),
+    })
+    const d = await r.json()
+    if (!r.ok) throw new Error(d.error || 'Save failed')
+    setWorkspace(d.workspace)
+    setSavedWorkspace(deepCloneWorkspace(d.workspace))
+    setSaveState('saved')
+    window.dispatchEvent(new Event('dentos:workspace-updated'))
+    return d.workspace
   }
 
   const handleSave = async () => {
@@ -135,7 +146,7 @@ export default function WorkspaceBuilder() {
       if (!r.ok) throw new Error(d.error || 'Save failed')
 
       setWorkspace(d.workspace)
-      setSavedWorkspace(deepCloneRoleConfig(d.workspace))
+      setSavedWorkspace(deepCloneWorkspace(d.workspace))
       setSaveState('saved')
       window.dispatchEvent(new Event('dentos:workspace-updated'))
     } catch (e) {
@@ -154,7 +165,9 @@ export default function WorkspaceBuilder() {
       const body =
         resetDialog === 'all'
           ? { reset: 'all' }
-          : { reset: 'role', role: previewRole }
+          : resetDialog === 'role'
+            ? { reset: 'role', role: previewRole }
+            : { reset: 'section', role: previewRole, section: resetDialog }
 
       const r = await fetch('/api/settings/workspace', {
         method: 'PATCH',
@@ -165,7 +178,7 @@ export default function WorkspaceBuilder() {
       if (!r.ok) throw new Error(d.error || 'Reset failed')
 
       setWorkspace(d.workspace)
-      setSavedWorkspace(deepCloneRoleConfig(d.workspace))
+      setSavedWorkspace(deepCloneWorkspace(d.workspace))
       setSaveState('saved')
       setResetDialog(null)
       window.dispatchEvent(new Event('dentos:workspace-updated'))
@@ -175,6 +188,95 @@ export default function WorkspaceBuilder() {
       setResetting(false)
     }
   }
+
+  const updatePresets = async nextPresets => {
+    setPresetBusy(true)
+    setError(null)
+    try {
+      await persistWorkspace({ ...savedWorkspace, presets: nextPresets }, {
+        presets: nextPresets,
+        preset_action: 'update',
+      })
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setPresetBusy(false)
+    }
+  }
+
+  const presetHandlers = {
+    busy: presetBusy,
+    onSavePreset: async name => {
+      const preset = createPreset({ name, role: previewRole, config: draft })
+      const next = [...(savedWorkspace?.presets || []), preset]
+      await updatePresets(next)
+    },
+    onApplyPreset: async presetId => {
+      setPresetBusy(true)
+      try {
+        const r = await fetch('/api/settings/workspace', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ preset_action: 'apply', preset_id: presetId }),
+        })
+        const d = await r.json()
+        if (!r.ok) throw new Error(d.error || 'Apply failed')
+        setWorkspace(d.workspace)
+        setSavedWorkspace(deepCloneWorkspace(d.workspace))
+        window.dispatchEvent(new Event('dentos:workspace-updated'))
+      } catch (e) {
+        setError(e.message)
+      } finally {
+        setPresetBusy(false)
+      }
+    },
+    onRenamePreset: async (presetId, name) => {
+      const next = (savedWorkspace?.presets || []).map(p =>
+        p.id === presetId ? { ...p, name, updated_at: new Date().toISOString() } : p
+      )
+      await updatePresets(next)
+    },
+    onDeletePreset: async presetId => {
+      const next = (savedWorkspace?.presets || []).filter(p => p.id !== presetId)
+      await updatePresets(next)
+    },
+    onDuplicatePreset: async presetId => {
+      const source = (savedWorkspace?.presets || []).find(p => p.id === presetId)
+      if (!source) return
+      const copy = createPreset({
+        name: `${source.name} (copy)`,
+        role: source.role,
+        config: source.config,
+      })
+      await updatePresets([...(savedWorkspace?.presets || []), copy])
+    },
+    onApplyBuiltin: async presetId => {
+      const config = buildBuiltinPresetConfig(presetId, templates || savedWorkspace)
+      if (!config) return
+      setPresetBusy(true)
+      try {
+        const r = await fetch('/api/settings/workspace', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role: previewRole, config, preset_action: 'apply_builtin', preset_id: presetId }),
+        })
+        const d = await r.json()
+        if (!r.ok) throw new Error(d.error || 'Apply failed')
+        setWorkspace(d.workspace)
+        setSavedWorkspace(deepCloneWorkspace(d.workspace))
+        window.dispatchEvent(new Event('dentos:workspace-updated'))
+      } catch (e) {
+        setError(e.message)
+      } finally {
+        setPresetBusy(false)
+      }
+    },
+  }
+
+  const editorTabs = useMemo(
+    () => [...EDITOR_TABS, { id: 'reset', label: 'Reset' }],
+    []
+  )
 
   if (loading) {
     return (
@@ -204,9 +306,9 @@ export default function WorkspaceBuilder() {
             <ArrowLeft className="w-3.5 h-3.5" />
             Settings
           </Link>
-          <h1 className="text-xl font-semibold tracking-tight">Workspace Builder</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Role Experience Builder</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Customize navigation, dashboard, and layout per role.
+            Design what Admin, Doctor, and Receptionist see — dashboard, sidebar, patient page, and actions.
           </p>
         </div>
 
@@ -228,20 +330,10 @@ export default function WorkspaceBuilder() {
             variant="outline"
             size="sm"
             className="h-9"
-            onClick={() => setResetDialog('role')}
-            disabled={resetting}
+            onClick={() => setActiveTab('reset')}
           >
             <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
-            Reset role
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-9"
-            onClick={() => setResetDialog('all')}
-            disabled={resetting}
-          >
-            Reset all
+            Reset
           </Button>
           <Button
             size="sm"
@@ -297,13 +389,13 @@ export default function WorkspaceBuilder() {
             ))}
           </nav>
           <p className="text-[11px] text-muted-foreground mt-4 px-1 leading-relaxed">
-            Editing {ROLE_LABELS[previewRole]} workspace. Preview switches the editor view instantly.
+            Editing {ROLE_LABELS[previewRole]} experience. Preview uses unsaved draft state instantly.
           </p>
         </aside>
 
         <div className="flex-1 min-w-0">
           <div className="flex gap-1 overflow-x-auto border-b border-border mb-4 pb-px">
-            {EDITOR_TABS.map(tab => (
+            {editorTabs.map(tab => (
               <button
                 key={tab.id}
                 type="button"
@@ -324,34 +416,16 @@ export default function WorkspaceBuilder() {
             activeTab={activeTab}
             config={draft}
             onChange={updateDraft}
+            previewRole={previewRole}
+            presets={savedWorkspace?.presets || []}
+            presetHandlers={presetHandlers}
+            resetDialog={resetDialog}
+            setResetDialog={setResetDialog}
+            onConfirmReset={handleReset}
+            resetting={resetting}
           />
         </div>
       </div>
-
-      <AlertDialog open={!!resetDialog} onOpenChange={open => !open && setResetDialog(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {resetDialog === 'all' ? 'Reset entire workspace?' : `Reset ${ROLE_LABELS[previewRole]} workspace?`}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {resetDialog === 'all'
-                ? 'All roles will revert to platform default templates. This cannot be undone.'
-                : 'This role will revert to platform default templates. Other roles are unchanged.'}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={resetting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleReset}
-              disabled={resetting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {resetting ? 'Resetting…' : 'Reset'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }

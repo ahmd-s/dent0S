@@ -17,11 +17,8 @@ import { useRole } from '@/components/dentos/RoleContext'
 import { useWorkspace } from '@/components/workspace/useWorkspace'
 import WorkspaceWidget from '@/components/workspace/WorkspaceWidget'
 import WorkspaceGate from '@/components/workspace/WorkspaceGate'
-import {
-  DASHBOARD_STAT_WIDGET_IDS,
-  FollowupsPanelWidget,
-  shouldShowFollowupsPanel,
-} from '@/components/workspace/dashboard/DashboardWidgetRegistry'
+import { DASHBOARD_STAT_WIDGET_IDS, FollowupsPanelWidget, shouldShowFollowupsPanel } from '@/components/workspace/dashboard/DashboardWidgetRegistry'
+import { RecentActivityWidget } from '@/components/workspace/dashboard/RecentActivityWidget'
 import BalanceBadge from '@/components/dentos/BalanceBadge'
 import OutstandingBalanceModal from '@/components/dentos/OutstandingBalanceModal'
 import ReceptionistPendingTasks from '@/components/dentos/ReceptionistPendingTasks'
@@ -127,6 +124,10 @@ function App() {
             </div>
           )}
         </div>
+      )}
+
+      {dashboardWidgets.includes('recent_activity') && (
+        <RecentActivityWidget />
       )}
 
       <BookAppointmentModal open={bookOpen} setOpen={setBookOpen} onCreated={load} />

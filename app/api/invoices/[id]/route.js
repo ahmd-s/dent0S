@@ -10,6 +10,8 @@ import {
   stripInvoiceAuditFields,
   todayIso,
 } from '@/lib/invoice-audit'
+import { logActivity } from '@/lib/activity-helpers'
+import { ACTIVITY_EVENTS } from '@/lib/activity-event-registry'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -119,10 +121,19 @@ export async function PUT(request, { params }) {
     }
 
     const u = {}
+    const inv = await db.collection('invoices').findOne({ id: params.id, clinic_id: cid })
     if ('payment_status' in b) u.payment_status = b.payment_status
     if ('payment_mode' in b) u.payment_mode = b.payment_mode
     if ('notes' in b) u.notes = b.notes
     await db.collection('invoices').updateOne({ id: params.id, clinic_id: cid }, { $set: u })
+    if (b.payment_status === 'paid' && inv?.payment_status !== 'paid') {
+      await logActivity(db, profile, ACTIVITY_EVENTS.PAYMENT_RECEIVED, {
+        patientId: inv?.patient_id,
+        invoiceId: inv?.id,
+        visitId: inv?.visit_id,
+        metadata: { amount: inv?.total_amount, invoice_number: inv?.invoice_number },
+      })
+    }
     return json({ ok: true })
   } catch (e) {
     console.error('Invoice PUT error:', e)
@@ -160,6 +171,12 @@ export async function DELETE(request, { params }) {
     if (!inv) return err('Not found', 404)
     await db.collection('invoice_items').deleteMany({ invoice_id: inv.id, clinic_id: cid })
     await db.collection('invoices').deleteOne({ id: inv.id, clinic_id: cid })
+    await logActivity(db, profile, ACTIVITY_EVENTS.INVOICE_DELETED, {
+      patientId: inv.patient_id,
+      invoiceId: inv.id,
+      visitId: inv.visit_id,
+      metadata: { invoice_number: inv.invoice_number },
+    })
     return json({ ok: true })
   } catch (e) {
     console.error('Invoice DELETE error:', e)

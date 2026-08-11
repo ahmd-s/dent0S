@@ -7,6 +7,8 @@ import { getProfileRoles } from '@/lib/profile-roles'
 import { doctorPatientIds, shouldScopeToDoctor } from '@/lib/doctor-scope'
 import { nextPatientCode } from '@/lib/patient-code'
 import { isClinicAccessBlocked, clinicAccessPausedResponse } from '@/lib/clinic-access'
+import { logActivity } from '@/lib/activity-helpers'
+import { ACTIVITY_EVENTS } from '@/lib/activity-event-registry'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -162,6 +164,11 @@ export async function POST(request) {
       }
       throw insertErr
     }
+
+    await logActivity(db, profile, ACTIVITY_EVENTS.PATIENT_CREATED, {
+      patientId: id,
+      metadata: { patient_name: name, patient_code: patientCode },
+    })
 
     return json({ ok: true, id, existing: false }, 201)
   } catch (error) {

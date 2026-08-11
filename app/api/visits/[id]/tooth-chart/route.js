@@ -3,6 +3,8 @@ import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { v4 as uuidv4 } from 'uuid'
+import { logActivity } from '@/lib/activity-helpers'
+import { ACTIVITY_EVENTS } from '@/lib/activity-event-registry'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -80,5 +82,9 @@ export async function PUT(request, { params }) {
       created_at: new Date()
     })
   }
+  await logActivity(db, profile, ACTIVITY_EVENTS.TOOTH_UPDATED, {
+    patientId: visit.patient_id,
+    visitId,
+  })
   return json({ ok: true })
 }

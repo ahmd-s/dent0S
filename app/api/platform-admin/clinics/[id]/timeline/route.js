@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requirePlatformAdmin } from '@/lib/platform-admin'
+import { getClinicTimeline } from '@/lib/activity-engine'
+import { getEventLabel } from '@/lib/activity-event-registry'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -23,7 +25,7 @@ export async function GET(request, { params }) {
     const clinic = await db.collection('clinics').findOne({ id: params.id })
     if (!clinic) return cors(NextResponse.json({ error: 'Not found' }, { status: 404 }))
 
-    const [auditLogs, payments, supportNotes, subscription] = await Promise.all([
+    const [auditLogs, payments, supportNotes, subscription, activityResult] = await Promise.all([
       db.collection('platform_admin_audit_logs')
         .find({ target_clinic_id: params.id })
         .sort({ at: -1 })
@@ -43,6 +45,8 @@ export async function GET(request, { params }) {
         .toArray(),
 
       db.collection('subscriptions').findOne({ clinic_id: params.id }),
+
+      getClinicTimeline(db, params.id, { limit: 100 }),
     ])
 
     const events = []
@@ -102,6 +106,18 @@ export async function GET(request, { params }) {
         detail: note.content?.slice(0, 120) || '',
         actor: note.author_email || null,
         at: note.created_at,
+      })
+    }
+
+    // Activity engine events
+    for (const ev of activityResult.events || []) {
+      events.push({
+        type: 'activity',
+        event: ev.event,
+        title: ev.label || getEventLabel(ev.event),
+        detail: ev.metadata?.patient_name || ev.metadata?.case_number || ev.metadata?.invoice_number || ev.actor_name || '',
+        actor: ev.actor_name || null,
+        at: ev.created_at,
       })
     }
 

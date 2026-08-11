@@ -3,6 +3,8 @@ import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { v4 as uuidv4 } from 'uuid'
+import { logActivity } from '@/lib/activity-helpers'
+import { ACTIVITY_EVENTS } from '@/lib/activity-event-registry'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -186,6 +188,15 @@ export async function POST(request) {
   if (!ownedPatient) return err('Not found', 404)
   const id = uuidv4()
   await db.collection('visits').insertOne({ id, clinic_id: cid, patient_id: b.patient_id, doctor_id: b.doctor_id || profile.id, appointment_id: b.appointment_id || null, visit_date: todayIso(), chief_complaint: b.chief_complaint || '', clinical_notes: '', diagnosis: '', treatment_done: '', treatment_plan: '', next_visit_recommended: false, next_visit_date: null, created_at: new Date() })
-  if (b.appointment_id) await db.collection('appointments').updateOne({ id: b.appointment_id, clinic_id: cid }, { $set: { status: 'in_progress' } })
+  if (b.appointment_id) await db.collection('appointments').updateOne({ id: b.appointment_id, clinic_id: cid }, { $set: { status: 'in_treatment' } })
+
+  const patient = await db.collection('patients').findOne({ id: b.patient_id, clinic_id: cid })
+  await logActivity(db, profile, ACTIVITY_EVENTS.VISIT_STARTED, {
+    patientId: b.patient_id,
+    visitId: id,
+    appointmentId: b.appointment_id || null,
+    metadata: { patient_name: patient?.name },
+  })
+
   return json({ ok: true, id })
 }

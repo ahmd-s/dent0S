@@ -1,39 +1,100 @@
-import { NextResponse } from 'next/server'
-import { getDb } from '@/lib/mongo'
-import { getCurrentUser } from '@/lib/auth'
+import { requireUser, json, err, clean } from '@/lib/api-helpers'
+import { findAppointmentConflicts } from '@/lib/appointment-conflicts'
+import { enrichAppointments } from '@/lib/appointment-enrichment'
+import { logAppointmentChanges } from '@/lib/appointment-activity'
+import { canTransition, normalizeStatus } from '@/lib/appointment-status'
 
-function cors(res) {
-  res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
-  res.headers.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH')
-  res.headers.set('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-  res.headers.set('Access-Control-Allow-Credentials', 'true')
-  return res
-}
+export async function GET(request, { params }) {
+  const ctx = await requireUser()
+  if (!ctx) return err('Unauthorized', 401)
 
-const json = (d, s = 200) => cors(NextResponse.json(d, { status: s }))
-const err = (msg, s = 400) => json({ error: msg }, s)
-const clean = o => { if (!o) return o; const { _id, password_hash, ...rest } = o; return rest }
+  const existing = await ctx.db.collection('appointments').findOne({
+    id: params.id,
+    clinic_id: ctx.profile.clinic_id,
+  })
+  if (!existing) return err('Not found', 404)
 
-async function requireUser() {
-  const t = getCurrentUser(); if (!t) return null
-  const db = await getDb()
-  const profile = await db.collection('profiles').findOne({ id: t.uid })
-  if (!profile) return null
-  const clinic = await db.collection('clinics').findOne({ id: profile.clinic_id })
-  return { profile, clinic, db }
+  const [enriched] = await enrichAppointments(ctx.db, ctx.profile.clinic_id, [existing])
+  return json({ appointment: enriched })
 }
 
 export async function PUT(request, { params }) {
-  const user = await requireUser()
-  if (!user) return err('Unauthorized', 401)
+  const ctx = await requireUser()
+  if (!ctx) return err('Unauthorized', 401)
 
-  const { profile, db } = user
+  const { profile, db } = ctx
   const cid = profile.clinic_id
   const id = params.id
   const b = await request.json()
-  const allowed = ['status', 'appointment_date', 'appointment_time', 'chief_complaint', 'notes', 'appointment_type', 'doctor_id', 'duration_minutes']
+
+  const existing = await db.collection('appointments').findOne({ id, clinic_id: cid })
+  if (!existing) return err('Not found', 404)
+
+  const allowed = [
+    'status', 'appointment_date', 'appointment_time', 'chief_complaint', 'notes',
+    'appointment_type', 'doctor_id', 'duration_minutes', 'chair_id', 'patient_id',
+    'priority', 'queue_position',
+  ]
   const update = {}
   for (const k of allowed) if (k in b) update[k] = b[k]
-  await db.collection('appointments').updateOne({ id, clinic_id: cid }, { $set: update })
+
+  if (update.status) {
+    update.status = normalizeStatus(update.status)
+    if (!canTransition(existing.status, update.status) && !b.force) {
+      return err(`Invalid status transition from ${existing.status} to ${update.status}`, 400)
+    }
+    if (update.status === 'checked_in' && !existing.checked_in_at) {
+      update.checked_in_at = new Date()
+    }
+  }
+
+  const nextDate = update.appointment_date || existing.appointment_date
+  const nextTime = update.appointment_time || existing.appointment_time
+  const nextDoctor = update.doctor_id || existing.doctor_id
+  const nextChair = update.chair_id !== undefined ? update.chair_id : existing.chair_id
+  const nextDuration = update.duration_minutes || existing.duration_minutes || 30
+
+  if (update.appointment_date || update.appointment_time || update.doctor_id || update.chair_id !== undefined || update.duration_minutes) {
+    const { hasConflict, conflicts } = await findAppointmentConflicts(db, {
+      clinicId: cid,
+      doctorId: nextDoctor,
+      chairId: nextChair,
+      appointmentDate: nextDate,
+      appointmentTime: nextTime,
+      durationMinutes: nextDuration,
+      excludeId: id,
+    })
+    if (hasConflict && !b.force) {
+      return json({
+        success: false,
+        message: conflicts[0]?.message || 'Scheduling conflict',
+        conflicts,
+      }, 409)
+    }
+  }
+
+  if (Object.keys(update).length) {
+    await db.collection('appointments').updateOne({ id, clinic_id: cid }, { $set: update })
+    await logAppointmentChanges(db, profile, existing, update)
+  }
+
+  return json({ ok: true })
+}
+
+export async function DELETE(request, { params }) {
+  const ctx = await requireUser()
+  if (!ctx) return err('Unauthorized', 401)
+
+  const existing = await ctx.db.collection('appointments').findOne({
+    id: params.id,
+    clinic_id: ctx.profile.clinic_id,
+  })
+  if (!existing) return err('Not found', 404)
+
+  await ctx.db.collection('appointments').updateOne(
+    { id: params.id, clinic_id: ctx.profile.clinic_id },
+    { $set: { status: 'cancelled' } }
+  )
+  await logAppointmentChanges(ctx.db, ctx.profile, existing, { status: 'cancelled' })
   return json({ ok: true })
 }

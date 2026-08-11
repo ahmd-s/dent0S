@@ -28,15 +28,21 @@ const inr = n => '₹' + (n || 0).toLocaleString('en-IN')
 const statusBadge = s => {
   const map = {
     scheduled: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+    confirmed: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-300',
+    checked_in: 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300',
+    waiting: 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300',
+    called: 'bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-300',
+    in_treatment: 'bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300',
     arrived: 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300',
     in_progress: 'bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300',
     completed: 'bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-300',
     cancelled: 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400',
     no_show: 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400',
   }
+  const label = { checked_in: 'Checked In', in_treatment: 'In Treatment', arrived: 'Checked In', in_progress: 'In Treatment' }[s] || s?.replace('_', ' ')
   return (
     <span className={`text-xs px-2 py-1 rounded-full capitalize whitespace-nowrap ${map[s] || 'bg-slate-100 dark:bg-slate-800'}`}>
-      {s.replace('_', ' ')}
+      {label}
     </span>
   )
 }
@@ -188,18 +194,18 @@ export function QueueWidget({
                     <td className="py-3">{statusBadge(a.status)}</td>
                     <td className="py-3">
                       <div className="flex justify-end items-center gap-1">
-                        {a.status === 'scheduled' && (
-                          <Button size="sm" onClick={() => setStatus(a.id, 'arrived')} className="h-8 text-xs bg-blue-600 hover:bg-blue-700">
+                        {['scheduled', 'confirmed'].includes(a.status) && (
+                          <Button size="sm" onClick={() => setStatus(a.id, 'checked_in')} className="h-8 text-xs bg-blue-600 hover:bg-blue-700">
                             {!canStartVisit ? 'Check In' : 'Mark Arrived'}
                           </Button>
                         )}
-                        {canStartVisit && a.status === 'arrived' && (
+                        {canStartVisit && ['called', 'checked_in', 'arrived'].includes(a.status) && (
                           <Button size="sm" onClick={() => startVisit(a)} className="h-8 text-xs bg-[#0D9488] hover:bg-[#0B7E73]">Start Visit</Button>
                         )}
-                        {!canStartVisit && a.status === 'arrived' && (
+                        {!canStartVisit && ['checked_in', 'waiting', 'arrived'].includes(a.status) && (
                           <span className="text-xs text-muted-foreground whitespace-nowrap pr-1">Waiting for doctor</span>
                         )}
-                        {canStartVisit && a.status === 'in_progress' && (
+                        {canStartVisit && ['in_progress', 'in_treatment'].includes(a.status) && (
                           <Button size="sm" onClick={() => cont(a)} className="h-8 text-xs bg-orange-500 hover:bg-orange-600">Continue</Button>
                         )}
                         {canStartVisit && a.status === 'completed' && a.visit_id && (
@@ -283,6 +289,8 @@ export const DASHBOARD_WIDGET_REGISTRY = {
   queue: QueueWidget,
   followups_panel: FollowupsPanelWidget,
 }
+
+export { RecentActivityWidget } from './RecentActivityWidget'
 
 /** Stat-card widgets rendered in the top grid */
 export const DASHBOARD_STAT_WIDGET_IDS = new Set([

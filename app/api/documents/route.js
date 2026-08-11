@@ -3,6 +3,8 @@ import { v2 as cloudinary } from 'cloudinary'
 import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
 import { ObjectId } from 'mongodb'
+import { logActivity } from '@/lib/activity-helpers'
+import { ACTIVITY_EVENTS } from '@/lib/activity-event-registry'
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -103,6 +105,15 @@ export async function DELETE(request) {
       _id: new ObjectId(docId),
       clinic_id: user.clinic_id,
     })
+
+    const profile = await db.collection('profiles').findOne({ id: user.uid || user.id })
+    if (profile) {
+      await logActivity(db, profile, ACTIVITY_EVENTS.DOCUMENT_DELETED, {
+        patientId: doc.patient_id,
+        visitId: doc.visit_id,
+        metadata: { file_name: doc.file_name },
+      })
+    }
 
     return NextResponse.json({ success: true })
 

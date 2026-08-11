@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
 import { headers } from 'next/headers'
+import { logEvent } from '@/lib/activity-engine'
+import { ACTIVITY_EVENTS } from '@/lib/activity-event-registry'
+import { actorFromSystem } from '@/lib/activity-helpers'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -52,6 +55,14 @@ export async function POST(request, { params }) {
         }
       }
     )
+
+    await logEvent(db, {
+      clinicId: consentRequest.clinic_id,
+      event: ACTIVITY_EVENTS.CONSENT_SIGNED,
+      actor: actorFromSystem(b.patient_name || 'Patient'),
+      patientId: consentRequest.patient_id,
+      metadata: { patient_name: b.patient_name, template_id: consentRequest.template_id },
+    })
     
     return json({ ok: true, message: 'Consent signed successfully' })
   } catch (error) {

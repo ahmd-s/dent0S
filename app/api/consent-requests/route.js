@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
 import { isClinicAccessBlocked, clinicAccessPausedResponse } from '@/lib/clinic-access'
+import { logActivity } from '@/lib/activity-helpers'
+import { ACTIVITY_EVENTS } from '@/lib/activity-event-registry'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -112,6 +114,11 @@ export async function POST(request) {
     // Generate public link
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'
     const consentLink = `${baseUrl}/consent/${unique_token}`
+
+    await logActivity(db, profile, ACTIVITY_EVENTS.CONSENT_SENT, {
+      patientId: b.patient_id,
+      metadata: { template_name: template.name, patient_name: patient.name },
+    })
     
     return json({ ok: true, id, consent_link: consentLink, unique_token })
   } catch (error) {

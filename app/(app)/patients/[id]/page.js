@@ -18,6 +18,7 @@ import WorkspaceGate from '@/components/workspace/WorkspaceGate'
 import { useWorkspace } from '@/components/workspace/useWorkspace'
 import { DocumentsTab } from '@/components/dentos/DocumentsTab'
 import { ConsentFormsTab } from '@/components/dentos/ConsentFormsTab'
+import PatientTimelineTab from '@/components/dentos/PatientTimelineTab'
 import { NewLabCaseDialog } from '@/components/dentos/NewLabCaseDialog'
 import { LAB_CASE_STATUS_META, statusLabel } from '@/lib/lab-case-helpers'
 import BalanceBadge from '@/components/dentos/BalanceBadge'
@@ -34,7 +35,7 @@ function App() {
   const { id } = useParams()
   const router = useRouter()
   const { canViewClinical, canEditClinical } = useRole()
-  const { layoutClasses } = useWorkspace()
+  const { layoutClasses, isPatientSectionEditable } = useWorkspace()
   const canStartWalkin = canEditClinical()
   const clinicalLocked = !canEditClinical()
   const [patient, setPatient] = useState(null)
@@ -97,7 +98,7 @@ const loadLabCases = async () => {
                 </div>
                 <div className="text-xs text-muted-foreground mt-0.5">{patient.patient_code}</div>
               </div>
-              <button type="button" onClick={()=>setEditOpen(true)} className="w-8 h-8 rounded-md hover:bg-muted flex items-center justify-center" aria-label="Edit patient"><Edit2 className="w-4 h-4 text-muted-foreground"/></button>
+              <button type="button" onClick={()=>setEditOpen(true)} disabled={!isPatientSectionEditable('basic_info')} className="w-8 h-8 rounded-md hover:bg-muted flex items-center justify-center disabled:opacity-40 disabled:pointer-events-none" aria-label="Edit patient"><Edit2 className="w-4 h-4 text-muted-foreground"/></button>
             </div>
             <a href={`tel:+91${patient.phone}`} className="mt-4 flex items-center gap-2 text-sm text-[#0D9488] hover:underline"><Phone className="w-3.5 h-3.5"/>+91 {patient.phone}</a>
             <div className="mt-3 flex items-center gap-3 text-sm">
@@ -162,6 +163,9 @@ const loadLabCases = async () => {
               )}
               <WorkspaceGate section="patient_page" flag="consents">
               <TabsTrigger value="consents">Consent Forms</TabsTrigger>
+              </WorkspaceGate>
+              <WorkspaceGate section="patient_page" flag="timeline">
+              <TabsTrigger value="timeline">Timeline</TabsTrigger>
               </WorkspaceGate>
               {canEditClinical() && (
               <WorkspaceGate section="quick_actions" flag="generate_ai_summary">
@@ -294,6 +298,11 @@ const loadLabCases = async () => {
             <WorkspaceGate section="patient_page" flag="consents">
             <TabsContent value="consents" className="mt-4">
               {patient && <ConsentFormsTab patientId={id} patientName={patient.name} patientPhone={patient.phone} />}
+            </TabsContent>
+            </WorkspaceGate>
+            <WorkspaceGate section="patient_page" flag="timeline">
+            <TabsContent value="timeline" className="mt-4">
+              <PatientTimelineTab patientId={id} />
             </TabsContent>
             </WorkspaceGate>
             {canEditClinical() && (

@@ -4,10 +4,6 @@ import { useWorkspace } from './useWorkspace'
 
 /**
  * Conditionally render children based on workspace configuration.
- *
- * @param {string} [module] - Navigation module key (e.g. "inventory")
- * @param {string} [section] - Config section (navigation, dashboard, patient_page, quick_actions)
- * @param {string} [flag] - Boolean key within section (required with section)
  */
 export default function WorkspaceGate({ module, section, flag, children }) {
   const ws = useWorkspace()
@@ -29,5 +25,27 @@ export default function WorkspaceGate({ module, section, flag, children }) {
   }
 
   if (!enabled) return null
+  return children
+}
+
+/**
+ * Patient section gate with read-only support.
+ * Wraps editable controls — pass readOnlyContent for view-only rendering.
+ */
+export function PatientSectionGate({ flag, children, readOnlyContent = null }) {
+  const ws = useWorkspace()
+  if (!ws.isPatientSectionEnabled(flag)) return null
+  if (ws.isPatientSectionReadonly(flag) && readOnlyContent != null) {
+    return readOnlyContent
+  }
+  return children
+}
+
+/**
+ * Action gate — checks module action permissions from workspace config.
+ */
+export function ActionGate({ moduleSection, flag, children }) {
+  const ws = useWorkspace()
+  if (!ws.isActionEnabled(moduleSection, flag)) return null
   return children
 }

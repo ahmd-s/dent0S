@@ -2,47 +2,20 @@
 
 import { ToggleRow, ToggleSection, SectionPanel } from './ToggleSection'
 import {
-  NAVIGATION_FIELDS,
-  DASHBOARD_FIELDS,
-  PATIENT_PAGE_FIELDS,
-  QUICK_ACTION_FIELDS,
   LAYOUT_DENSITY_OPTIONS,
   LAYOUT_VIEW_OPTIONS,
 } from '@/lib/workspace-ui-schema'
-import WidgetOrderList from './WidgetOrderList'
+import DashboardBuilder from './DashboardBuilder'
+import SidebarBuilder from './SidebarBuilder'
+import PatientPageBuilder from './PatientPageBuilder'
+import ActionsBuilder from './ActionsBuilder'
+import QuickActionsBuilder from './QuickActionsBuilder'
+import HomepageBuilder from './HomepageBuilder'
+import PresetsPanel from './PresetsPanel'
+import LivePreviewPanel from './LivePreviewPanel'
+import ResetControls from './ResetControls'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
-
-function setSection(config, section, key, value, onChange) {
-  onChange({
-    ...config,
-    [section]: {
-      ...config[section],
-      [key]: value,
-    },
-  })
-}
-
-function BooleanTab({ config, section, fields, onChange }) {
-  return (
-    <SectionPanel>
-      <ToggleSection
-        title="Visibility"
-        description="Toggle modules and sections on or off for this role."
-      >
-        {fields.map(field => (
-          <ToggleRow
-            key={field.key}
-            label={field.label}
-            checked={config[section]?.[field.key]}
-            locked={field.locked}
-            onCheckedChange={v => setSection(config, section, field.key, v, onChange)}
-          />
-        ))}
-      </ToggleSection>
-    </SectionPanel>
-  )
-}
 
 function LayoutTab({ config, onChange }) {
   const layout = config.layout || {}
@@ -119,59 +92,52 @@ function LayoutTab({ config, onChange }) {
   )
 }
 
-export default function WorkspaceEditor({ activeTab, config, onChange }) {
+export default function WorkspaceEditor({
+  activeTab,
+  config,
+  onChange,
+  previewRole,
+  presets,
+  presetHandlers,
+  resetDialog,
+  setResetDialog,
+  onConfirmReset,
+  resetting,
+}) {
   if (!config) return null
 
   switch (activeTab) {
     case 'navigation':
-      return (
-        <BooleanTab
-          config={config}
-          section="navigation"
-          fields={NAVIGATION_FIELDS}
-          onChange={onChange}
-        />
-      )
+      return <SidebarBuilder config={config} onChange={onChange} />
     case 'dashboard':
-      return (
-        <BooleanTab
-          config={config}
-          section="dashboard"
-          fields={DASHBOARD_FIELDS}
-          onChange={onChange}
-        />
-      )
+      return <DashboardBuilder config={config} onChange={onChange} />
     case 'patient_page':
-      return (
-        <BooleanTab
-          config={config}
-          section="patient_page"
-          fields={PATIENT_PAGE_FIELDS}
-          onChange={onChange}
-        />
-      )
+      return <PatientPageBuilder config={config} onChange={onChange} />
+    case 'actions':
+      return <ActionsBuilder config={config} onChange={onChange} />
     case 'quick_actions':
+      return <QuickActionsBuilder config={config} onChange={onChange} />
+    case 'homepage':
+      return <HomepageBuilder config={config} onChange={onChange} previewRole={previewRole} />
+    case 'presets':
       return (
-        <BooleanTab
-          config={config}
-          section="quick_actions"
-          fields={QUICK_ACTION_FIELDS}
-          onChange={onChange}
+        <PresetsPanel
+          previewRole={previewRole}
+          presets={presets}
+          {...presetHandlers}
         />
       )
-    case 'widgets':
+    case 'preview':
+      return <LivePreviewPanel config={config} previewRole={previewRole} />
+    case 'reset':
       return (
-        <SectionPanel>
-          <WidgetOrderList
-            order={config.layout?.widget_order || []}
-            onChange={order =>
-              onChange({
-                ...config,
-                layout: { ...config.layout, widget_order: order },
-              })
-            }
-          />
-        </SectionPanel>
+        <ResetControls
+          previewRole={previewRole}
+          resetDialog={resetDialog}
+          setResetDialog={setResetDialog}
+          onConfirmReset={onConfirmReset}
+          resetting={resetting}
+        />
       )
     case 'layout':
       return <LayoutTab config={config} onChange={onChange} />

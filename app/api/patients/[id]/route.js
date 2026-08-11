@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
 import { hasPermission, canAccessClinical } from '@/lib/rbac'
+import { logActivity } from '@/lib/activity-helpers'
+import { ACTIVITY_EVENTS } from '@/lib/activity-event-registry'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -58,6 +60,7 @@ export async function PUT(request, { params }) {
   }
 
   await db.collection('patients').updateOne({ id, clinic_id: cid }, { $set: b })
+  await logActivity(db, profile, ACTIVITY_EVENTS.PATIENT_UPDATED, { patientId: id })
   return json({ ok: true })
 }
 
@@ -78,6 +81,10 @@ export async function DELETE(request, { params }) {
   await db.collection('appointments').deleteMany({ patient_id: id, clinic_id: cid })
   await db.collection('prescriptions').deleteMany({ patient_id: id, clinic_id: cid })
   await db.collection('patients').deleteOne({ id, clinic_id: cid })
+  await logActivity(db, profile, ACTIVITY_EVENTS.PATIENT_DELETED, {
+    patientId: id,
+    metadata: { patient_name: p.name },
+  })
 
   return json({ ok: true })
 }

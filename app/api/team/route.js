@@ -6,6 +6,8 @@ import { sendStaffInviteEmail } from '@/lib/invite-email'
 import { hasPermission, canManageStaff } from '@/lib/rbac'
 import { validateRolesArray, getProfileRoles } from '@/lib/profile-roles'
 import { isClinicAccessBlocked, clinicAccessPausedResponse } from '@/lib/clinic-access'
+import { logActivity } from '@/lib/activity-helpers'
+import { ACTIVITY_EVENTS } from '@/lib/activity-event-registry'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -68,6 +70,9 @@ export async function POST(request) {
     const emailResult = await sendStaffInviteEmail({
       to: email, staffName: b.full_name, clinicName: clinic?.name,
       temporaryPassword: b.password, loginUrl: `${origin}/login`,
+    })
+    await logActivity(db, profile, ACTIVITY_EVENTS.STAFF_ADDED, {
+      metadata: { staff_name: b.full_name, email, roles },
     })
     return json({ ok:true, id, invite_email_sent: !!emailResult?.sent })
   } catch (e) {

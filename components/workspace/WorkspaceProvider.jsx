@@ -9,6 +9,16 @@ import {
   getLayoutClasses,
   getOrderedDashboardWidgets,
   getOrderedNavigation,
+  getOrderedQuickActions,
+  getWidgetMeta,
+  getPrimaryQuickAction,
+  getHomepageLanding,
+  resolveHomepageHref,
+  getNavBadgeEnabled,
+  isPatientSectionVisible,
+  isPatientSectionEditable,
+  isPatientSectionReadonly,
+  isActionEnabled,
 } from '@/lib/workspace-client'
 
 export function WorkspaceProvider({ children }) {
@@ -18,7 +28,6 @@ export function WorkspaceProvider({ children }) {
   const [config, setConfig] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  /** Visual-only preview role (builder); live app uses effective role unless preview set */
   const [previewRole, setPreviewRole] = useState(null)
 
   const effectiveRole = useMemo(
@@ -76,6 +85,7 @@ export function WorkspaceProvider({ children }) {
     const layoutClasses = getLayoutClasses(activeConfig?.layout)
     const navigationOrder = getOrderedNavigation(activeConfig)
     const dashboardWidgets = getOrderedDashboardWidgets(activeConfig)
+    const quickActions = getOrderedQuickActions(activeConfig)
 
     return {
       workspace,
@@ -89,20 +99,22 @@ export function WorkspaceProvider({ children }) {
       layoutClasses,
       navigationOrder,
       dashboardWidgets,
+      quickActions,
+      primaryQuickAction: getPrimaryQuickAction(activeConfig),
+      homepageLanding: getHomepageLanding(activeConfig),
+      homepageHref: resolveHomepageHref(activeConfig),
       isNavEnabled: key => activeConfig?.navigation?.[key] === true,
       isDashboardEnabled: key => activeConfig?.dashboard?.[key] === true,
-      isPatientSectionEnabled: key => activeConfig?.patient_page?.[key] === true,
+      isPatientSectionEnabled: key => isPatientSectionVisible(activeConfig, key),
+      isPatientSectionEditable: key => isPatientSectionEditable(activeConfig, key),
+      isPatientSectionReadonly: key => isPatientSectionReadonly(activeConfig, key),
       isQuickActionEnabled: key => activeConfig?.quick_actions?.[key] === true,
+      isActionEnabled: (section, key) => isActionEnabled(activeConfig, section, key),
+      getWidgetMeta: key => getWidgetMeta(activeConfig, key),
+      isNavBadgeEnabled: key => getNavBadgeEnabled(activeConfig, key),
+      sidebarCollapsedDefault: activeConfig?.layout?.sidebar_collapsed === true,
     }
   }, [workspace, activeConfig, effectiveRole, loading, error, previewRole, refreshWorkspace])
-
-  if (loading) {
-    return (
-      <WorkspaceContext.Provider value={value}>
-        {children}
-      </WorkspaceContext.Provider>
-    )
-  }
 
   return (
     <WorkspaceContext.Provider value={value}>

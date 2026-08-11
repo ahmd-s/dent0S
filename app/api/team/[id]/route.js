@@ -3,6 +3,8 @@ import { getDb } from '@/lib/mongo'
 import { getCurrentUser, hashPassword } from '@/lib/auth'
 import { canManageStaff } from '@/lib/rbac'
 import { validateRolesArray, getProfileRoles, hasRole } from '@/lib/profile-roles'
+import { logActivity } from '@/lib/activity-helpers'
+import { ACTIVITY_EVENTS } from '@/lib/activity-event-registry'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -93,6 +95,9 @@ export async function PUT(request, { params }) {
 
     if (Object.keys(update).length === 0) return err('Nothing to update', 400)
     await db.collection('profiles').updateOne({ id: params.id, clinic_id: cid }, { $set: update })
+    await logActivity(db, profile, ACTIVITY_EVENTS.STAFF_UPDATED, {
+      metadata: { staff_id: params.id, staff_name: target.full_name },
+    })
     return json({ ok:true })
   } catch (e) {
     console.error('Team PUT error:', e)
@@ -114,6 +119,9 @@ export async function DELETE(request, { params }) {
       { id: params.id, clinic_id: cid },
       { $set: { deleted_at: new Date(), is_active: false } }
     )
+    await logActivity(db, profile, ACTIVITY_EVENTS.STAFF_REMOVED, {
+      metadata: { staff_id: params.id, staff_name: target.full_name },
+    })
     return json({ ok: true })
   } catch (e) {
     console.error('Team DELETE error:', e)

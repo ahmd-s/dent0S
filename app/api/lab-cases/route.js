@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server'
 import { requireUser, json, err, clean, cors } from '@/lib/api-helpers'
 import { LAB_CASE_STATUSES, safeIsoDate, populateNames, secureToken } from '@/lib/lab-case-helpers'
 import { logAudit, AUDIT_ACTIONS, AUDIT_SOURCE } from '@/lib/audit'
+import { logActivity } from '@/lib/activity-helpers'
+import { ACTIVITY_EVENTS } from '@/lib/activity-event-registry'
 import { canManageInventory } from '@/lib/rbac'
 import { isClinicAccessBlocked, clinicAccessPausedResponse } from '@/lib/clinic-access'
 
@@ -94,6 +96,11 @@ export async function POST(request) {
 
     await logAudit(db, { clinicId: cid, labCaseId: id, caseNumber: case_number, action: AUDIT_ACTIONS.CASE_CREATED, source: AUDIT_SOURCE.CLINIC, actorId: profile.id, actorName: profile.full_name || '' })
     await logAudit(db, { clinicId: cid, labCaseId: id, caseNumber: case_number, action: AUDIT_ACTIONS.LINK_GENERATED, source: AUDIT_SOURCE.SYSTEM, actorId: profile.id, actorName: profile.full_name || '' })
+    await logActivity(db, profile, ACTIVITY_EVENTS.LAB_CREATED, {
+      patientId: b.patient_id,
+      labCaseId: id,
+      metadata: { case_number, case_type: b.case_type },
+    })
     return json({ ok: true, id, case_number, public_token })
   } catch (e) {
     console.error('Lab cases POST error:', e)
