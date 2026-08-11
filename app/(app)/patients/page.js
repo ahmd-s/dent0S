@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner'
 import { useRole } from '@/components/dentos/RoleContext'
 import ImportPatientsModal from '@/components/dentos/ImportPatientsModal'
+import { useLiveRefresh } from '@/hooks/useLiveRefresh'
 
 const fmtDate = d => d ? `${String(new Date(d).getDate()).padStart(2,'0')}/${String(new Date(d).getMonth()+1).padStart(2,'0')}/${new Date(d).getFullYear()}` : '—'
 const PAGE_SIZE = 20
@@ -38,6 +39,7 @@ function App() {
     setLoading(false)
   }
   useEffect(() => { load() }, [q, filter])
+  useLiveRefresh(load)
 
   const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE))
   const visible = list.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE)

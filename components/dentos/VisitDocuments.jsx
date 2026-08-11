@@ -30,10 +30,8 @@ export function VisitDocuments({ visitId, patientId, onAddFindings }) {
   const fetchDocuments = async () => {
     try {
       const vid = typeof visitId === 'object' ? visitId.toString() : visitId
-      console.log('VisitDocuments: Fetching documents for visit_id:', vid)
       const res = await fetch(`/api/documents?visit_id=${vid}`)
       const data = await res.json()
-      console.log('VisitDocuments: Fetch result:', data)
       if (res.ok) setDocuments(data.documents || [])
     } catch (error) {
       console.error('VisitDocuments: Fetch error:', error)
@@ -43,7 +41,6 @@ export function VisitDocuments({ visitId, patientId, onAddFindings }) {
   }
 
   useEffect(() => {
-    console.log('VisitDocuments: Component mounted with visitId:', visitId)
     if (visitId) fetchDocuments()
   }, [visitId])
 

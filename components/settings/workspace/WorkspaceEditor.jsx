@@ -11,6 +11,8 @@ import PatientPageBuilder from './PatientPageBuilder'
 import FlowPageBuilder from './FlowPageBuilder'
 import LabPageBuilder from './LabPageBuilder'
 import InventoryPageBuilder from './InventoryPageBuilder'
+import CommunicationPageBuilder from './CommunicationPageBuilder'
+import AIPageBuilder from './AIPageBuilder'
 import ActionsBuilder from './ActionsBuilder'
 import QuickActionsBuilder from './QuickActionsBuilder'
 import HomepageBuilder from './HomepageBuilder'
@@ -122,6 +124,10 @@ export default function WorkspaceEditor({
       return <LabPageBuilder config={config} onChange={onChange} />
     case 'inventory_os_page':
       return <InventoryPageBuilder config={config} onChange={onChange} />
+    case 'communication_os_page':
+      return <CommunicationPageBuilder config={config} onChange={onChange} />
+    case 'ai_os_page':
+      return <AIPageBuilder config={config} onChange={onChange} />
     case 'actions':
       return <ActionsBuilder config={config} onChange={onChange} />
     case 'quick_actions':

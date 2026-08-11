@@ -25,6 +25,7 @@ import {
 } from '@/lib/workspace-ui-schema'
 import { createPreset } from '@/lib/workspace-engine'
 import { buildBuiltinPresetConfig } from '@/lib/workspace-role-experience'
+import { saveDraft, loadDraft, clearDraft, AUTOSAVE_SCOPES } from '@/lib/autosave-client'
 
 const ROLES = ['admin', 'doctor', 'receptionist']
 
@@ -89,6 +90,22 @@ export default function WorkspaceBuilder() {
     if (previewConfig) setDraft(deepCloneRoleConfig(previewConfig))
   }, [previewConfig])
 
+  // Sprint 19 — autosave workspace builder draft to localStorage
+  useEffect(() => {
+    if (!draft || !previewRole) return
+    saveDraft(AUTOSAVE_SCOPES.WORKSPACE_BUILDER, `${previewRole}`, draft)
+  }, [draft, previewRole])
+
+  useEffect(() => {
+    if (!previewRole || loading) return
+    const saved = loadDraft(AUTOSAVE_SCOPES.WORKSPACE_BUILDER, previewRole)
+    if (saved && window.confirm('Recover unsaved workspace draft from a previous session?')) {
+      setDraft(normalizeRoleConfig(saved))
+      setWorkspace(prev => ({ ...prev, [previewRole]: normalizeRoleConfig(saved) }))
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewRole, loading])
+
   const dirty = useMemo(() => {
     if (!workspace || !savedWorkspace || !draft) return false
     return !configsEqual(
@@ -148,6 +165,7 @@ export default function WorkspaceBuilder() {
       setWorkspace(d.workspace)
       setSavedWorkspace(deepCloneWorkspace(d.workspace))
       setSaveState('saved')
+      clearDraft(AUTOSAVE_SCOPES.WORKSPACE_BUILDER, previewRole)
       window.dispatchEvent(new Event('dentos:workspace-updated'))
     } catch (e) {
       setSaveState('error')

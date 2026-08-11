@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { toast } from 'sonner'
 import { PatientSectionGate } from '@/components/workspace/WorkspaceGate'
+import AIClinicalAssistant from '@/components/ai-os/AIClinicalAssistant'
+import DoctorCopilotPanel from '@/components/ai-os/DoctorCopilotPanel'
 
 export default function PatientAIWorkspace({ patient, visits = [], onUpdated, readonly = false }) {
   const [summary, setSummary] = useState(patient?.ai_summary || '')
@@ -88,6 +90,9 @@ export default function PatientAIWorkspace({ patient, visits = [], onUpdated, re
           <div className="flex items-center gap-2 text-sm font-medium"><Mic className="w-4 h-4 text-muted-foreground" />Voice Transcriptions</div>
           <p className="text-xs text-muted-foreground mt-1">Voice notes are captured during visits. Open a visit to record or view transcriptions.</p>
         </Card>
+
+        <AIClinicalAssistant patient={patient} visits={visits} readonly={readonly} />
+        <DoctorCopilotPanel patientId={patient.id} />
       </div>
     </PatientSectionGate>
   )

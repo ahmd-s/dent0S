@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { requirePlatformAdmin } from '@/lib/platform-admin'
 import { getPlatformBusinessAnalytics } from '@/lib/analytics-engine'
+import { getPlatformCommunicationAnalytics } from '@/lib/communication-engine'
+import { getPlatformAIAnalytics } from '@/lib/ai-engine'
 import { getDb } from '@/lib/mongo'
 
 function cors(res) {
@@ -175,6 +177,8 @@ export async function GET() {
     ])
 
     const platformBi = await getPlatformBusinessAnalytics(db)
+    const platformCommunication = await getPlatformCommunicationAnalytics(db)
+    const platformAI = await getPlatformAIAnalytics(db)
 
     // Mongo health via ping
     let mongoHealthy = true
@@ -264,6 +268,8 @@ export async function GET() {
         most_used_events: inventoryMap.STOCK_CONSUMED || 0,
       },
       business: platformBi,
+      communication: platformCommunication,
+      ai: platformAI,
     })
   } catch (e) {
     console.error('Metrics error:', e)

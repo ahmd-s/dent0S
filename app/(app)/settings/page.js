@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Loader2, Plus, Copy, ExternalLink, Trash2, Edit2, FileText, Check, LayoutGrid, Activity } from 'lucide-react'
+import { Loader2, Plus, Copy, ExternalLink, Trash2, Edit2, FileText, Check, LayoutGrid, Activity, Server } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -64,6 +64,21 @@ function App() {
             <div>
               <p className="text-sm font-medium text-foreground">Role Experience Builder</p>
               <p className="text-xs text-muted-foreground">Design dashboard, sidebar, patient page, and actions per role</p>
+            </div>
+          </div>
+          <span className="text-xs text-muted-foreground group-hover:text-foreground">Open →</span>
+        </Link>
+        <Link
+          href="/settings/system"
+          className="mb-4 flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3 hover:bg-muted/40 transition-colors group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-[#0D9488]/10 text-[#0D9488]">
+              <Server className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">System Health</p>
+              <p className="text-xs text-muted-foreground">Health monitoring, diagnostics, and production readiness</p>
             </div>
           </div>
           <span className="text-xs text-muted-foreground group-hover:text-foreground">Open →</span>

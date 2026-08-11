@@ -27,6 +27,7 @@ import PatientFollowupsPanel from './PatientFollowupsPanel'
 import PatientInternalRemarks from './PatientInternalRemarks'
 import PatientPrescriptionsPanel from './PatientPrescriptionsPanel'
 import PatientInventoryPanel from './PatientInventoryPanel'
+import PatientCommunicationPanel from '@/components/communication-os/PatientCommunicationPanel'
 import LazyTabPanel from './LazyTabPanel'
 import EditPatientModal from './EditPatientModal'
 import BookForPatientModal from './BookForPatientModal'
@@ -282,6 +283,12 @@ export default function PatientWorkspace({ patientId }) {
 
         <TabsContent value="followups" className="mt-4">
           <PatientFollowupsPanel patient={patient} />
+        </TabsContent>
+
+        <TabsContent value="communication" className="mt-4">
+          <LazyTabPanel tabId="communication" activeTab={defaultTab}>
+            <PatientCommunicationPanel patientId={patientId} patientName={patient.name} />
+          </LazyTabPanel>
         </TabsContent>
 
         <TabsContent value="remarks" className="mt-4">

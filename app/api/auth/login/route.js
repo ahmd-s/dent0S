@@ -6,6 +6,7 @@ import {
   setAuthCookie,
   requiresEmailVerification,
 } from '@/lib/auth'
+import { generateCsrfToken, setCsrfCookie } from '@/lib/security'
 import {
   checkLoginRateLimit,
   recordLoginFailure,
@@ -121,6 +122,7 @@ export async function POST(request) {
     const roles = await ensureProfileRolesMigrated(db, profile)
     await db.collection('profiles').updateOne({ id: profile.id }, { $set: { last_login_at: new Date() } })
     setAuthCookie(signToken({ uid: profile.id, cid: profile.clinic_id, roles, role: roles[0] || profile.role }))
+    setCsrfCookie(generateCsrfToken())
     return json({ ok: true, onboarding_complete: !!c?.onboarding_complete })
   } catch (e) {
     console.error('Auth login error:', e)

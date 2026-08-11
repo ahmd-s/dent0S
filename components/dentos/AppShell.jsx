@@ -94,6 +94,7 @@ export default function AppShell({ children }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-background overflow-x-hidden">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       <HomepageRedirect />
       {me?.is_impersonating && (
         <ImpersonationBanner
@@ -114,7 +115,7 @@ export default function AppShell({ children }) {
           </div>
           <button onClick={()=>setMobileOpen(false)} className="md:hidden p-1.5 hover:bg-white/10 rounded"><X className="w-4 h-4"/></button>
         </div>
-        <nav className="flex-1 p-3 space-y-1">
+        <nav className="flex-1 p-3 space-y-1" aria-label="Main navigation">
           {navItems.map(n => {
             const active = pathname === n.href || pathname.startsWith(n.href + '/')
             const Icon = n.icon
@@ -199,14 +200,16 @@ export default function AppShell({ children }) {
         </div>
       </aside>
       <div className="flex-1 md:ml-64 lg:ml-72 min-w-0">
-        <header className="h-16 border-b border-border bg-background flex items-center px-3 md:px-6 sticky top-0 z-30 gap-2 md:gap-3">
-          <button onClick={()=>setMobileOpen(true)} className="md:hidden w-10 h-10 rounded-md hover:bg-muted flex items-center justify-center touch-manipulation"><Menu className="w-5 h-5"/></button>
-          <h1 className="text-base md:text-lg font-bold text-foreground hidden md:block w-48 truncate">{title}</h1>
+        <header className="h-14 md:h-16 border-b border-border bg-background flex items-center px-3 md:px-6 sticky top-0 z-30 gap-2 md:gap-3">
+          <button onClick={()=>setMobileOpen(true)} className="md:hidden w-11 h-11 rounded-md hover:bg-muted flex items-center justify-center touch-manipulation" aria-label="Open menu"><Menu className="w-5 h-5"/></button>
+          <h1 className="text-sm md:text-lg font-bold text-foreground flex-1 min-w-0 truncate md:flex-none md:w-48">{title}</h1>
           
           {/* Mobile Search Toggle */}
           <button 
             onClick={()=>setSearchExpanded(!searchExpanded)}
-            className="md:hidden w-10 h-10 rounded-md hover:bg-muted flex items-center justify-center touch-manipulation"
+            className="md:hidden w-11 h-11 rounded-md hover:bg-muted flex items-center justify-center touch-manipulation"
+            aria-label="Search patients"
+            aria-expanded={searchExpanded}
           >
             <Search className="w-5 h-5"/>
           </button>
@@ -217,7 +220,8 @@ export default function AppShell({ children }) {
             <input value={q} onChange={e=>{setQ(e.target.value); setShowResults(true)}}
               onFocus={()=>setShowResults(true)} onBlur={()=>setTimeout(()=>setShowResults(false), 200)}
               placeholder="Search patients by name or phone…"
-              className="w-full h-10 pl-9 pr-3 rounded-md border border-input bg-muted text-sm focus:outline-none focus:ring-2 focus:ring-[#0D9488] focus:bg-background"/>
+              aria-label="Search patients"
+              className="w-full h-10 pl-9 pr-3 rounded-md border border-input bg-muted text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:bg-background"/>
             {showResults && q && (
               <div className="absolute top-12 left-0 right-0 bg-background border border-border rounded-md shadow-lg overflow-hidden z-50">
                 {results.length === 0 ? (
@@ -257,7 +261,8 @@ export default function AppShell({ children }) {
               <input value={q} onChange={e=>{setQ(e.target.value); setShowResults(true)}}
                 onFocus={()=>setShowResults(true)} onBlur={()=>setTimeout(()=>setShowResults(false), 200)}
                 placeholder="Search patients by name or phone…"
-                className="w-full h-11 pl-9 pr-3 rounded-md border border-input bg-muted text-sm focus:outline-none focus:ring-2 focus:ring-[#0D9488] focus:bg-background"/>
+                aria-label="Search patients"
+                className="w-full h-11 pl-9 pr-3 rounded-md border border-input bg-muted text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:bg-background"/>
               {showResults && q && (
                 <div className="absolute top-12 left-0 right-0 bg-background border border-border rounded-md shadow-lg overflow-hidden z-50">
                   {results.length === 0 ? (
@@ -295,7 +300,7 @@ export default function AppShell({ children }) {
           </div>
         )}
 
-        <main className={cn('p-4 md:p-6 bg-background min-h-[calc(100vh-4rem)] overflow-x-hidden', layoutClasses)}>{children}</main>
+        <main id="main-content" className={cn('p-4 md:p-6 bg-background min-h-[calc(100vh-3.5rem)] md:min-h-[calc(100vh-4rem)] overflow-x-hidden', layoutClasses)}>{children}</main>
       </div>
       </div>
     </div>

@@ -15,6 +15,8 @@ const SECTIONS = [
   { id: 'treatments', label: 'Treatments', endpoint: '/api/reports/treatments' },
   { id: 'inventory', label: 'Inventory', endpoint: '/api/reports/inventory' },
   { id: 'lab', label: 'Lab', endpoint: '/api/reports/lab' },
+  { id: 'communication', label: 'Communication', endpoint: '/api/reports/communication' },
+  { id: 'ai', label: 'AI', endpoint: '/api/reports/ai' },
   { id: 'activity', label: 'Activity', endpoint: '/api/reports/activity-summary' },
 ]
 
@@ -90,6 +92,24 @@ function ReportPreview({ section, data }) {
           <Metric label="Delayed" value={`${data.metrics?.delay_percentage}%`} />
           <Metric label="Turnaround" value={data.metrics?.average_turnaround_days != null ? `${data.metrics.average_turnaround_days}d` : '—'} />
           <Metric label="Completed Week" value={data.metrics?.completed_this_week} />
+        </div>
+      )
+    case 'communication':
+      return (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Metric label="Messages Sent" value={data.communication?.messages_sent} />
+          <Metric label="Delivery %" value={`${data.communication?.delivery_pct}%`} />
+          <Metric label="Failure %" value={`${data.communication?.failure_pct}%`} />
+          <Metric label="Review Conversion" value={`${data.communication?.review_conversion_pct}%`} />
+        </div>
+      )
+    case 'ai':
+      return (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Metric label="AI Requests" value={data.ai?.requests} />
+          <Metric label="Tokens (est.)" value={data.ai?.tokens_estimated} />
+          <Metric label="Avg / Day" value={data.ai?.average_per_day} />
+          <Metric label="Top Feature" value={data.ai?.most_used_feature?.replace(/_/g, ' ')} />
         </div>
       )
     case 'appointments':

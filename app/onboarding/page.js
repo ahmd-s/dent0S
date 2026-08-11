@@ -81,22 +81,30 @@ function App() {
     else toast.error('Failed')
   }
 
-  if (!user) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]"/></div>
+  if (!user) return <div className="min-h-screen flex items-center justify-center" role="status" aria-label="Loading"><Loader2 className="w-6 h-6 animate-spin text-primary"/></div>
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-2xl mx-auto px-6 py-10">
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 md:py-10">
         <div className="flex justify-center mb-8"><DentosLogo /></div>
-        <div className="flex items-center justify-center gap-2 mb-10">
-          {[1,2,3].map(s => (
-            <div key={s} className="flex items-center">
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-medium border-2 ${step>=s?'bg-[#0D9488] border-[#0D9488] text-white':'bg-card border-border text-muted-foreground'}`}>
-                {step>s ? <Check className="w-4 h-4"/> : s}
+        <div className="flex items-center justify-center gap-2 mb-6 md:mb-10" role="list" aria-label="Setup progress">
+          {[
+            { n: 1, label: 'Clinic' },
+            { n: 2, label: 'Hours' },
+            { n: 3, label: 'Team' },
+          ].map(({ n, label }) => (
+            <div key={n} className="flex items-center" role="listitem">
+              <div className="flex flex-col items-center">
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-medium border-2 ${step>=n?'bg-primary border-primary text-primary-foreground':'bg-card border-border text-muted-foreground'}`} aria-current={step===n?'step':undefined}>
+                  {step>n ? <Check className="w-4 h-4" aria-hidden /> : n}
+                </div>
+                <span className="text-[10px] mt-1 text-muted-foreground hidden sm:block">{label}</span>
               </div>
-              {s<3 && <div className={`w-16 h-0.5 ${step>s?'bg-[#0D9488]':'bg-border'}`}/>}
+              {n<3 && <div className={`w-10 sm:w-16 h-0.5 mx-1 ${step>n?'bg-primary':'bg-border'}`} aria-hidden />}
             </div>
           ))}
         </div>
+        <p className="text-center text-sm text-muted-foreground mb-6">Step {step} of 3</p>
 
         <div className="bg-card text-card-foreground rounded-lg border border-border p-8 shadow-sm">
           {step===1 && (

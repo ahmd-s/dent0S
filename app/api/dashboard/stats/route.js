@@ -8,6 +8,8 @@ import { computeFlowMetrics } from '@/lib/dental-flow-engine'
 import { computeLabMetrics } from '@/lib/lab-workflow-engine'
 import { computeInventoryMetrics } from '@/lib/inventory-workflow-engine'
 import { getKpis } from '@/lib/analytics-engine'
+import { getCommunicationDashboard } from '@/lib/communication-engine'
+import { getAIDashboard } from '@/lib/ai-engine'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -59,7 +61,7 @@ export async function GET() {
     ])
     const followups = await db.collection('patients').find({ clinic_id: cid, is_archived: { $ne: true }, next_followup_date: { $ne: null, $lte: today } }).limit(5).toArray()
     const fcount = await db.collection('patients').countDocuments({ clinic_id: cid, is_archived: { $ne: true }, next_followup_date: { $ne: null, $lte: today } })
-    const [activeLabCases, overdueLabCases, awaitingLabAcceptance, inProductionLabCases, readyLabCases, flowMetrics, labMetrics, inventoryMetrics, analyticsKpis] = await Promise.all([
+    const [activeLabCases, overdueLabCases, awaitingLabAcceptance, inProductionLabCases, readyLabCases, flowMetrics, labMetrics, inventoryMetrics, analyticsKpis, communicationDashboard, aiDashboard] = await Promise.all([
       db.collection('lab_cases').countDocuments({ clinic_id: cid, status: { $nin: CLOSED_STATUSES } }),
       db.collection('lab_cases').countDocuments({ clinic_id: cid, status: { $nin: CLOSED_STATUSES }, expected_delivery_date: { $ne: null, $lt: today } }),
       db.collection('lab_cases').countDocuments({ clinic_id: cid, status: { $in: AWAITING_ACCEPTANCE_STATUSES } }),
@@ -69,6 +71,8 @@ export async function GET() {
       computeLabMetrics(db, cid),
       computeInventoryMetrics(db, cid),
       getKpis(db, cid, { days: 30 }),
+      getCommunicationDashboard(db, cid),
+      getAIDashboard(db, cid),
     ])
     return json({
       clinic_name: clinic?.name,
@@ -83,6 +87,8 @@ export async function GET() {
       lab: labMetrics,
       inventory: inventoryMetrics,
       analytics: analyticsKpis,
+      communication: communicationDashboard,
+      ai: aiDashboard,
     })
   } catch (e) {
     console.error('Dashboard stats error:', e)

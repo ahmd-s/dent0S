@@ -22,6 +22,8 @@ import { RecentActivityWidget } from '@/components/workspace/dashboard/RecentAct
 import BalanceBadge from '@/components/dentos/BalanceBadge'
 import OutstandingBalanceModal from '@/components/dentos/OutstandingBalanceModal'
 import ReceptionistPendingTasks from '@/components/dentos/ReceptionistPendingTasks'
+import GettingStarted from '@/components/dentos/GettingStarted'
+import { StatGridSkeleton } from '@/components/dentos/PageSkeleton'
 import { useLiveRefresh } from '@/hooks/useLiveRefresh'
 
 const QUEUE_TOGGLE_KEY = 'dentos_show_booking_queue'
@@ -39,6 +41,7 @@ function App() {
   const showQueueToggle = isDoctor()
   const [showQueue, setShowQueue] = useState(true)
   const [stats, setStats] = useState(null)
+  const [statsLoading, setStatsLoading] = useState(true)
   const [bookOpen, setBookOpen] = useState(false)
 
   const statWidgetIds = useMemo(
@@ -52,7 +55,7 @@ function App() {
     [dashboardWidgets, isDashboardEnabled]
   )
 
-  const load = () => fetch('/api/dashboard/stats').then(r => r.json()).then(setStats)
+  const load = () => fetch('/api/dashboard/stats').then(r => r.json()).then(d => { setStats(d); setStatsLoading(false) })
   useEffect(() => { load() }, [])
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -97,7 +100,11 @@ function App() {
 
   return (
     <div className={cn('max-w-7xl mx-auto space-y-4 md:space-y-5', layoutClasses)}>
-      {statWidgetIds.length > 0 && (
+      <GettingStarted stats={stats} />
+
+      {statsLoading && statWidgetIds.length > 0 ? (
+        <StatGridSkeleton count={Math.min(statWidgetIds.length, 4)} />
+      ) : statWidgetIds.length > 0 && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           {statWidgetIds.map(id => (
             <WorkspaceWidget key={id} id={id} {...widgetProps} />

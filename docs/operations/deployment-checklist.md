@@ -42,6 +42,23 @@ All 4 required variables are set.
 ```
 
 - [ ] `verify-env.js` exits with code `0`.
+- [ ] `CORS_ORIGINS` is set to production domain (not `*`).
+- [ ] `CRON_SECRET` is set for background job cron.
+- [ ] `ATLAS_BACKUP_ENABLED=true` if Atlas continuous backup is active.
+
+### 2b. Security Headers & Rate Limits
+
+- [ ] `next.config.js` secure headers deployed (HSTS, nosniff, SAMEORIGIN).
+- [ ] CSRF tokens issued on login (`dentos_csrf` cookie).
+- [ ] API rate limits active (`api_rate_limits` collection indexed).
+
+### 2c. Sprint 19 Indexes
+
+```bash
+node scripts/run-indexes.js
+```
+
+- [ ] Sprint 19 indexes created (`system_logs`, `background_jobs`, `api_rate_limits`).
 
 ### 3. Build Validation
 
@@ -117,6 +134,20 @@ Expected response (HTTP 200):
 - [ ] **Clinic list** loads in the platform admin panel.
 - [ ] **Audit log** records are visible.
 - [ ] **Inactive clinics** report loads correctly.
+- [ ] **Enterprise Monitoring** (`/platform-admin/monitoring`) loads.
+- [ ] **Backup Center** (`/platform-admin/backup`) shows database status.
+- [ ] **Diagnostics** (`/platform-admin/diagnostics`) health score ≥ 80%.
+
+### 9b. System Health (Clinic)
+
+- [ ] **System Health** (`/settings/system`) loads for admin users.
+- [ ] Health score and database latency displayed.
+- [ ] Clinic diagnostics pass without critical failures.
+
+### 9c. Background Jobs
+
+- [ ] Cron `/api/cron/jobs` scheduled (every 15 min in vercel.json).
+- [ ] Communication queue processing runs without failed jobs.
 
 ### 10. Email Sending
 

@@ -1,14 +1,7 @@
 'use client'
 
-import { Sparkles } from 'lucide-react'
-import ModuleComingSoon from '@/components/dentos/ModuleComingSoon'
+import AIHub from '@/components/ai-os/AIHub'
 
 export default function AiPage() {
-  return (
-    <ModuleComingSoon
-      title="AI"
-      description="AI-assisted clinical and operational tools will be available here."
-      icon={Sparkles}
-    />
-  )
+  return <AIHub />
 }

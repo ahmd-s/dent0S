@@ -230,14 +230,31 @@ export function QueueWidget({
           <div className="md:hidden space-y-3 mt-3">
             {stats.today_queue.map(a => (
               <div key={a.id} className="border border-border rounded-lg p-3 bg-card">
-                <div className="flex items-start justify-between mb-2">
+                <div className="flex items-start justify-between mb-2 gap-2">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-semibold text-[#0D9488] text-sm">{a.appointment_time}</span>
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="font-semibold text-primary text-sm">{a.appointment_time}</span>
                       {statusBadge(a.status)}
                     </div>
-                    <Link href={`/patients/${a.patient_id}`} className="font-medium text-sm hover:text-[#0D9488] block truncate">{a.patient_name || a.patient_name_temp}</Link>
+                    <Link href={`/patients/${a.patient_id}`} className="font-medium text-sm hover:text-primary block truncate">{a.patient_name || a.patient_name_temp}</Link>
+                    <p className="text-xs text-muted-foreground mt-0.5 capitalize">{a.appointment_type?.replace('_', ' ')} · {a.doctor_name || '—'}</p>
                   </div>
+                </div>
+                <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
+                  {['scheduled', 'confirmed'].includes(a.status) && (
+                    <Button size="sm" onClick={() => setStatus(a.id, 'checked_in')} className="h-9 text-xs flex-1 min-w-[100px] bg-blue-600 hover:bg-blue-700">
+                      {!canStartVisit ? 'Check In' : 'Mark Arrived'}
+                    </Button>
+                  )}
+                  {canStartVisit && ['called', 'checked_in', 'arrived'].includes(a.status) && (
+                    <Button size="sm" onClick={() => startVisit(a)} className="h-9 text-xs flex-1 min-w-[100px] bg-[#0D9488] hover:bg-[#0B7E73]">Start Visit</Button>
+                  )}
+                  {canStartVisit && ['in_progress', 'in_treatment'].includes(a.status) && (
+                    <Button size="sm" onClick={() => cont(a)} className="h-9 text-xs flex-1 min-w-[100px] bg-orange-500 hover:bg-orange-600">Continue</Button>
+                  )}
+                  {canStartVisit && a.status === 'completed' && a.visit_id && (
+                    <Button size="sm" variant="outline" onClick={() => router.push(`/visits/${a.visit_id}`)} className="h-9 text-xs flex-1">View</Button>
+                  )}
                 </div>
               </div>
             ))}
@@ -301,6 +318,18 @@ import {
   ANALYTICS_FLOW_WIDGET_MAP,
   ANALYTICS_FLOW_STAT_WIDGET_IDS,
 } from '@/components/analytics-os/AnalyticsFlowWidgets'
+import {
+  COMMUNICATION_FLOW_WIDGET_MAP,
+  COMMUNICATION_FLOW_STAT_WIDGET_IDS,
+} from '@/components/communication-os/CommunicationFlowWidgets'
+import {
+  AI_FLOW_WIDGET_MAP,
+  AI_FLOW_STAT_WIDGET_IDS,
+} from '@/components/ai-os/AIFlowWidgets'
+import {
+  SYSTEM_FLOW_WIDGET_MAP,
+  SYSTEM_FLOW_STAT_WIDGET_IDS,
+} from '@/components/system/SystemFlowWidgets'
 
 /** Registry: workspace dashboard id → component */
 export const DASHBOARD_WIDGET_REGISTRY = {
@@ -319,6 +348,9 @@ export const DASHBOARD_WIDGET_REGISTRY = {
   ...LAB_FLOW_WIDGET_MAP,
   ...INVENTORY_FLOW_WIDGET_MAP,
   ...ANALYTICS_FLOW_WIDGET_MAP,
+  ...COMMUNICATION_FLOW_WIDGET_MAP,
+  ...AI_FLOW_WIDGET_MAP,
+  ...SYSTEM_FLOW_WIDGET_MAP,
 }
 
 export { RecentActivityWidget } from './RecentActivityWidget'
@@ -344,6 +376,9 @@ export const DASHBOARD_STAT_WIDGET_IDS = new Set([
   ...LAB_FLOW_STAT_WIDGET_IDS,
   ...INVENTORY_FLOW_STAT_WIDGET_IDS,
   ...ANALYTICS_FLOW_STAT_WIDGET_IDS,
+  ...COMMUNICATION_FLOW_STAT_WIDGET_IDS,
+  ...AI_FLOW_STAT_WIDGET_IDS,
+  ...SYSTEM_FLOW_STAT_WIDGET_IDS,
 ])
 
 export const DASHBOARD_PANEL_WIDGET_IDS = new Set(['queue', 'recent_patients', 'active_treatments', 'critical_patients', 'todays_followups'])

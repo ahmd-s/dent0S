@@ -1,14 +1,7 @@
 'use client'
 
-import { Megaphone } from 'lucide-react'
-import ModuleComingSoon from '@/components/dentos/ModuleComingSoon'
+import CommunicationHub from '@/components/communication-os/CommunicationHub'
 
 export default function MarketingPage() {
-  return (
-    <ModuleComingSoon
-      title="Marketing"
-      description="Patient outreach and campaign tools will be available here."
-      icon={Megaphone}
-    />
-  )
+  return <CommunicationHub />
 }

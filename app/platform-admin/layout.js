@@ -28,6 +28,9 @@ import { cn } from '@/lib/utils'
 const NAV = [
   { href: '/platform-admin', label: 'Dashboard', exact: true },
   { href: '/platform-admin/analytics', label: 'Analytics' },
+  { href: '/platform-admin/monitoring', label: 'Monitoring' },
+  { href: '/platform-admin/backup', label: 'Backup' },
+  { href: '/platform-admin/diagnostics', label: 'Diagnostics' },
   { href: '/platform-admin/notifications', label: 'Notifications' },
   { href: '/platform-admin/broadcast', label: 'Broadcast' },
   { href: '/platform-admin/maintenance', label: 'Maintenance' },
@@ -108,7 +111,8 @@ export default function PlatformAdminLayout({ children }) {
               <Shield className="h-4 w-4 text-[#0D9488]" />
             </span>
             <div className="hidden sm:block">
-              <div className="text-sm font-semibold leading-tight text-foreground">Connec8 Admin</div>
+              <div className="text-sm font-semibold leading-tight text-foreground">DentOS Platform</div>
+              <div className="text-[10px] text-muted-foreground leading-tight">Enterprise Admin</div>
             </div>
           </Link>
 
