@@ -18,6 +18,8 @@ import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Switch } from '@/components/ui/switch'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
+import { DASHBOARD_PANEL_CLASS, DASHBOARD_PANEL_TITLE_CLASS } from './dashboard-panel-styles'
 
 const fmtDate = d => {
   const x = new Date(d)
@@ -49,17 +51,17 @@ const statusBadge = s => {
 
 function StatCard({ label, val, sub, icon: Icon, color, href, compact = false }) {
   const inner = (
-    <Card className={`bg-card border-border h-full rounded-xl ${compact ? 'p-3.5 sm:p-4' : 'p-3.5 sm:p-4 md:p-5'} ${href ? 'hover:border-[#0D9488]/40 transition-colors cursor-pointer active:scale-[0.98]' : ''}`}>
-      <div className="flex items-start justify-between gap-2.5">
+    <Card className={`bg-card border-border h-full rounded-xl ${compact ? 'p-3.5 sm:p-4' : 'p-4 sm:p-5 md:p-5 min-h-[108px]'} ${href ? 'hover:border-[#0D9488]/40 transition-colors cursor-pointer active:scale-[0.98]' : ''}`}>
+      <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className={`text-muted-foreground leading-snug ${compact ? 'text-xs line-clamp-1' : 'text-xs md:text-sm line-clamp-2'}`}>{label}</div>
-          <div className={`font-bold leading-none tabular-nums ${compact ? 'text-xl sm:text-2xl mt-1' : 'text-2xl md:text-3xl mt-1.5 md:mt-2'}`} style={{ color }}>{val}</div>
+          <div className={`font-bold leading-none tabular-nums ${compact ? 'text-xl sm:text-2xl mt-1' : 'text-2xl md:text-3xl mt-2 md:mt-2.5'}`} style={{ color }}>{val}</div>
           {sub && (
-            <div className={`text-muted-foreground leading-snug ${compact ? 'text-[11px] mt-1 line-clamp-1' : 'text-[11px] sm:text-xs mt-1.5 line-clamp-2'}`}>{sub}</div>
+            <div className={`text-muted-foreground leading-snug ${compact ? 'text-[11px] mt-1 line-clamp-1' : 'text-[11px] sm:text-xs mt-2 line-clamp-2'}`}>{sub}</div>
           )}
         </div>
-        <div className={`rounded-lg flex items-center justify-center flex-shrink-0 ${compact ? 'w-9 h-9' : 'w-9 h-9 md:w-10 md:h-10'}`} style={{ backgroundColor: color + '15' }}>
-          <Icon className="w-4 h-4 md:w-5 md:h-5" style={{ color }} />
+        <div className={`rounded-lg flex items-center justify-center flex-shrink-0 ${compact ? 'w-9 h-9' : 'w-10 h-10 md:w-11 md:h-11'}`} style={{ backgroundColor: color + '15' }}>
+          <Icon className={compact ? 'w-4 h-4' : 'w-5 h-5'} style={{ color }} />
         </div>
       </div>
     </Card>
@@ -67,6 +69,8 @@ function StatCard({ label, val, sub, icon: Icon, color, href, compact = false })
   if (href) return <Link href={href} className="min-w-0 block h-full">{inner}</Link>
   return <div className="min-w-0 h-full">{inner}</div>
 }
+
+export { DASHBOARD_PANEL_CLASS, DASHBOARD_PANEL_TITLE_CLASS } from './dashboard-panel-styles'
 
 export function TodaysPatientsWidget({ stats, compact }) {
   return (
@@ -169,14 +173,15 @@ export function QueueWidget({
   startVisit,
   cont,
   onBook,
+  className,
 }) {
   const router = useRouter()
   if (showQueueToggle && !showQueue) return null
 
   return (
-    <Card className="lg:col-span-3 p-4 md:p-5 bg-card border-border rounded-lg">
-      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-        <h3 className="font-semibold text-foreground text-base">Today&apos;s Appointment Queue</h3>
+    <Card className={cn(DASHBOARD_PANEL_CLASS, className)}>
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <h3 className={DASHBOARD_PANEL_TITLE_CLASS}>Today&apos;s Appointment Queue</h3>
         <div className="flex items-center gap-3">
           {showQueueToggle && (
             <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
@@ -187,9 +192,9 @@ export function QueueWidget({
           <span className="text-xs text-muted-foreground">{fmtDate(new Date())}</span>
         </div>
       </div>
-      {!stats && <div className="text-sm text-muted-foreground py-6">Loading…</div>}
+      {!stats && <div className="text-sm text-muted-foreground py-6 flex-1 flex items-center justify-center">Loading…</div>}
       {stats && stats.today_queue.length === 0 && (
-        <div className="text-center py-6 md:py-8">
+        <div className="text-center py-6 flex-1 flex flex-col items-center justify-center">
           <Calendar className="w-8 h-8 mx-auto text-muted-foreground/50" />
           <p className="text-sm text-muted-foreground mt-2">No appointments scheduled for today</p>
           <Button onClick={onBook} className="mt-3 bg-[#0D9488] hover:bg-[#0B7E73] h-10 px-4">
@@ -198,7 +203,7 @@ export function QueueWidget({
         </div>
       )}
       {stats && stats.today_queue.length > 0 && (
-        <>
+        <div className="flex-1 min-h-0">
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm mt-3">
               <thead className="text-xs uppercase text-muted-foreground tracking-wider border-b border-border">
@@ -288,23 +293,24 @@ export function QueueWidget({
               </div>
             ))}
           </div>
-        </>
+        </div>
       )}
     </Card>
   )
 }
 
-export function FollowupsPanelWidget({ stats }) {
+export function FollowupsPanelWidget({ stats, className }) {
   return (
-    <Card className="lg:col-span-2 p-4 md:p-5 bg-card border-border rounded-lg">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="font-semibold text-foreground text-base">Pending Follow-ups</h3>
+    <Card className={cn(DASHBOARD_PANEL_CLASS, className)}>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className={DASHBOARD_PANEL_TITLE_CLASS}>Pending Follow-ups</h3>
         {stats?.followups?.length > 0 && (
           <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">Due Now</span>
         )}
       </div>
+      <div className="flex-1 flex flex-col min-h-0">
       {stats?.followups?.length === 0 && (
-        <div className="text-sm text-muted-foreground py-4 md:py-6 text-center">No follow-ups pending</div>
+        <div className="text-sm text-muted-foreground flex-1 flex items-center justify-center text-center">No follow-ups pending</div>
       )}
       {stats?.followups?.map(p => {
         const overdue = new Date(p.next_followup_date) < new Date()
@@ -319,8 +325,9 @@ export function FollowupsPanelWidget({ stats }) {
         )
       })}
       {stats?.followups?.length > 0 && (
-        <Link href="/patients" className="text-xs text-[#0D9488] hover:underline mt-3 inline-block">View all follow-ups →</Link>
+        <Link href="/patients" className="text-xs text-[#0D9488] hover:underline mt-auto pt-3 inline-block">View all follow-ups →</Link>
       )}
+      </div>
     </Card>
   )
 }

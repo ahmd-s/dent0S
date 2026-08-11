@@ -3,14 +3,14 @@
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 
-export function StatGridSkeleton({ count = 4, compact = false, className }) {
+export function StatGridSkeleton({ count = 4, className }) {
   return (
     <div className={cn('grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4', className)}>
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className={cn('rounded-xl border border-border', compact ? 'p-3.5 space-y-2' : 'p-4 space-y-2')}>
-          <Skeleton className="h-3 w-20" />
-          <Skeleton className={compact ? 'h-6 w-14' : 'h-7 w-16'} />
-          {compact && <Skeleton className="h-2.5 w-24" />}
+        <div key={i} className="rounded-xl border border-border p-4 md:p-5 space-y-2 min-h-[108px]">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-8 w-16" />
+          <Skeleton className="h-2.5 w-28" />
         </div>
       ))}
     </div>

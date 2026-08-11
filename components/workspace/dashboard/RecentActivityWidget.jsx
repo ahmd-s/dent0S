@@ -4,9 +4,11 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Card } from '@/components/ui/card'
 import { Activity } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import ActivityTimeline from '@/components/dentos/ActivityTimeline'
+import { DASHBOARD_PANEL_CLASS, DASHBOARD_PANEL_TITLE_CLASS } from './dashboard-panel-styles'
 
-export function RecentActivityWidget() {
+export function RecentActivityWidget({ className }) {
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -19,22 +21,24 @@ export function RecentActivityWidget() {
   }, [])
 
   return (
-    <Card className="p-4 md:p-6 bg-card border-border rounded-lg">
-      <div className="flex items-center justify-between mb-4">
+    <Card className={cn(DASHBOARD_PANEL_CLASS, className)}>
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Activity className="w-4 h-4 text-[#0D9488]" />
-          <h3 className="font-semibold text-foreground">Recent Activity</h3>
+          <h3 className={DASHBOARD_PANEL_TITLE_CLASS}>Recent Activity</h3>
         </div>
         <Link href="/settings/activity" className="text-xs text-[#0D9488] hover:underline">
           View all
         </Link>
       </div>
-      <ActivityTimeline
-        events={events}
-        loading={loading}
-        compact
-        emptyMessage="No recent activity"
-      />
+      <div className="flex-1 min-h-0">
+        <ActivityTimeline
+          events={events}
+          loading={loading}
+          compact
+          emptyMessage="No recent activity"
+        />
+      </div>
     </Card>
   )
 }

@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { Clock, AlertTriangle, Stethoscope, Users } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { getRecentPatients } from '@/lib/patient-clinical'
+import { cn } from '@/lib/utils'
+import { DASHBOARD_PANEL_CLASS, DASHBOARD_PANEL_TITLE_CLASS } from './dashboard-panel-styles'
 
 const fmtDate = d => {
   if (!d) return '—'
@@ -12,7 +14,7 @@ const fmtDate = d => {
   return `${String(x.getDate()).padStart(2, '0')}/${String(x.getMonth() + 1).padStart(2, '0')}/${x.getFullYear()}`
 }
 
-export function RecentPatientsWidget() {
+export function RecentPatientsWidget({ className }) {
   const [recent, setRecent] = useState([])
 
   useEffect(() => {
@@ -23,15 +25,15 @@ export function RecentPatientsWidget() {
   }, [])
 
   return (
-    <Card className="p-4 md:p-5 bg-card border-border rounded-xl h-full">
+    <Card className={cn(DASHBOARD_PANEL_CLASS, className)}>
       <div className="flex items-center gap-2 mb-3">
         <Users className="w-4 h-4 text-[#0D9488]" />
-        <h3 className="font-semibold text-sm">Recently Viewed</h3>
+        <h3 className={DASHBOARD_PANEL_TITLE_CLASS}>Recently Viewed</h3>
       </div>
       {recent.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-4 text-center">Open a patient to see recent history</p>
+        <p className="text-sm text-muted-foreground flex-1 flex items-center justify-center text-center">Open a patient to see recent history</p>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2 flex-1 min-h-0 overflow-y-auto">
           {recent.map(p => (
             <Link key={p.id} href={`/patients/${p.id}`} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted text-sm">
               <span className="font-medium truncate">{p.name}</span>

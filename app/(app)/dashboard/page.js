@@ -120,13 +120,13 @@ function App() {
     <div className={cn('max-w-7xl mx-auto space-y-4 md:space-y-5', layoutClasses)}>
       <GettingStarted stats={stats} />
 
-      {/* Primary KPI row — 4 compact blocks */}
+      {/* Primary KPI row — full-size blocks */}
       {statsLoading && primaryStatIds.length > 0 ? (
-        <StatGridSkeleton count={primaryStatIds.length} compact />
+        <StatGridSkeleton count={primaryStatIds.length} />
       ) : primaryStatIds.length > 0 && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           {primaryStatIds.map(id => (
-            <WorkspaceWidget key={id} id={id} compact {...widgetProps} />
+            <WorkspaceWidget key={id} id={id} {...widgetProps} />
           ))}
         </div>
       )}
@@ -166,30 +166,37 @@ function App() {
       </WorkspaceGate>
 
       {(showQueueWidget || showFollowupsPanel) && (
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-stretch">
           {showQueueWidget && (
-            <WorkspaceWidget
-              id="queue"
-              {...widgetProps}
-              className={showFollowupsPanel ? 'lg:col-span-3' : 'lg:col-span-5'}
-            />
+            <div className={cn('flex min-h-0', showFollowupsPanel ? 'lg:col-span-3' : 'lg:col-span-5')}>
+              <WorkspaceWidget
+                id="queue"
+                {...widgetProps}
+                className="w-full"
+              />
+            </div>
           )}
           {showFollowupsPanel && (
-            <div className={showQueueWidget ? 'lg:col-span-2' : 'lg:col-span-5'}>
-              <FollowupsPanelWidget stats={stats} />
+            <div className={cn('flex min-h-0', showQueueWidget ? 'lg:col-span-2' : 'lg:col-span-5')}>
+              <FollowupsPanelWidget stats={stats} className="w-full" />
             </div>
           )}
         </div>
       )}
 
-      {/* Bottom section — recently viewed & activity */}
+      {/* Bottom section — recently viewed & activity, same 3:2 grid as above */}
       {(showRecentPatients || showRecentActivity) && (
-        <div className={cn(
-          'grid gap-4',
-          showRecentPatients && showRecentActivity ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'
-        )}>
-          {showRecentPatients && <WorkspaceWidget id="recent_patients" {...widgetProps} />}
-          {showRecentActivity && <RecentActivityWidget />}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-stretch">
+          {showRecentPatients && (
+            <div className={cn('flex min-h-0', showRecentActivity ? 'lg:col-span-3' : 'lg:col-span-5')}>
+              <WorkspaceWidget id="recent_patients" {...widgetProps} className="w-full" />
+            </div>
+          )}
+          {showRecentActivity && (
+            <div className={cn('flex min-h-0', showRecentPatients ? 'lg:col-span-2' : 'lg:col-span-5')}>
+              <RecentActivityWidget className="w-full" />
+            </div>
+          )}
         </div>
       )}
 
