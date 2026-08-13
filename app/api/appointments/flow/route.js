@@ -23,6 +23,8 @@ export async function POST(request) {
   try {
     const result = await executeFlowAction(ctx.db, ctx.profile, appointmentId, action, body)
     const [enriched] = await enrichAppointments(ctx.db, ctx.profile.clinic_id, [result])
+    const { invalidateClinicDashboard } = await import('@/lib/dashboard-invalidation')
+    invalidateClinicDashboard(ctx.profile.clinic_id, 'appointment')
     return json({ ok: true, appointment: enriched })
   } catch (e) {
     if (e instanceof FlowError) return err(e.message, e.status)

@@ -31,11 +31,13 @@ export async function GET(request, { params }) {
     const clinic = await db.collection('clinics').findOne({ id: inv.clinic_id })
     if (!clinic) return err('Clinic not found', 404)
     const [p, items, visit] = await Promise.all([
-      db.collection('patients').findOne({ id: inv.patient_id }),
-      db.collection('invoice_items').find({ invoice_id: inv.id }).toArray(),
-      db.collection('visits').findOne({ id: inv.visit_id })
+      db.collection('patients').findOne({ id: inv.patient_id, clinic_id: inv.clinic_id }),
+      db.collection('invoice_items').find({ invoice_id: inv.id, clinic_id: inv.clinic_id }).toArray(),
+      inv.visit_id ? db.collection('visits').findOne({ id: inv.visit_id, clinic_id: inv.clinic_id }) : null,
     ])
-    const doctor = visit?.doctor_id ? await db.collection('profiles').findOne({ id: visit.doctor_id }) : null
+    const doctor = visit?.doctor_id
+      ? await db.collection('profiles').findOne({ id: visit.doctor_id, clinic_id: inv.clinic_id })
+      : null
     const { items: _invItems, ...cleanInv } = clean(inv)
     const safeInv = stripInvoiceAuditFields(cleanInv)
     return json({ invoice: { ...safeInv, patient: clean(p), items: items.map(clean), visit: visit ? clean(visit) : null, doctor_name: doctor?.full_name || '', clinic: clean(clinic) } })

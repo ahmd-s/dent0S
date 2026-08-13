@@ -61,6 +61,8 @@ export async function PUT(request, { params }) {
 
   await db.collection('patients').updateOne({ id, clinic_id: cid }, { $set: b })
   await logActivity(db, profile, ACTIVITY_EVENTS.PATIENT_UPDATED, { patientId: id })
+  const { invalidateClinicDashboard } = await import('@/lib/dashboard-invalidation')
+  invalidateClinicDashboard(cid, b.next_followup_date !== undefined ? 'followup' : 'patient')
   return json({ ok: true })
 }
 
@@ -86,5 +88,7 @@ export async function DELETE(request, { params }) {
     metadata: { patient_name: p.name },
   })
 
+  const { invalidateClinicDashboard } = await import('@/lib/dashboard-invalidation')
+  invalidateClinicDashboard(cid, 'patient')
   return json({ ok: true })
 }

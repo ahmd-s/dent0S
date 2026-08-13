@@ -6,6 +6,7 @@ import { stripInvoiceAuditFields } from '@/lib/invoice-audit'
 import { v4 as uuidv4 } from 'uuid'
 import { logActivity } from '@/lib/activity-helpers'
 import { ACTIVITY_EVENTS } from '@/lib/activity-event-registry'
+import { onVisitCompleted, onFollowupAssigned } from '@/lib/communication'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -144,6 +145,20 @@ export async function PUT(request, { params }) {
       visitId: id,
       appointmentId: visit.appointment_id,
     })
+
+    const invoice = invoiceId
+      ? await db.collection('invoices').findOne({ id: invoiceId, clinic_id: cid })
+      : null
+    onVisitCompleted(db, profile, { visit, invoice }).catch(e => console.error('Communication hook error:', e))
+
+    if (b.next_visit_recommended && b.next_visit_date) {
+      onFollowupAssigned(db, profile, {
+        patientId: visit.patient_id,
+        followUpDate: b.next_visit_date,
+      }).catch(e => console.error('Communication hook error:', e))
+    }
   }
+  const { invalidateDashboardRelatedCaches } = await import('@/lib/dashboard-invalidation')
+  invalidateDashboardRelatedCaches(cid, 'visit')
   return json({ ok: true, invoice_id: invoiceId })
 }

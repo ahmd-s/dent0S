@@ -198,5 +198,8 @@ export async function POST(request) {
     metadata: { patient_name: patient?.name },
   })
 
+  const { invalidateDashboardRelatedCaches } = await import('@/lib/dashboard-invalidation')
+  invalidateDashboardRelatedCaches(cid, 'visit')
+
   return json({ ok: true, id })
 }

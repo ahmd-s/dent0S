@@ -8,6 +8,7 @@ import { enrichAppointments } from '@/lib/appointment-enrichment'
 import { addDays } from '@/lib/appointment-time'
 import { doctorAppointmentFilter } from '@/lib/doctor-scope'
 import { getProfileRoles } from '@/lib/profile-roles'
+import { onAppointmentCreated } from '@/lib/communication'
 
 export async function OPTIONS() {
   return cors(new NextResponse(null, { status: 204 }))
@@ -131,6 +132,11 @@ export async function POST(request) {
       appointmentId: id,
     })
   }
+
+  onAppointmentCreated(db, profile, doc).catch(e => console.error('Communication hook error:', e))
+
+  const { invalidateDashboardRelatedCaches } = await import('@/lib/dashboard-invalidation')
+  invalidateDashboardRelatedCaches(profile.clinic_id, 'appointment')
 
   return json({ ok: true, id })
 }

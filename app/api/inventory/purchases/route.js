@@ -40,6 +40,8 @@ export async function POST(request) {
     if (!body.items?.length) return err('At least one item required')
 
     const purchase = await createPurchaseRequest(ctx.db, ctx.profile, body)
+    const { invalidateClinicDashboard } = await import('@/lib/dashboard-invalidation')
+    invalidateClinicDashboard(ctx.profile.clinic_id, 'inventory')
     return json({ ok: true, purchase: clean(purchase) })
   } catch (e) {
     console.error('Purchases POST error:', e)

@@ -34,6 +34,8 @@ export async function PUT(request, { params }) {
     
     const r = await db.collection('inventory_items').updateOne({ id: params.id, clinic_id: cid }, { $set: update })
     if (!r.matchedCount) return err('Item not found', 404)
+    const { invalidateClinicDashboard } = await import('@/lib/dashboard-invalidation')
+    invalidateClinicDashboard(cid, 'inventory')
     return json({ ok: true })
   } catch (e) {
     console.error('Inventory item PUT error:', e)
@@ -50,6 +52,8 @@ export async function DELETE(request, { params }) {
     
     const r = await db.collection('inventory_items').updateOne({ id: params.id, clinic_id: cid }, { $set: { is_active: false, updated_at: new Date() } })
     if (!r.matchedCount) return err('Item not found', 404)
+    const { invalidateClinicDashboard } = await import('@/lib/dashboard-invalidation')
+    invalidateClinicDashboard(cid, 'inventory')
     return json({ ok: true })
   } catch (e) {
     console.error('Inventory item DELETE error:', e)

@@ -3,6 +3,7 @@ import { findAppointmentConflicts } from '@/lib/appointment-conflicts'
 import { enrichAppointments } from '@/lib/appointment-enrichment'
 import { logAppointmentChanges } from '@/lib/appointment-activity'
 import { canTransition, normalizeStatus } from '@/lib/appointment-status'
+import { onAppointmentConfirmed, scheduleAppointmentReminders, cancelUnsentAppointmentMessages } from '@/lib/communication'
 
 export async function GET(request, { params }) {
   const ctx = await requireUser()
@@ -76,7 +77,21 @@ export async function PUT(request, { params }) {
   if (Object.keys(update).length) {
     await db.collection('appointments').updateOne({ id, clinic_id: cid }, { $set: update })
     await logAppointmentChanges(db, profile, existing, update)
+
+    const merged = { ...existing, ...update }
+    const rescheduled = Boolean(update.appointment_date || update.appointment_time)
+    if (rescheduled) {
+      await cancelUnsentAppointmentMessages(db, profile, id)
+    }
+    if (update.status === 'confirmed' && existing.status !== 'confirmed') {
+      onAppointmentConfirmed(db, profile, merged).catch(e => console.error('Communication hook error:', e))
+    } else if (rescheduled) {
+      scheduleAppointmentReminders(db, profile, merged).catch(e => console.error('Communication hook error:', e))
+    }
   }
+
+  const { invalidateDashboardRelatedCaches } = await import('@/lib/dashboard-invalidation')
+  invalidateDashboardRelatedCaches(cid, 'appointment')
 
   return json({ ok: true })
 }
@@ -96,5 +111,7 @@ export async function DELETE(request, { params }) {
     { $set: { status: 'cancelled' } }
   )
   await logAppointmentChanges(ctx.db, ctx.profile, existing, { status: 'cancelled' })
+  const { invalidateDashboardRelatedCaches } = await import('@/lib/dashboard-invalidation')
+  invalidateDashboardRelatedCaches(ctx.profile.clinic_id, 'appointment')
   return json({ ok: true })
 }

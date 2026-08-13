@@ -14,6 +14,33 @@ const fmtDate = d => {
   return `${String(x.getDate()).padStart(2, '0')}/${String(x.getMonth() + 1).padStart(2, '0')}/${x.getFullYear()}`
 }
 
+/** Deduplicate concurrent /api/patients/dashboard fetches from sibling widgets. */
+let patientsDashboardInflight = null
+let patientsDashboardCache = null
+let patientsDashboardCacheAt = 0
+const PATIENTS_DASH_TTL_MS = 15_000
+
+function fetchPatientsDashboard() {
+  const now = Date.now()
+  if (patientsDashboardCache && now - patientsDashboardCacheAt < PATIENTS_DASH_TTL_MS) {
+    return Promise.resolve(patientsDashboardCache)
+  }
+  if (patientsDashboardInflight) return patientsDashboardInflight
+  patientsDashboardInflight = fetch('/api/patients/dashboard')
+    .then(r => r.json())
+    .then(d => {
+      patientsDashboardCache = d
+      patientsDashboardCacheAt = Date.now()
+      patientsDashboardInflight = null
+      return d
+    })
+    .catch(err => {
+      patientsDashboardInflight = null
+      throw err
+    })
+  return patientsDashboardInflight
+}
+
 export function RecentPatientsWidget({ className }) {
   const [recent, setRecent] = useState([])
 
@@ -48,9 +75,15 @@ export function RecentPatientsWidget({ className }) {
 
 export function ActiveTreatmentsWidget() {
   const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/patients/dashboard').then(r => r.json()).then(d => setItems(d.active_treatments || []))
+    let cancelled = false
+    fetchPatientsDashboard()
+      .then(d => { if (!cancelled) setItems(d.active_treatments || []) })
+      .catch(() => { if (!cancelled) setItems([]) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [])
 
   return (
@@ -59,7 +92,9 @@ export function ActiveTreatmentsWidget() {
         <Stethoscope className="w-4 h-4 text-[#0D9488]" />
         <h3 className="font-semibold text-sm">Active Treatments Today</h3>
       </div>
-      {items.length === 0 ? (
+      {loading ? (
+        <div className="h-16 animate-pulse bg-muted rounded-lg" />
+      ) : items.length === 0 ? (
         <p className="text-sm text-muted-foreground py-4 text-center">No active visits today</p>
       ) : (
         <div className="space-y-2">
@@ -77,9 +112,15 @@ export function ActiveTreatmentsWidget() {
 
 export function CriticalPatientsWidget() {
   const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/patients/dashboard').then(r => r.json()).then(d => setItems(d.critical_patients || []))
+    let cancelled = false
+    fetchPatientsDashboard()
+      .then(d => { if (!cancelled) setItems(d.critical_patients || []) })
+      .catch(() => { if (!cancelled) setItems([]) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [])
 
   return (
@@ -88,7 +129,9 @@ export function CriticalPatientsWidget() {
         <AlertTriangle className="w-4 h-4 text-red-500" />
         <h3 className="font-semibold text-sm">Critical Patients</h3>
       </div>
-      {items.length === 0 ? (
+      {loading ? (
+        <div className="h-16 animate-pulse bg-muted rounded-lg" />
+      ) : items.length === 0 ? (
         <p className="text-sm text-muted-foreground py-4 text-center">No critical flags</p>
       ) : (
         <div className="space-y-2">
@@ -111,8 +154,15 @@ export function TodaysFollowupsWidget({ stats }) {
   const [items, setItems] = useState(stats?.followups || [])
 
   useEffect(() => {
-    if (stats?.followups) setItems(stats.followups)
-    else fetch('/api/patients/dashboard').then(r => r.json()).then(d => setItems(d.followups_today || []))
+    if (stats?.followups) {
+      setItems(stats.followups)
+      return
+    }
+    let cancelled = false
+    fetchPatientsDashboard()
+      .then(d => { if (!cancelled) setItems(d.followups_today || []) })
+      .catch(() => { if (!cancelled) setItems([]) })
+    return () => { cancelled = true }
   }, [stats])
 
   return (

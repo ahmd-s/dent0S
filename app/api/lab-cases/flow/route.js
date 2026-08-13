@@ -19,6 +19,8 @@ export async function POST(request) {
   try {
     const result = await executeLabFlowAction(ctx.db, ctx.profile, caseId, action, body)
     const enriched = await populateNames(ctx.db, ctx.profile.clinic_id, result)
+    const { invalidateClinicDashboard } = await import('@/lib/dashboard-invalidation')
+    invalidateClinicDashboard(ctx.profile.clinic_id, 'lab_case')
     return json({ ok: true, lab_case: enriched })
   } catch (e) {
     if (e instanceof LabFlowError) return err(e.message, e.status)

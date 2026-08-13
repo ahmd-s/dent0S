@@ -34,6 +34,8 @@ export async function POST(request, { params }) {
     if (!action) return err('action required')
 
     const purchase = await executePurchaseAction(ctx.db, ctx.profile, params.id, action, body)
+    const { invalidateClinicDashboard } = await import('@/lib/dashboard-invalidation')
+    invalidateClinicDashboard(ctx.profile.clinic_id, 'inventory')
     return json({ ok: true, purchase: clean(purchase) })
   } catch (e) {
     if (e instanceof InventoryFlowError) return err(e.message, e.status)

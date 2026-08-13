@@ -9,7 +9,11 @@
         "build": "next build",
         "build:desktop": "next build",
         "start": "next start",
-        "verify-env": "node scripts/verify-env.js"
+        "verify-env": "node scripts/verify-env.js",
+        "test:communication": "node --test lib/communication/__tests__/communication.test.js",
+        "test:dashboard": "node --test lib/__tests__/dashboard-stats.test.js",
+        "test": "node --test lib/communication/__tests__/communication.test.js lib/__tests__/dashboard-stats.test.js",
+        "measure:dashboard": "node --import ./scripts/measure-alias-hooks.mjs scripts/measure-dashboard-stats.js"
     },
     "dependencies": {
         "@hookform/resolvers": "^5.1.1",

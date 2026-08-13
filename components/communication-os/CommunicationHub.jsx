@@ -1,15 +1,17 @@
 'use client'
 
 import { Suspense, useState, useEffect } from 'react'
-import { Loader2, LayoutGrid, Megaphone, Bell, Star, MessageSquare, Users } from 'lucide-react'
+import { Loader2, LayoutGrid, Megaphone, Bell, Star, MessageSquare, Users, Inbox } from 'lucide-react'
 import CommunicationDashboard from './CommunicationDashboard'
 import CampaignCenter from './CampaignCenter'
 import ReminderCenter from './ReminderCenter'
 import ReviewPanel from './ReviewPanel'
 import CommunicationTimeline from './CommunicationTimeline'
+import CommunicationQueuePanel from './CommunicationQueuePanel'
 
 const VIEWS = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutGrid },
+  { id: 'queue', label: 'Queue', icon: Inbox },
   { id: 'campaigns', label: 'Campaigns', icon: Megaphone },
   { id: 'reminders', label: 'Reminders', icon: Bell },
   { id: 'reviews', label: 'Reviews', icon: Star },
@@ -80,6 +82,7 @@ function App() {
       </div>
 
       {view === 'dashboard' && <CommunicationDashboard />}
+      {view === 'queue' && <CommunicationQueuePanel />}
       {view === 'campaigns' && <CampaignCenter />}
       {view === 'reminders' && <ReminderCenter />}
       {view === 'reviews' && <ReviewPanel />}

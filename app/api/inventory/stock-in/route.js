@@ -31,6 +31,8 @@ export async function POST(request) {
     db.collection('stock_movements').createIndex({ clinic_id: 1, created_at: -1 }, { background: true })
     db.collection('inventory_batches').createIndex({ clinic_id: 1, item_id: 1 }, { background: true })
 
+    const { invalidateClinicDashboard } = await import('@/lib/dashboard-invalidation')
+    invalidateClinicDashboard(cid, 'inventory')
     return json({ ok: true, stock_after: result.stock_after, batch_id: result.batch_id })
   } catch (e) {
     if (e instanceof InventoryFlowError) return err(e.message, e.status)

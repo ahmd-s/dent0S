@@ -75,6 +75,8 @@ export async function POST(request) {
         return err('Unknown reminder type', 400)
     }
 
+    const { invalidateClinicDashboard } = await import('@/lib/dashboard-invalidation')
+    invalidateClinicDashboard(ctx.profile.clinic_id, 'communication')
     return json(result)
   } catch (e) {
     console.error('Reminders POST error:', e)
@@ -92,7 +94,10 @@ export async function DELETE(request) {
     if (!messageId) return err('message_id required', 400)
 
     const { cancelScheduledMessage } = await import('@/lib/communication-engine')
-    return json(await cancelScheduledMessage(ctx.db, ctx.profile, messageId))
+    const result = await cancelScheduledMessage(ctx.db, ctx.profile, messageId)
+    const { invalidateClinicDashboard } = await import('@/lib/dashboard-invalidation')
+    invalidateClinicDashboard(ctx.profile.clinic_id, 'communication')
+    return json(result)
   } catch (e) {
     console.error('Reminders DELETE error:', e)
     return err('Internal server error', 500)

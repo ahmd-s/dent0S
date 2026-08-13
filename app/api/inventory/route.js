@@ -79,7 +79,9 @@ export async function POST(request) {
     db.collection('inventory_items').createIndex({ clinic_id: 1, is_active: 1 }, { background: true })
     db.collection('inventory_items').createIndex({ clinic_id: 1, category: 1 }, { background: true })
     db.collection('inventory_items').createIndex({ clinic_id: 1, current_stock: 1, minimum_stock: 1 }, { background: true })
-    
+
+    const { invalidateClinicDashboard } = await import('@/lib/dashboard-invalidation')
+    invalidateClinicDashboard(cid, 'inventory')
     return json({ ok: true, id })
   } catch (e) {
     console.error('Inventory POST error:', e)

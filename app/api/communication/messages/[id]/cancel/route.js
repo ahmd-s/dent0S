@@ -1,0 +1,27 @@
+import { NextResponse } from 'next/server'
+import { requireUser, json, err, cors } from '@/lib/api-helpers'
+import { guardCommunication } from '@/lib/communication/guards'
+import { cancelMessage } from '@/lib/communication'
+
+export async function OPTIONS() {
+  return cors(new NextResponse(null, { status: 204 }))
+}
+
+export async function POST(_request, { params }) {
+  try {
+    const ctx = await requireUser()
+    if (!ctx) return err('Unauthorized', 401)
+
+    const denied = guardCommunication(ctx, 'cancelMessage', err)
+    if (denied) return denied
+
+    const result = await cancelMessage(ctx.db, ctx.profile, params.id)
+    if (!result.ok) return err(result.error || 'Failed to cancel message', 400)
+    const { invalidateClinicDashboard } = await import('@/lib/dashboard-invalidation')
+    invalidateClinicDashboard(ctx.profile.clinic_id, 'communication')
+    return json(result)
+  } catch (e) {
+    console.error('Communication cancel error')
+    return err('Internal server error', 500)
+  }
+}

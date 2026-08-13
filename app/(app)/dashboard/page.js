@@ -73,14 +73,41 @@ function App() {
   const showQueueWidget = dashboardWidgets.includes('queue') && isDashboardEnabled('queue')
   const showFollowupsPanel = shouldShowFollowupsPanel(dashboardWidgets)
 
-  const load = () => fetch('/api/dashboard/stats').then(r => r.json()).then(d => { setStats(d); setStatsLoading(false) })
-  useEffect(() => { load() }, [])
+  const load = (opts = {}) => {
+    const mode = opts.mode === 'core' ? 'core' : 'full'
+    const qs = mode === 'core' ? '?mode=core' : ''
+    return fetch(`/api/dashboard/stats${qs}`)
+      .then(r => r.json())
+      .then(d => {
+        setStats(prev => {
+          if (mode === 'core' && prev) {
+            // Preserve heavy module payloads during live refresh
+            return {
+              ...prev,
+              ...d,
+              lab: d.lab ?? prev.lab,
+              inventory: d.inventory ?? prev.inventory,
+              analytics: d.analytics ?? prev.analytics,
+              communication: d.communication ?? prev.communication,
+              ai: d.ai ?? prev.ai,
+            }
+          }
+          return d
+        })
+        setStatsLoading(false)
+      })
+      .catch(() => {
+        setStatsLoading(false)
+        // Keep prior stats if a refresh fails so widgets stay usable
+      })
+  }
+  useEffect(() => { load({ mode: 'full' }) }, [])
   useEffect(() => {
     if (typeof window === 'undefined') return
     const stored = localStorage.getItem(QUEUE_TOGGLE_KEY)
     if (stored !== null) setShowQueue(stored === 'true')
   }, [])
-  useLiveRefresh(load)
+  useLiveRefresh(() => load({ mode: 'core' }))
 
   const toggleQueue = v => {
     setShowQueue(v)
@@ -90,7 +117,7 @@ function App() {
   const setStatus = async (id, status) => {
     await fetch(`/api/appointments/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) })
     toast.success('Updated')
-    load()
+    load({ mode: 'full' })
   }
   const startVisit = async apt => {
     const r = await fetch('/api/visits', {
@@ -169,22 +196,30 @@ function App() {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-stretch">
           {showQueueWidget && (
             <div className={cn('flex min-h-0', showFollowupsPanel ? 'lg:col-span-3' : 'lg:col-span-5')}>
-              <WorkspaceWidget
-                id="queue"
-                {...widgetProps}
-                className="w-full"
-              />
+              {statsLoading && !stats ? (
+                <Card className="w-full p-4 md:p-5 animate-pulse"><div className="h-40 bg-muted rounded-lg" /></Card>
+              ) : (
+                <WorkspaceWidget
+                  id="queue"
+                  {...widgetProps}
+                  className="w-full"
+                />
+              )}
             </div>
           )}
           {showFollowupsPanel && (
             <div className={cn('flex min-h-0', showQueueWidget ? 'lg:col-span-2' : 'lg:col-span-5')}>
-              <FollowupsPanelWidget stats={stats} className="w-full" />
+              {statsLoading && !stats ? (
+                <Card className="w-full p-4 md:p-5 animate-pulse"><div className="h-40 bg-muted rounded-lg" /></Card>
+              ) : (
+                <FollowupsPanelWidget stats={stats} className="w-full" />
+              )}
             </div>
           )}
         </div>
       )}
 
-      {/* Bottom section — recently viewed & activity, same 3:2 grid as above */}
+      {/* Bottom section — recently viewed & activity load independently of stats */}
       {(showRecentPatients || showRecentActivity) && (
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-stretch">
           {showRecentPatients && (
@@ -200,7 +235,7 @@ function App() {
         </div>
       )}
 
-      <BookAppointmentModal open={bookOpen} setOpen={setBookOpen} onCreated={load} />
+      <BookAppointmentModal open={bookOpen} setOpen={setBookOpen} onCreated={() => load({ mode: 'full' })} />
     </div>
   )
 }

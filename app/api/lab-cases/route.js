@@ -101,6 +101,8 @@ export async function POST(request) {
       labCaseId: id,
       metadata: { case_number, case_type: b.case_type },
     })
+    const { invalidateClinicDashboard } = await import('@/lib/dashboard-invalidation')
+    invalidateClinicDashboard(cid, 'lab_case')
     return json({ ok: true, id, case_number, public_token })
   } catch (e) {
     console.error('Lab cases POST error:', e)

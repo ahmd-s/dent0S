@@ -170,6 +170,8 @@ export async function POST(request) {
       metadata: { patient_name: name, patient_code: patientCode },
     })
 
+    const { invalidateClinicDashboard } = await import('@/lib/dashboard-invalidation')
+    invalidateClinicDashboard(cid, 'patient')
     return json({ ok: true, id, existing: false }, 201)
   } catch (error) {
     console.error('Patient creation error:', error)

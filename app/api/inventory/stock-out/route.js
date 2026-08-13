@@ -56,7 +56,9 @@ export async function POST(request) {
       { id: b.item_id, clinic_id: cid },
       { $set: { current_stock: stock_after, updated_at: new Date() } }
     )
-    
+
+    const { invalidateClinicDashboard } = await import('@/lib/dashboard-invalidation')
+    invalidateClinicDashboard(cid, 'inventory')
     return json({ ok: true, stock_after })
   } catch (e) {
     console.error('Stock-out error:', e)

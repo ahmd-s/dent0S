@@ -134,6 +134,8 @@ export async function PUT(request, { params }) {
         metadata: { amount: inv?.total_amount, invoice_number: inv?.invoice_number },
       })
     }
+    const { invalidateDashboardRelatedCaches } = await import('@/lib/dashboard-invalidation')
+    invalidateDashboardRelatedCaches(cid, 'invoice')
     return json({ ok: true })
   } catch (e) {
     console.error('Invoice PUT error:', e)

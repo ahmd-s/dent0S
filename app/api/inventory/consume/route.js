@@ -85,6 +85,8 @@ export async function POST(request) {
       })
     }
 
+    const { invalidateClinicDashboard } = await import('@/lib/dashboard-invalidation')
+    invalidateClinicDashboard(cid, 'inventory')
     return json({ ok: true, consumed, warnings })
   } catch (e) {
     console.error('Consume error:', e)

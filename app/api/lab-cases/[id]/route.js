@@ -80,6 +80,8 @@ export async function PUT(request, { params }) {
     }
     const fresh = await db.collection('lab_cases').findOne({ id: params.id, clinic_id: cid })
     const enriched = await populateNames(db, cid, clean(fresh))
+    const { invalidateDashboardRelatedCaches } = await import('@/lib/dashboard-invalidation')
+    invalidateDashboardRelatedCaches(cid, 'lab_case')
     return json({ ok: true, lab_case: enriched })
   } catch (e) {
     console.error('Lab case PUT error:', e)
@@ -94,6 +96,8 @@ export async function DELETE(request, { params }) {
     if (!canManageInventory(profile)) return err('Forbidden', 403)
     const r = await db.collection('lab_cases').deleteOne({ id: params.id, clinic_id: cid })
     if (!r.deletedCount) return err('Lab case not found', 404)
+    const { invalidateClinicDashboard } = await import('@/lib/dashboard-invalidation')
+    invalidateClinicDashboard(cid, 'lab_case')
     return json({ ok: true })
   } catch (e) {
     console.error('Lab case DELETE error:', e)
