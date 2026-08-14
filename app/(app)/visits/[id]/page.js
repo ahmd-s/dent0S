@@ -15,7 +15,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { VisitVoiceRecorder } from '@/components/dentos/VisitVoiceRecorder'
 import { VisitDocuments } from '@/components/dentos/VisitDocuments'
 import ToothChart from '@/components/dentos/ToothChart'
-import SmartTextarea from '@/components/SmartTextarea'
 import { toast } from 'sonner'
 import { useRole } from '@/components/dentos/RoleContext'
 import { createInFlightGuard } from '@/lib/visit-completion'
@@ -483,8 +482,8 @@ function App() {
       )}
 
       <Card className="mt-5 p-6 bg-card border-border rounded-lg space-y-5">
-        <div className="space-y-1.5"><Label className="text-base">Chief Complaint <span className="text-[#EF4444]">*</span></Label><SmartTextarea value={v.chief_complaint||''} onChange={val=>set('chief_complaint',val)} category="chief_complaints" placeholder="What brings the patient in today?" rows={2} disabled={clinicalReadOnly}/></div>
-        <div className="space-y-1.5"><Label className="text-base">Examination Findings</Label><SmartTextarea value={v.clinical_notes||''} onChange={val=>set('clinical_notes',val)} category="clinical_findings" placeholder="Document your examination findings…" rows={3} disabled={clinicalReadOnly}/></div>
+        <div className="space-y-1.5"><Label className="text-base">Chief Complaint <span className="text-[#EF4444]">*</span></Label><Textarea value={v.chief_complaint||''} onChange={e=>set('chief_complaint',e.target.value)} placeholder="What brings the patient in today?" rows={2} readOnly={clinicalReadOnly}/></div>
+        <div className="space-y-1.5"><Label className="text-base">Examination Findings</Label><Textarea value={v.clinical_notes||''} onChange={e=>set('clinical_notes',e.target.value)} placeholder="Document your examination findings…" rows={3} readOnly={clinicalReadOnly}/></div>
         <div className="space-y-1.5"><Label className="text-base">Diagnosis</Label><Input value={v.diagnosis||''} onChange={e=>set('diagnosis',e.target.value)} placeholder="e.g. Deep caries 46, Gingivitis" readOnly={clinicalReadOnly}/></div>
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
@@ -500,7 +499,7 @@ function App() {
           </div>
           <Textarea value={v.treatment_done||''} onChange={e=>set('treatment_done',e.target.value)} placeholder="Describe the treatment performed..." rows={3} readOnly={clinicalReadOnly}/>
         </div>
-        <div className="space-y-1.5"><Label className="text-base">Plan for Next Visit</Label><SmartTextarea value={v.treatment_plan||''} onChange={val=>set('treatment_plan',val)} category="treatment_plans" placeholder="What should be done on the next visit…" rows={2} disabled={clinicalReadOnly}/></div>
+        <div className="space-y-1.5"><Label className="text-base">Plan for Next Visit</Label><Textarea value={v.treatment_plan||''} onChange={e=>set('treatment_plan',e.target.value)} placeholder="What should be done on the next visit…" rows={2} readOnly={clinicalReadOnly}/></div>
       </Card>
 
       <Card className="mt-5 p-6 bg-card border-border rounded-lg">
