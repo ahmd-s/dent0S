@@ -1,40 +1,22 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2 } from 'lucide-react'
-import { canAccessSettings } from '@/lib/rbac'
+import { useRole } from '@/components/dentos/RoleContext'
 import PageHeader from '@/components/dentos/PageHeader'
 import WorkspaceBuilder from '@/components/settings/workspace/WorkspaceBuilder'
 
 export default function WorkspaceBuilderPage() {
   const router = useRouter()
-  const [allowed, setAllowed] = useState(null)
+  // RoleProvider has already resolved the session, so the permission check is
+  // synchronous. Re-fetching /api/auth/me here cost a round-trip and showed a
+  // spinner for an answer that was already in memory.
+  const { canAccessSettings } = useRole()
+  const allowed = canAccessSettings()
 
   useEffect(() => {
-    fetch('/api/auth/me')
-      .then(r => r.json())
-      .then(me => {
-        if (!me?.profile || !canAccessSettings(me.profile)) {
-          router.replace('/dashboard?error=unauthorized')
-          setAllowed(false)
-        } else {
-          setAllowed(true)
-        }
-      })
-      .catch(() => {
-        router.replace('/dashboard?error=unauthorized')
-        setAllowed(false)
-      })
-  }, [router])
-
-  if (allowed === null) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="w-6 h-6 animate-spin text-primary" />
-      </div>
-    )
-  }
+    if (!allowed) router.replace('/dashboard?error=unauthorized')
+  }, [allowed, router])
 
   if (!allowed) return null
 

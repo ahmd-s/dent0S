@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { requireUser, json, err, cors } from '@/lib/api-helpers'
 import { executeInventoryFlowAction, InventoryFlowError } from '@/lib/inventory-workflow-engine'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 export async function OPTIONS() {
   return cors(new NextResponse(null, { status: 204 }))
 }

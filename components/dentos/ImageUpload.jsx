@@ -2,6 +2,7 @@
 import { useRef, useState } from 'react'
 import { Loader2, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { AsyncImage } from '@/components/ui/async-image'
 import { toast } from 'sonner'
 
 // Generic image upload control: preview + "Choose Image" + auto-upload to a
@@ -61,9 +62,13 @@ export default function ImageUpload({
   return (
     <div className="flex items-center gap-4">
       <div className={`${size} ${shapeClass} bg-primary flex items-center justify-center overflow-hidden shrink-0 relative`}>
-        {value ? (
-          <img src={value} alt={label || 'Uploaded image'} className="w-full h-full object-cover" />
-        ) : fallback}
+        <AsyncImage
+          src={value}
+          alt={label || 'Uploaded image'}
+          eager
+          className="w-full h-full object-cover"
+          fallback={fallback}
+        />
         {uploading && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
             <Loader2 className={`${iconSize} text-primary-foreground animate-spin`} />

@@ -13,6 +13,10 @@ import {
   ageFromDob,
 } from '@/lib/patient-import'
 import { v4 as uuidv4 } from 'uuid'
+import { loadUserContext } from '@/lib/auth-context'
+
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -29,10 +33,7 @@ async function requireUser() {
   const t = getCurrentUser()
   if (!t) return null
   const db = await getDb()
-  const profile = await db.collection('profiles').findOne({ id: t.uid })
-  if (!profile) return null
-  const clinic = await db.collection('clinics').findOne({ id: profile.clinic_id })
-  return { profile, clinic, db }
+  return loadUserContext(db, t.uid)
 }
 
 function normalizeLegacyRow(p) {
@@ -56,7 +57,7 @@ export async function POST(request) {
     if (!user) return err('Unauthorized', 401)
     if (isClinicAccessBlocked(user.clinic)) return clinicAccessPausedResponse(err)
 
-    const { profile, clinic, db } = user
+    const { profile, db } = user
     const cid = profile.clinic_id
 
     if (!hasPermission(profile, 'patients', 'create')) return err('Forbidden', 403)

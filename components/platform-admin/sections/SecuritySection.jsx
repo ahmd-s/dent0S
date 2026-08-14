@@ -2,27 +2,16 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   CheckCircle2,
-  KeyRound,
   Loader2,
   LogOut,
   RefreshCw,
   Shield,
   ShieldAlert,
   ShieldOff,
-  User,
   XCircle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

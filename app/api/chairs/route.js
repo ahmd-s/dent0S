@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'
 import { requireUser, json, err, cors, clean } from '@/lib/api-helpers'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 const DEFAULT_CHAIRS = [
   { name: 'Chair 1', color: '#0D9488', sort_order: 1 },
   { name: 'Chair 2', color: '#6366F1', sort_order: 2 },

@@ -7,6 +7,9 @@ import { uploadBuffer } from '@/lib/localStorage'
 import fs from 'fs'
 import path from 'path'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,

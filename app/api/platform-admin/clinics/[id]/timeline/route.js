@@ -3,6 +3,9 @@ import { requirePlatformAdmin } from '@/lib/platform-admin'
 import { getClinicTimeline } from '@/lib/activity-engine'
 import { getEventLabel } from '@/lib/activity-event-registry'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
   res.headers.set('Access-Control-Allow-Methods', 'GET,OPTIONS')

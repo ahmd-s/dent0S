@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense, useState, useEffect } from 'react'
-import { Loader2, LayoutGrid, Zap, Users, Mic } from 'lucide-react'
+import { Loader2, LayoutGrid, Zap, Users } from 'lucide-react'
 import AIDashboard from './AIDashboard'
 
 function RecallPanel() {

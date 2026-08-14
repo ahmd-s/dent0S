@@ -3,6 +3,9 @@ import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
 import { v4 as uuidv4 } from 'uuid'
 import { isClinicAccessBlocked, CLINIC_ACCESS_PAUSED_MESSAGE } from '@/lib/clinic-access'
+import { enforceRateLimit } from '@/lib/api-helpers'
+
+export const dynamic = 'force-dynamic'
 
 /**
  * POST /api/public/clinic/:slug/book
@@ -24,6 +27,11 @@ import { isClinicAccessBlocked, CLINIC_ACCESS_PAUSED_MESSAGE } from '@/lib/clini
  */
 export async function POST(request, { params }) {
   try {
+    const rate = await enforceRateLimit(request)
+    if (!rate.allowed) {
+      return NextResponse.json({ error: 'Too many requests. Try again later.' }, { status: 429 })
+    }
+
     const { slug } = params
     const body = await request.json()
 

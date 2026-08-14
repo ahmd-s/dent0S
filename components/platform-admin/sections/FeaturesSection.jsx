@@ -12,7 +12,6 @@ import {
   KeyRound,
   Loader2,
   Mail,
-  MessageCircle,
   MessageSquare,
   PieChart,
   Receipt,

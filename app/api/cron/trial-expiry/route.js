@@ -10,6 +10,9 @@ import {
 import { blockExpiredTrial, blockGraceExpired } from '@/lib/subscription-engine'
 import { createPlatformNotificationOnce } from '@/lib/platform-notifications'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 const json = (d, s = 200) => NextResponse.json(d, { status: s })
 
 function authorizeCron(request) {

@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { CheckCircle2, AlertCircle, Loader2, FileText } from 'lucide-react'
 import SignaturePad from '@/components/SignaturePad'
@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
+import { AsyncImage } from '@/components/ui/async-image'
 
 export default function ConsentSigningPage() {
   const { token } = useParams()
@@ -20,11 +21,7 @@ export default function ConsentSigningPage() {
   const [submitting, setSubmitting] = useState(false)
   const [signed, setSigned] = useState(false)
 
-  useEffect(() => {
-    loadConsent()
-  }, [token])
-
-  const loadConsent = async () => {
+  const loadConsent = useCallback(async () => {
     setLoading(true)
     try {
       const r = await fetch(`/api/consent-requests/${token}`)
@@ -43,7 +40,9 @@ export default function ConsentSigningPage() {
       setError('Failed to load consent form')
     }
     setLoading(false)
-  }
+  }, [token])
+
+  useEffect(() => { loadConsent() }, [loadConsent])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -108,16 +107,13 @@ export default function ConsentSigningPage() {
 
   const clinic = data?.clinic || {}
   const template = data?.template || {}
-  const consentRequest = data?.consent_request || {}
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="bg-[#0D9488] text-white py-6 px-4">
         <div className="max-w-2xl mx-auto">
-          {clinic.logo_url && (
-            <img src={clinic.logo_url} alt={clinic.name} className="h-12 mb-2 object-contain"/>
-          )}
+          <AsyncImage src={clinic.logo_url} alt={clinic.name} eager className="h-12 mb-2 object-contain" />
           <h1 className="text-xl font-bold">{clinic.name || 'Dental Clinic'}</h1>
           {clinic.address && <p className="text-sm opacity-90 mt-1">{clinic.address}</p>}
         </div>

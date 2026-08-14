@@ -41,7 +41,10 @@ function mergeSingleLine(prev, next) {
 function App() {
   const { id } = useParams()
   const router = useRouter()
-  const { canEditClinical, canManageBilling, isReceptionist } = useRole()
+  const { canEditClinical, canManageBilling, isReceptionist, me } = useRole()
+  // RoleProvider has already loaded /api/auth/me, so reading the clinic name
+  // from context avoids a second round-trip inside load()'s critical path.
+  const clinicName = me?.clinic?.name || ''
   const clinicalReadOnly = !canEditClinical()
   const [v, setV] = useState(null)
   const [rxs, setRxs] = useState([])
@@ -59,15 +62,16 @@ function App() {
   const [consumeModalOpen, setConsumeModalOpen] = useState(false)
   const [consumeItems, setConsumeItems] = useState([])
   const [inventoryItems, setInventoryItems] = useState([])
-  const [clinicName, setClinicName] = useState('')
   const [showToothChart, setShowToothChart] = useState(false)
 
   const stateRef = useRef({})
+  const saveGuardRef = useRef(createInFlightGuard())
   stateRef.current = { v, rxs, items, discount, gstOn, paymentMode, paymentStatus, clinicName }
 
   const set = (k, val) => setV(p => ({...p, [k]: val}))
 
-  const load = async () => {
+  const load = useCallback(async () => {
+    if (!id) return
     setLoading(true)
     const r = await fetch(`/api/visits/${id}`)
     const d = await r.json()
@@ -80,37 +84,85 @@ function App() {
       setPaymentMode(d.visit.invoice.payment_mode || 'cash')
       setPaymentStatus(d.visit.invoice.payment_status || 'pending')
     }
-    const meRes = await fetch('/api/auth/me')
-    const meData = await meRes.json()
-    setClinicName(meData.clinic?.name || '')
     setLoading(false)
-  }
-  useEffect(() => { if (id) load() }, [id])
-  useEffect(() => { fetch('/api/inventory/templates').then(r=>r.json()).then(d=>setInventoryTemplates(d.templates||[])) }, [])
-  useEffect(() => { fetch('/api/inventory').then(r=>r.json()).then(d=>setInventoryItems(d.items||[])) }, [])
+  }, [id])
 
-  const saveDraft = async (silent=false) => {
+  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/inventory/templates').then(r => r.json()),
+      fetch('/api/inventory').then(r => r.json()),
+    ]).then(([templates, items]) => {
+      setInventoryTemplates(templates.templates || [])
+      setInventoryItems(items.items || [])
+    })
+  }, [])
+
+  const persistVisit = useCallback(async (body) => {
+    const r = await fetch(`/api/visits/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const data = await r.json().catch(() => ({}))
+    return { ok: r.ok, data }
+  }, [id])
+
+  const saveDraft = useCallback(async (silent=false) => {
     if (!stateRef.current.v) return
-    setSaving(true)
-    const cur = stateRef.current
-    const r = await fetch(`/api/visits/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ ...cur.v, prescriptions: cur.rxs, invoice_items: cur.items, discount: cur.discount, gst_enabled: cur.gstOn, payment_mode: cur.paymentMode, payment_status: cur.paymentStatus, complete: false }) })
-    setSaving(false)
-    if (r.ok) { if (!silent) toast.success('Draft saved'); setAutosaveAt(new Date()) }
-    else if (!silent) toast.error('Save failed')
-  }
+    const run = async () => {
+      setSaving(true)
+      try {
+        const cur = stateRef.current
+        const { ok, data } = await persistVisit({
+          ...cur.v,
+          prescriptions: cur.rxs,
+          invoice_items: cur.items,
+          discount: cur.discount,
+          gst_enabled: cur.gstOn,
+          payment_mode: cur.paymentMode,
+          payment_status: cur.paymentStatus,
+          complete: false,
+        })
+        if (ok) { if (!silent) toast.success('Draft saved'); setAutosaveAt(new Date()) }
+        else if (!silent) toast.error(data.error || 'Save failed')
+      } catch {
+        if (!silent) toast.error('Save failed. Check your connection and try again.')
+      } finally {
+        setSaving(false)
+      }
+    }
+    if (silent) return run()
+    const { skipped } = await saveGuardRef.current.run(run)
+    if (skipped) return
+  }, [persistVisit])
 
   const saveClinicalStep = async () => {
     if (!stateRef.current.v?.chief_complaint?.trim()) { toast.error('Chief complaint is required'); return }
-    setSaving(true)
-    const cur = stateRef.current
-    const r = await fetch(`/api/visits/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ ...cur.v, prescriptions: cur.rxs, save_clinical: true }) })
-    setSaving(false)
-    if (r.ok) {
-      toast.success('Clinical notes saved')
-      load()
-    } else toast.error((await r.json()).error || 'Save failed')
+    const { skipped } = await saveGuardRef.current.run(async () => {
+      setSaving(true)
+      try {
+        const cur = stateRef.current
+        const { ok, data } = await persistVisit({ ...cur.v, prescriptions: cur.rxs, save_clinical: true })
+        if (!ok) {
+          toast.error(data.error || 'Save failed')
+          return
+        }
+        toast.success('Clinical notes saved')
+        setV(prev => ({
+          ...prev,
+          workflow_status: data.workflow_status || 'inventory',
+          clinical_saved_at: data.clinical_saved_at || new Date().toISOString(),
+          inventory_step: data.inventory_step || prev.inventory_step || { status: 'pending', assigned_to: null, completed_at: null },
+          invoice_step: data.invoice_step || prev.invoice_step,
+        }))
+      } catch {
+        toast.error('Save failed. Check your connection and try again.')
+      } finally {
+        setSaving(false)
+      }
+    })
+    if (skipped) return
   }
 
   const runInventoryAction = async (action) => {
@@ -169,7 +221,7 @@ function App() {
     if (!v || v.workflow_status !== 'clinical') return
     const i = setInterval(() => saveDraft(true), 90000)
     return () => clearInterval(i)
-  }, [v])
+  }, [v, saveDraft])
 
   const confirmInventoryDone = async (skipConsumption = false) => {
     setSaving(true)

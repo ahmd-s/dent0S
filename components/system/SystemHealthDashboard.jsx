@@ -6,7 +6,6 @@ import {
   Bot,
   Database,
   HardDrive,
-  Loader2,
   MessageSquare,
   RefreshCw,
   Server,

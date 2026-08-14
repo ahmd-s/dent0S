@@ -5,13 +5,6 @@ import { Loader2, CheckCircle2 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { getEventLabel } from '@/lib/activity-event-registry'
 
-const STAGE_ORDER = [
-  'LAB_CREATED', 'IMPRESSION_UPLOADED', 'LAB_SENT', 'LAB_RECEIVED',
-  'LAB_MANUFACTURING_STARTED', 'LAB_QC_STARTED', 'LAB_DISPATCHED',
-  'LAB_DELIVERED', 'LAB_INSTALLED', 'LAB_COMPLETED',
-  'STL_UPLOADED', 'DELIVERY_DELAYED', 'VENDOR_CHANGED',
-]
-
 export default function LabTimeline({ labCaseId }) {
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)

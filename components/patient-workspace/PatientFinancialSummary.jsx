@@ -1,10 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { IndianRupee, ExternalLink } from 'lucide-react'
+import { IndianRupee, Loader2 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import Link from 'next/link'
 import { PatientSectionGate } from '@/components/workspace/WorkspaceGate'
 import { fmtPatientDate } from '@/lib/patient-clinical'
 

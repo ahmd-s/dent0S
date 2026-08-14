@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
+import { AsyncImage } from '@/components/ui/async-image'
 import { AuthSplit } from '@/components/dentos/AuthSplit'
 import { GoogleSignInButton, AuthOrDivider } from '@/components/dentos/GoogleSignInButton'
 import { oauthLoginErrorMessage } from '@/lib/oauth-login-error-message'
@@ -189,9 +190,16 @@ function LoginPageContent() {
           <div className="flex flex-col items-center gap-4">
             {loading && !qrDataUrl ? (
               <Loader2 className="w-8 h-8 animate-spin text-[#0D9488]" />
-            ) : qrDataUrl ? (
-              <img src={qrDataUrl} alt="TOTP QR code" className="rounded-lg border border-border" width={220} height={220} />
-            ) : null}
+            ) : (
+              <AsyncImage
+                src={qrDataUrl}
+                alt="TOTP QR code"
+                eager
+                className="rounded-lg border border-border"
+                width={220}
+                height={220}
+              />
+            )}
             <p className="text-sm text-muted-foreground text-center max-w-sm">{FOUNDER_QR_NOTE}</p>
           </div>
           <form onSubmit={submitTotp} className="space-y-4">

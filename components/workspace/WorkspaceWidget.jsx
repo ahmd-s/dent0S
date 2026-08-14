@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import { useWorkspace } from './useWorkspace'
 import { DASHBOARD_WIDGET_REGISTRY } from './dashboard/DashboardWidgetRegistry'
 import { cn } from '@/lib/utils'
@@ -15,7 +16,7 @@ const SIZE_CLASSES = {
  * Renders a dashboard widget by workspace id when enabled.
  * Unknown ids render nothing.
  */
-export default function WorkspaceWidget({ id, className, ...props }) {
+export default memo(function WorkspaceWidget({ id, className, ...props }) {
   const { isDashboardEnabled, getWidgetMeta } = useWorkspace()
   if (!isDashboardEnabled(id)) return null
 
@@ -30,4 +31,4 @@ export default function WorkspaceWidget({ id, className, ...props }) {
       <Component {...props} className="h-full w-full" collapsedDefault={meta.collapsed} refreshPriority={meta.refresh_priority} />
     </div>
   )
-}
+})

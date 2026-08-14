@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, useMemo } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Plus, Search, ChevronDown, LayoutGrid } from 'lucide-react'
@@ -8,9 +8,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -32,7 +30,9 @@ import OutstandingBalanceModal from '@/components/dentos/OutstandingBalanceModal
 import ReceptionistPendingTasks from '@/components/dentos/ReceptionistPendingTasks'
 import GettingStarted from '@/components/dentos/GettingStarted'
 import { StatGridSkeleton } from '@/components/dentos/PageSkeleton'
+import PatientCombobox from '@/components/dentos/PatientCombobox'
 import { useLiveRefresh } from '@/hooks/useLiveRefresh'
+import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 
 const QUEUE_TOGGLE_KEY = 'dentos_show_booking_queue'
 const todayIso = () => new Date().toISOString().slice(0, 10)
@@ -73,7 +73,7 @@ function App() {
   const showQueueWidget = dashboardWidgets.includes('queue') && isDashboardEnabled('queue')
   const showFollowupsPanel = shouldShowFollowupsPanel(dashboardWidgets)
 
-  const load = (opts = {}) => {
+  const load = useCallback((opts = {}) => {
     const mode = opts.mode === 'core' ? 'core' : 'full'
     const qs = mode === 'core' ? '?mode=core' : ''
     return fetch(`/api/dashboard/stats${qs}`)
@@ -100,26 +100,31 @@ function App() {
         setStatsLoading(false)
         // Keep prior stats if a refresh fails so widgets stay usable
       })
-  }
-  useEffect(() => { load({ mode: 'full' }) }, [])
+  }, [])
+
+  const loadFull = useCallback(() => load({ mode: 'full' }), [load])
+  const loadCore = useCallback(() => load({ mode: 'core' }), [load])
+
+  useEffect(() => { loadFull() }, [loadFull])
   useEffect(() => {
     if (typeof window === 'undefined') return
     const stored = localStorage.getItem(QUEUE_TOGGLE_KEY)
     if (stored !== null) setShowQueue(stored === 'true')
   }, [])
-  useLiveRefresh(() => load({ mode: 'core' }))
+  useLiveRefresh(loadCore)
 
-  const toggleQueue = v => {
+  const toggleQueue = useCallback(v => {
     setShowQueue(v)
     if (typeof window !== 'undefined') localStorage.setItem(QUEUE_TOGGLE_KEY, String(v))
-  }
+  }, [])
 
-  const setStatus = async (id, status) => {
+  const setStatus = useCallback(async (id, status) => {
     await fetch(`/api/appointments/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) })
     toast.success('Updated')
-    load({ mode: 'full' })
-  }
-  const startVisit = async apt => {
+    loadFull()
+  }, [loadFull])
+
+  const startVisit = useCallback(async apt => {
     const r = await fetch('/api/visits', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -128,10 +133,18 @@ function App() {
     const d = await r.json()
     if (r.ok) router.push(`/visits/${d.id}`)
     else toast.error(d.error || 'Failed')
-  }
-  const cont = apt => (apt.visit_id ? router.push(`/visits/${apt.visit_id}`) : startVisit(apt))
+  }, [router])
 
-  const widgetProps = {
+  const cont = useCallback(
+    apt => (apt.visit_id ? router.push(`/visits/${apt.visit_id}`) : startVisit(apt)),
+    [router, startVisit]
+  )
+
+  const openBooking = useCallback(() => setBookOpen(true), [])
+
+  // Spread into every widget, so an unmemoized object re-rendered the whole
+  // dashboard grid on any state change (including each 25s refresh tick).
+  const widgetProps = useMemo(() => ({
     stats,
     showQueue,
     showQueueToggle,
@@ -140,8 +153,8 @@ function App() {
     setStatus,
     startVisit,
     cont,
-    onBook: () => setBookOpen(true),
-  }
+    onBook: openBooking,
+  }), [stats, showQueue, showQueueToggle, toggleQueue, canStartVisit, setStatus, startVisit, cont, openBooking])
 
   return (
     <div className={cn('max-w-7xl mx-auto space-y-4 md:space-y-5', layoutClasses)}>
@@ -185,7 +198,7 @@ function App() {
       )}
 
       <WorkspaceGate section="quick_actions" flag="new_appointment">
-        <QuickSearchBar onBook={() => setBookOpen(true)} canStartVisit={canStartVisit} />
+        <QuickSearchBar onBook={openBooking} canStartVisit={canStartVisit} />
       </WorkspaceGate>
 
       <WorkspaceGate section="dashboard" flag="notifications">
@@ -235,28 +248,31 @@ function App() {
         </div>
       )}
 
-      <BookAppointmentModal open={bookOpen} setOpen={setBookOpen} onCreated={() => load({ mode: 'full' })} />
+      <BookAppointmentModal open={bookOpen} setOpen={setBookOpen} onCreated={loadFull} />
     </div>
   )
 }
 
-function QuickSearchBar({ onBook, canStartVisit }) {
+const QuickSearchBar = memo(function QuickSearchBar({ onBook, canStartVisit }) {
   const router = useRouter()
   const [q, setQ] = useState('')
   const [results, setResults] = useState([])
   const [balanceModalOpen, setBalanceModalOpen] = useState(false)
   const [selectedPatientId, setSelectedPatientId] = useState(null)
-  const debRef = useRef(null)
+  const debouncedQ = useDebouncedValue(q, 300)
 
   useEffect(() => {
-    if (debRef.current) clearTimeout(debRef.current)
-    if (!q.trim()) { setResults([]); return }
-    debRef.current = setTimeout(async () => {
-      const r = await fetch(`/api/patients?q=${encodeURIComponent(q)}`)
-      const d = await r.json()
-      setResults((d.patients || []).slice(0, 5))
-    }, 300)
-  }, [q])
+    if (!debouncedQ.trim()) { setResults([]); return }
+    // Aborting on change stops a slow earlier response from overwriting the
+    // results for the query the user is actually looking at.
+    const controller = new AbortController()
+    const params = new URLSearchParams({ q: debouncedQ, page: '1', page_size: '5' })
+    fetch(`/api/patients?${params}`, { signal: controller.signal })
+      .then(r => r.json())
+      .then(d => setResults(d.patients || []))
+      .catch(() => {})
+    return () => controller.abort()
+  }, [debouncedQ])
 
   return (
     <>
@@ -312,14 +328,10 @@ function QuickSearchBar({ onBook, canStartVisit }) {
       <OutstandingBalanceModal open={balanceModalOpen} onOpenChange={setBalanceModalOpen} patientId={selectedPatientId} />
     </>
   )
-}
+})
 
-function BookAppointmentModal({ open, setOpen, onCreated }) {
-  const [patients, setPatients] = useState([])
+const BookAppointmentModal = memo(function BookAppointmentModal({ open, setOpen, onCreated }) {
   const [f, setF] = useState({ patient_id: '', appointment_date: todayIso(), appointment_time: '10:00 AM', appointment_type: 'consultation', chief_complaint: '', notes: '' })
-  useEffect(() => {
-    if (open) fetch('/api/patients').then(r => r.json()).then(d => setPatients(d.patients || []))
-  }, [open])
   const submit = async e => {
     e.preventDefault()
     if (!f.patient_id) { toast.error('Select patient'); return }
@@ -332,11 +344,13 @@ function BookAppointmentModal({ open, setOpen, onCreated }) {
       <DialogContent className="max-w-lg">
         <DialogHeader><DialogTitle>Quick Book Appointment</DialogTitle></DialogHeader>
         <form onSubmit={submit} className="space-y-3">
-          <div className="space-y-1.5"><Label>Patient</Label>
-            <Select value={f.patient_id} onValueChange={v => setF({ ...f, patient_id: v })}>
-              <SelectTrigger><SelectValue placeholder="Select patient" /></SelectTrigger>
-              <SelectContent>{patients.map(p => <SelectItem key={p.id} value={p.id}>{p.name} · +91 {p.phone}</SelectItem>)}</SelectContent>
-            </Select>
+          <div className="space-y-1.5">
+            <Label htmlFor="quick-book-patient">Patient</Label>
+            <PatientCombobox
+              id="quick-book-patient"
+              value={f.patient_id}
+              onChange={v => setF({ ...f, patient_id: v })}
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5"><Label>Date</Label><Input type="date" value={f.appointment_date} onChange={e => setF({ ...f, appointment_date: e.target.value })} /></div>
@@ -350,6 +364,6 @@ function BookAppointmentModal({ open, setOpen, onCreated }) {
       </DialogContent>
     </Dialog>
   )
-}
+})
 
 export default App

@@ -3,6 +3,9 @@ import path from 'path'
 import { getCurrentUser } from '@/lib/auth'
 import { getDb } from '@/lib/mongo'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 async function requireUser() {
   const t = getCurrentUser(); if (!t) return null
   const db = await getDb()

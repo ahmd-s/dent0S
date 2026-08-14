@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 export async function GET(request) {
   try {
     // Verify internal API key

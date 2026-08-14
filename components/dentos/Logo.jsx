@@ -1,5 +1,6 @@
 'use client'
-import { Sparkles } from 'lucide-react'
+
+import { AsyncImage } from '@/components/ui/async-image'
 
 export function DentosLogo({ className = '', dark = false }) {
   return (
@@ -24,12 +25,17 @@ export function ToothIcon({ className = '' }) {
 // DentOS tooth icon. Use anywhere clinic branding appears (sidebar, invoices,
 // booking pages, visit summaries) so the fallback behavior stays consistent.
 export function ClinicLogo({ logoUrl, size = 'w-9 h-9', iconSize = 'w-5 h-5', rounded = 'rounded-lg', className = '' }) {
-  if (logoUrl) {
-    return <img src={logoUrl} alt="Clinic logo" className={`${size} ${rounded} object-cover shrink-0 ${className}`} />
-  }
   return (
-    <div className={`${size} ${rounded} bg-primary flex items-center justify-center shrink-0 ${className}`}>
-      <ToothIcon className={`${iconSize} text-primary-foreground`} />
-    </div>
+    <AsyncImage
+      src={logoUrl}
+      alt="Clinic logo"
+      eager
+      className={`${size} ${rounded} object-cover shrink-0 ${className}`}
+      fallback={
+        <div className={`${size} ${rounded} bg-primary flex items-center justify-center shrink-0 ${className}`}>
+          <ToothIcon className={`${iconSize} text-primary-foreground`} />
+        </div>
+      }
+    />
   )
 }

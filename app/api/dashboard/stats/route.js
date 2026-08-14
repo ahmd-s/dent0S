@@ -1,6 +1,9 @@
 import { requireUser, json, err } from '@/lib/api-helpers'
 import { buildDashboardStats } from '@/lib/dashboard-stats'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 function allowDashboardDebug() {
   return process.env.NODE_ENV !== 'production' || process.env.DASHBOARD_PERF_DEBUG === '1'
 }

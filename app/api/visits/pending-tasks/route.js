@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
-import { getProfileRoles } from '@/lib/profile-roles'
-import { shouldScopeToDoctor } from '@/lib/doctor-scope'
+
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -13,7 +14,6 @@ function cors(res) {
 }
 const json = (d, s=200) => cors(NextResponse.json(d, { status: s }))
 const err = (msg, s=400) => json({ error: msg }, s)
-const clean = o => { if (!o) return o; const { _id, password_hash, ...rest } = o; return rest }
 
 async function requireUser() {
   const t = getCurrentUser(); if (!t) return null
@@ -28,7 +28,6 @@ export async function GET() {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx
     const cid = profile.clinic_id
-    const roles = getProfileRoles(profile)
 
     const visits = await db.collection('visits').find({
       clinic_id: cid,

@@ -44,7 +44,7 @@ export function GettingStarted({ stats, className }) {
             </CardDescription>
           </div>
           <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={dismiss} aria-label="Dismiss getting started">
-            <X className="h-4 w-4" />
+            <X className="h-4 w-4" aria-hidden />
           </Button>
         </div>
       </CardHeader>

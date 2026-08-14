@@ -2,7 +2,6 @@
 
 import { Suspense, useState } from 'react'
 import { Loader2, LayoutGrid, List } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import LabWorkflowDashboard from '@/components/lab-os/LabWorkflowDashboard'
 import DoctorLabDashboard from '@/components/lab-os/DoctorLabDashboard'
 import ReceptionLabDashboard from '@/components/lab-os/ReceptionLabDashboard'

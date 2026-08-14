@@ -3,6 +3,9 @@ import { requireUser, json, err, cors } from '@/lib/api-helpers'
 import { getProfileRoles } from '@/lib/profile-roles'
 import { createDefaultWorkspace, getWorkspace } from '@/lib/workspace-engine'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 export async function OPTIONS() {
   return cors(new NextResponse(null, { status: 204 }))
 }

@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Loader2, Stethoscope, Clock, CheckCircle2, User } from 'lucide-react'
 import { Card } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { useRole } from '@/components/dentos/RoleContext'
 import FlowAppointmentCard from './FlowAppointmentCard'

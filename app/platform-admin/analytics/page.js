@@ -1,16 +1,6 @@
 'use client'
-import { useCallback, useEffect, useState } from 'react'
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
+import { memo, useCallback, useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { BarChart3, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -30,20 +20,15 @@ const PERIODS = [
   { value: '12m', label: 'Last 12 Months' },
 ]
 
-function ChartCard({ title, description, data, dataKey = 'value', color = '#0D9488', type = 'bar', formatY }) {
-  if (!data || data.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{title}</CardTitle>
-          {description && <CardDescription>{description}</CardDescription>}
-        </CardHeader>
-        <CardContent className="flex h-48 items-center justify-center">
-          <p className="text-sm text-muted-foreground">No data for this period</p>
-        </CardContent>
-      </Card>
-    )
-  }
+const fmtCurrency = v => (v >= 1000 ? `₹${(v / 1000).toFixed(1)}k` : `₹${v}`)
+
+const AnalyticsChart = dynamic(() => import('@/components/platform-admin/AnalyticsChart'), {
+  ssr: false,
+  loading: () => <Skeleton className="h-[200px] w-full rounded-md" />,
+})
+
+const ChartCard = memo(function ChartCard({ title, description, data, dataKey = 'value', color = '#0D9488', type = 'bar', formatY }) {
+  const isEmpty = !data || data.length === 0
 
   return (
     <Card>
@@ -51,74 +36,18 @@ function ChartCard({ title, description, data, dataKey = 'value', color = '#0D94
         <CardTitle className="text-base">{title}</CardTitle>
         {description && <CardDescription>{description}</CardDescription>}
       </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={200}>
-          {type === 'area' ? (
-            <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-              <defs>
-                <linearGradient id={`grad-${title}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={color} stopOpacity={0.3} />
-                  <stop offset="95%" stopColor={color} stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis
-                dataKey="label"
-                tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-                tickLine={false}
-                axisLine={false}
-                interval="preserveStartEnd"
-              />
-              <YAxis
-                tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={formatY}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: 8,
-                  fontSize: 12,
-                }}
-                labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 600 }}
-              />
-              <Area type="monotone" dataKey={dataKey} stroke={color} strokeWidth={2} fill={`url(#grad-${title})`} />
-            </AreaChart>
-          ) : (
-            <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis
-                dataKey="label"
-                tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-                tickLine={false}
-                axisLine={false}
-                interval="preserveStartEnd"
-              />
-              <YAxis
-                tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={formatY}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: 8,
-                  fontSize: 12,
-                }}
-                labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 600 }}
-              />
-              <Bar dataKey={dataKey} fill={color} radius={[3, 3, 0, 0]} />
-            </BarChart>
-          )}
-        </ResponsiveContainer>
-      </CardContent>
+      {isEmpty ? (
+        <CardContent className="flex h-48 items-center justify-center">
+          <p className="text-sm text-muted-foreground">No data for this period</p>
+        </CardContent>
+      ) : (
+        <CardContent>
+          <AnalyticsChart data={data} dataKey={dataKey} color={color} type={type} formatY={formatY} />
+        </CardContent>
+      )}
     </Card>
   )
-}
+})
 
 export default function AnalyticsPage() {
   const [data, setData] = useState(null)
@@ -143,8 +72,6 @@ export default function AnalyticsPage() {
   }, [period])
 
   useEffect(() => { load() }, [load])
-
-  const fmtCurrency = v => v >= 1000 ? `₹${(v / 1000).toFixed(1)}k` : `₹${v}`
 
   if (loading) {
     return (
@@ -174,8 +101,14 @@ export default function AnalyticsPage() {
               {PERIODS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Button variant="outline" size="sm" onClick={() => load({ silent: true })} disabled={refreshing}>
-            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => load({ silent: true })}
+            disabled={refreshing}
+            aria-label={refreshing ? 'Refreshing analytics' : 'Refresh analytics'}
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} aria-hidden />
           </Button>
         </div>
       </div>

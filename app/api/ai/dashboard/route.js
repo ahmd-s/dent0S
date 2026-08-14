@@ -4,6 +4,9 @@ import { canAccessClinical } from '@/lib/rbac'
 import { isClinicAccessBlocked, clinicAccessPausedResponse } from '@/lib/clinic-access'
 import { getAIDashboard } from '@/lib/ai-engine'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 export async function OPTIONS() {
   return cors(new NextResponse(null, { status: 204 }))
 }

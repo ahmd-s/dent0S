@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Clock, AlertTriangle, Stethoscope, Users } from 'lucide-react'
 import { Card } from '@/components/ui/card'
@@ -41,7 +41,7 @@ function fetchPatientsDashboard() {
   return patientsDashboardInflight
 }
 
-export function RecentPatientsWidget({ className }) {
+export const RecentPatientsWidget = memo(function RecentPatientsWidget({ className }) {
   const [recent, setRecent] = useState([])
 
   useEffect(() => {
@@ -71,9 +71,9 @@ export function RecentPatientsWidget({ className }) {
       )}
     </Card>
   )
-}
+})
 
-export function ActiveTreatmentsWidget() {
+export const ActiveTreatmentsWidget = memo(function ActiveTreatmentsWidget() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -108,9 +108,9 @@ export function ActiveTreatmentsWidget() {
       )}
     </Card>
   )
-}
+})
 
-export function CriticalPatientsWidget() {
+export const CriticalPatientsWidget = memo(function CriticalPatientsWidget() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -148,9 +148,9 @@ export function CriticalPatientsWidget() {
       )}
     </Card>
   )
-}
+})
 
-export function TodaysFollowupsWidget({ stats }) {
+export const TodaysFollowupsWidget = memo(function TodaysFollowupsWidget({ stats }) {
   const [items, setItems] = useState(stats?.followups || [])
 
   useEffect(() => {
@@ -185,4 +185,4 @@ export function TodaysFollowupsWidget({ stats }) {
       )}
     </Card>
   )
-}
+})

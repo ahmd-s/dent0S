@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server'
 import { requireUser, json, err, clean, cors } from '@/lib/api-helpers'
-import { LAB_CASE_STATUSES, safeIsoDate, populateNames, secureToken } from '@/lib/lab-case-helpers'
+import { LAB_CASE_STATUSES, safeIsoDate, populateNames } from '@/lib/lab-case-helpers'
+import { secureToken } from '@/lib/lab-case-tokens'
 import { logAudit, AUDIT_ACTIONS, AUDIT_SOURCE } from '@/lib/audit'
 import { logLabStatusChange } from '@/lib/lab-activity'
 import { canManageInventory } from '@/lib/rbac'
+
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
 
 export async function OPTIONS() { return cors(new NextResponse(null, { status: 200 })) }
 

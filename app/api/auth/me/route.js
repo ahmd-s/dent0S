@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
 import { getCurrentUser, getCurrentImpersonatedUser } from '@/lib/auth'
+import { loadUserContext } from '@/lib/auth-context'
 import { isPlatformAdminProfile } from '@/lib/platform-admin'
 import { ensureProfileRolesMigrated } from '@/lib/profile-roles'
 import { shouldShowTrialWarning, trialDaysRemaining } from '@/lib/subscription-helpers'
+
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -32,21 +36,16 @@ async function requireUser() {
   const imp = getCurrentImpersonatedUser()
   if (imp?.imp) {
     const db = await getDb()
-    const profile = await db.collection('profiles').findOne({ id: imp.uid })
-    if (!profile) return null
-    const clinic = await db.collection('clinics').findOne({ id: profile.clinic_id })
-    return { profile, clinic, db, token: imp, isImpersonated: true }
+    return loadUserContext(db, imp.uid, { token: imp, isImpersonated: true })
   }
   const t = getCurrentUser()
   if (!t) return null
   const db = await getDb()
-  const profile = await db.collection('profiles').findOne({ id: t.uid })
-  if (!profile) return null
-  if (isPlatformAdminProfile(profile)) {
-    return { profile, clinic: null, db, token: t }
-  }
-  const clinic = await db.collection('clinics').findOne({ id: profile.clinic_id })
-  return { profile, clinic, db, token: t }
+  const ctx = await loadUserContext(db, t.uid, { token: t })
+  if (!ctx) return null
+  // Platform admins are not scoped to a clinic even if the profile carries one.
+  if (isPlatformAdminProfile(ctx.profile)) return { ...ctx, clinic: null }
+  return ctx
 }
 
 export async function GET() {

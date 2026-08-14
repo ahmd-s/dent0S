@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Plus, Phone, Search, Eye, CalendarPlus, X, Loader2, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -12,7 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner'
 import { useRole } from '@/components/dentos/RoleContext'
 import ImportPatientsModal from '@/components/dentos/ImportPatientsModal'
+import { EmptyState } from '@/components/dentos/EmptyState'
 import { useLiveRefresh } from '@/hooks/useLiveRefresh'
+import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 
 const fmtDate = d => d ? `${String(new Date(d).getDate()).padStart(2,'0')}/${String(new Date(d).getMonth()+1).padStart(2,'0')}/${new Date(d).getFullYear()}` : '—'
 const PAGE_SIZE = 20
@@ -22,27 +24,40 @@ function App() {
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState('all')
   const [page, setPage] = useState(1)
+  const [pagination, setPagination] = useState(null)
   const [open, setOpen] = useState(false)
   const [importModalOpen, setImportModalOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const { canAccessClinical } = useRole()
   const canImport = canAccessClinical()
 
-  const load = async () => {
+  // The raw input drove the fetch effect directly, so every keystroke issued a
+  // regex query against `patients`.
+  const debouncedQ = useDebouncedValue(q, 300)
+
+  const load = useCallback(async () => {
     setLoading(true)
-    const params = new URLSearchParams()
-    if (q) params.set('q', q)
+    const params = new URLSearchParams({ page: String(page), page_size: String(PAGE_SIZE) })
+    if (debouncedQ) params.set('q', debouncedQ)
     if (filter !== 'all') params.set('filter', filter)
     const r = await fetch('/api/patients?' + params)
     const d = await r.json()
     setList(d.patients || [])
+    setPagination(d.pagination || null)
     setLoading(false)
-  }
-  useEffect(() => { load() }, [q, filter])
+  }, [debouncedQ, filter, page])
+
+  useEffect(() => { load() }, [load])
   useLiveRefresh(load)
 
-  const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE))
-  const visible = list.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE)
+  // A new query or filter invalidates the page cursor.
+  useEffect(() => { setPage(1) }, [debouncedQ, filter])
+
+  // `list` is already one server page. It used to be sliced again locally,
+  // which made totalPages always 1 and left patients past the first page
+  // unreachable.
+  const totalPages = Math.max(1, pagination?.total_pages || 1)
+  const visible = list
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -105,7 +120,17 @@ function App() {
             ))}
           </div>
         )}
-        {!loading && visible.length===0 && <div className="py-16 text-center text-muted-foreground text-sm">No patients match your search</div>}
+        {!loading && visible.length===0 && (
+          <EmptyState
+            icon={Search}
+            title={q || filter !== 'all' ? 'No matching patients' : 'No patients yet'}
+            description={
+              q || filter !== 'all'
+                ? 'Try a different name, phone number, or filter.'
+                : 'Add your first patient to start booking appointments and recording visits.'
+            }
+          />
+        )}
         {!loading && visible.length>0 && (
           <>
             {/* Desktop Table View */}
@@ -209,9 +234,12 @@ function App() {
       </Card>
       {totalPages>1 && (
         <div className="mt-4 flex items-center justify-end gap-2 text-sm">
-          <Button size="sm" variant="outline" disabled={page===1} onClick={()=>setPage(p=>p-1)}>Previous</Button>
-          <span className="text-muted-foreground">Page {page} / {totalPages}</span>
-          <Button size="sm" variant="outline" disabled={page===totalPages} onClick={()=>setPage(p=>p+1)}>Next</Button>
+          <Button size="sm" variant="outline" disabled={page===1 || loading} onClick={()=>setPage(p=>Math.max(1, p-1))}>Previous</Button>
+          <span className="text-muted-foreground">
+            Page {page} / {totalPages}
+            {pagination?.total_count ? ` · ${pagination.total_count} patients` : ''}
+          </span>
+          <Button size="sm" variant="outline" disabled={page===totalPages || loading} onClick={()=>setPage(p=>p+1)}>Next</Button>
         </div>
       )}
     </div>

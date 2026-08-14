@@ -1,7 +1,6 @@
 'use client'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { Search, Eye, IndianRupee, AlertCircle, Receipt, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { useRole } from '@/components/dentos/RoleContext'
 import { useLiveRefresh } from '@/hooks/useLiveRefresh'
+import { EmptyState } from '@/components/dentos/EmptyState'
 
 const inr = n => '₹' + (n||0).toLocaleString('en-IN')
 const fmtDate = d => d ? `${String(new Date(d+'T00:00:00').getDate()).padStart(2,'0')}/${String(new Date(d+'T00:00:00').getMonth()+1).padStart(2,'0')}/${new Date(d+'T00:00:00').getFullYear()}` : '—'
@@ -23,7 +23,6 @@ const statusBadge = s => {
 }
 
 function App() {
-  const router = useRouter()
   const { canManageBilling } = useRole()
   const [list, setList] = useState([])
   const [summary, setSummary] = useState({ collected:0, pending:0, total:0 })
@@ -34,14 +33,15 @@ function App() {
   const [payOpen, setPayOpen] = useState(null)
   const searchTimeoutRef = useRef(null)
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const params = new URLSearchParams({ from, to, status })
     if (q) params.set('q', q)
     const r = await fetch('/api/invoices?' + params)
     const d = await r.json()
     setList(d.invoices||[]); setSummary(d.summary||{collected:0,pending:0,total:0})
-  }
-  useEffect(() => { load() }, [from, to, status, q])
+  }, [from, to, status, q])
+
+  useEffect(() => { load() }, [load])
   useLiveRefresh(load, [from, to, status, q])
 
   const handleSearchChange = useCallback((value) => {
@@ -89,7 +89,13 @@ function App() {
       </Card>
 
       <Card className="mt-4 bg-card border-border rounded-lg overflow-hidden">
-        {list.length===0 && <div className="py-12 text-center text-muted-foreground text-sm">No invoices in this date range</div>}
+        {list.length===0 && (
+          <EmptyState
+            icon={Receipt}
+            title="No invoices in this date range"
+            description="Completed visits generate invoices automatically. Try a wider date range or a different payment status."
+          />
+        )}
         {list.length>0 && (
           <>
             {/* Desktop Table View */}

@@ -3,6 +3,9 @@ import { getDb } from '@/lib/mongo'
 import { clearImpersonationCookie, getCurrentImpersonatedUser } from '@/lib/auth'
 import { logPlatformAudit, AUDIT_ACTIONS } from '@/lib/platform-admin'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
   res.headers.set('Access-Control-Allow-Methods', 'POST,OPTIONS')

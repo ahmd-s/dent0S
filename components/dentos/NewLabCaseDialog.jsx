@@ -13,6 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import PatientCombobox from '@/components/dentos/PatientCombobox'
 
 export const CASE_TYPES = ['Crown', 'Bridge', 'Denture', 'Partial Denture', 'Implant Crown', 'Inlay/Onlay', 'Veneer', 'Aligner', 'Night Guard', 'Other']
 export const MATERIALS = ['Zirconia', 'PFM (Porcelain Fused to Metal)', 'E-max / Lithium Disilicate', 'Full Metal', 'Acrylic', 'Composite', 'Cobalt-Chrome', 'Other']
@@ -60,7 +61,6 @@ const EMPTY = { patient_id: '', vendor_id: '', case_type: '', tooth_numbers: '',
 export function NewLabCaseDialog({ open, setOpen, onCreated, lockedPatient = null, navigateOnCreate = true }) {
   const router = useRouter()
   const [f, setF] = useState(EMPTY)
-  const [patients, setPatients] = useState([])
   const [vendors, setVendors] = useState([])
   const [loading, setLoading] = useState(false)
   const [loadingRefs, setLoadingRefs] = useState(false)
@@ -69,16 +69,13 @@ export function NewLabCaseDialog({ open, setOpen, onCreated, lockedPatient = nul
     if (!open) return
     setF({ ...EMPTY, patient_id: lockedPatient?.id || '' })
     setLoadingRefs(true)
-    const reqs = [fetch('/api/vendors').then(r=>r.json())]
-    if (!lockedPatient) reqs.push(fetch('/api/patients').then(r=>r.json()))
-    Promise.all(reqs).then(([v, p]) => {
-      setVendors(v.vendors || [])
-      if (!lockedPatient) setPatients(p?.patients || [])
-      setLoadingRefs(false)
-    }).catch(() => setLoadingRefs(false))
+    fetch('/api/vendors')
+      .then(r => r.json())
+      .then(v => setVendors(v.vendors || []))
+      .catch(() => {})
+      .finally(() => setLoadingRefs(false))
   }, [open, lockedPatient])
 
-  const patientItems = patients.map(p => ({ value: p.id, label: `${p.name}${p.patient_code?` (${p.patient_code})`:''}${p.phone?` · ${p.phone}`:''}` }))
   const vendorItems = vendors.map(v => ({ value: v.id, label: v.name }))
 
   const submit = async (e) => {
@@ -114,7 +111,7 @@ export function NewLabCaseDialog({ open, setOpen, onCreated, lockedPatient = nul
                   {lockedPatient.name}{lockedPatient.patient_code ? ` (${lockedPatient.patient_code})` : ''}
                 </div>
               ) : (
-                <Combobox items={patientItems} value={f.patient_id} onChange={v=>setF({...f,patient_id:v})} placeholder="Select patient…" emptyText="No patients found"/>
+                <PatientCombobox value={f.patient_id} onChange={v=>setF({...f,patient_id:v})} />
               )}
             </div>
             <div className="space-y-1.5 col-span-2 sm:col-span-1">

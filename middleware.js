@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { authorizeRouteSync } from '@/lib/authorization-engine'
 
 const PUBLIC_PATHS = ['/login', '/signup', '/signup/google-complete', '/forgot-password', '/reset-password', '/verify-email', '/verify-email-pending']
-const PROTECTED_PREFIXES = ['/dashboard', '/onboarding', '/patients', '/appointments', '/lab-cases', '/vendors', '/billing', '/settings', '/visits', '/inventory', '/subscription', '/reports', '/ai', '/marketing']
+const PROTECTED_PREFIXES = ['/dashboard', '/onboarding', '/patients', '/appointments', '/lab-cases', '/vendors', '/billing', '/settings', '/visits', '/inventory', '/subscription', '/reports', '/ai', '/marketing', '/business']
 
 function jwtPayload(token) {
   try {
@@ -76,6 +76,7 @@ export const config = {
   matcher: [
     '/platform-admin',
     '/platform-admin/:path*',
+    '/dashboard',
     '/dashboard/:path*',
     '/onboarding',
     '/login',
@@ -88,12 +89,19 @@ export const config = {
     '/book/:path*',
     '/auth/impersonate',
     '/maintenance',
+    '/patients',
     '/patients/:path*',
+    '/appointments',
     '/appointments/:path*',
+    '/lab-cases',
     '/lab-cases/:path*',
+    '/vendors',
     '/vendors/:path*',
+    '/billing',
     '/billing/:path*',
+    '/settings',
     '/settings/:path*',
+    '/visits',
     '/visits/:path*',
     '/inventory',
     '/inventory/:path*',
@@ -104,5 +112,7 @@ export const config = {
     '/ai/:path*',
     '/marketing',
     '/marketing/:path*',
+    '/business',
+    '/business/:path*',
   ],
 }

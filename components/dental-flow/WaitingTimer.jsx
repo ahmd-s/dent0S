@@ -16,7 +16,7 @@ export default function WaitingTimer({ stats, appointments = [] }) {
       }
     }
     return { current: 0, average: 0, longest: 0, health: 'good' }
-  }, [stats, appointments])
+  }, [stats])
 
   const healthColor = {
     good: 'text-green-600',

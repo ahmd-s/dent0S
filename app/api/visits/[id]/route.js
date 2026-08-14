@@ -7,6 +7,11 @@ import { v4 as uuidv4 } from 'uuid'
 import { logActivity } from '@/lib/activity-helpers'
 import { ACTIVITY_EVENTS } from '@/lib/activity-event-registry'
 import { onVisitCompleted, onFollowupAssigned } from '@/lib/communication'
+import { loadUserContext } from '@/lib/auth-context'
+import { ensureVisitWorkflow, planVisitWorkflowUpdate } from '@/lib/visit-completion'
+
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -25,10 +30,7 @@ const initials = name => (name || '').split(' ').filter(Boolean).map(w => w[0]).
 async function requireUser() {
   const t = getCurrentUser(); if (!t) return null
   const db = await getDb()
-  const profile = await db.collection('profiles').findOne({ id: t.uid })
-  if (!profile) return null
-  const clinic = await db.collection('clinics').findOne({ id: profile.clinic_id })
-  return { profile, clinic, db }
+  return loadUserContext(db, t.uid)
 }
 
 export async function GET(request, { params }) {
@@ -39,8 +41,9 @@ export async function GET(request, { params }) {
   const cid = profile.clinic_id
   const id = params.id
 
-  const v = await db.collection('visits').findOne({ id, clinic_id: cid })
-  if (!v) return err('Not found', 404)
+  const raw = await db.collection('visits').findOne({ id, clinic_id: cid })
+  if (!raw) return err('Not found', 404)
+  const v = ensureVisitWorkflow(raw)
   const [p, doc, rxs, prevList, inv] = await Promise.all([
     db.collection('patients').findOne({ id: v.patient_id, clinic_id: cid }),
     v.doctor_id ? db.collection('profiles').findOne({ id: v.doctor_id, clinic_id: cid }) : null,
@@ -64,13 +67,20 @@ export async function PUT(request, { params }) {
 
   if (!hasPermission(profile.role, 'visits', 'update')) return err('Forbidden', 403)
   const b = await request.json()
-  const visit = await db.collection('visits').findOne({ id, clinic_id: cid })
-  if (!visit) return err('Not found', 404)
+  const found = await db.collection('visits').findOne({ id, clinic_id: cid })
+  if (!found) return err('Not found', 404)
+  const visit = ensureVisitWorkflow(found)
+
+  const planned = planVisitWorkflowUpdate(visit, b)
+  if (planned.error) return err(planned.error, planned.status || 400)
 
   const allowed = ['chief_complaint', 'clinical_notes', 'diagnosis', 'treatment_done', 'treatment_plan', 'next_visit_recommended', 'next_visit_date']
   const update = {}
   for (const k of allowed) if (k in b) update[k] = b[k]
-  await db.collection('visits').updateOne({ id, clinic_id: cid }, { $set: update })
+  Object.assign(update, planned.update)
+  if (Object.keys(update).length) {
+    await db.collection('visits').updateOne({ id, clinic_id: cid }, { $set: update })
+  }
   // replace prescriptions
   if (Array.isArray(b.prescriptions)) {
     await db.collection('prescriptions').deleteMany({ visit_id: id, clinic_id: cid })
@@ -131,34 +141,70 @@ export async function PUT(request, { params }) {
   // complete-visit side effects
   if (b.complete) {
     if (!visit.chief_complaint && !b.chief_complaint) return err('Chief complaint required to complete')
-    if (visit?.appointment_id) {
-      await db.collection('appointments').updateOne({ id: visit.appointment_id, clinic_id: cid }, { $set: { status: 'completed' } })
-      await logActivity(db, profile, ACTIVITY_EVENTS.APPOINTMENT_COMPLETED, {
+    // These writes and reads are independent of one another, so they run
+    // concurrently instead of as five serial round-trips on the busiest
+    // clinical write path.
+    const [invoice] = await Promise.all([
+      invoiceId
+        ? db.collection('invoices').findOne({ id: invoiceId, clinic_id: cid })
+        : Promise.resolve(null),
+      db.collection('patients').updateOne(
+        { id: visit.patient_id, clinic_id: cid },
+        {
+          $set: {
+            last_visit_date: visit.visit_date,
+            next_followup_date: b.next_visit_recommended ? b.next_visit_date : null,
+          },
+          $inc: { total_visits: 1 },
+        }
+      ),
+      logActivity(db, profile, ACTIVITY_EVENTS.VISIT_COMPLETED, {
         patientId: visit.patient_id,
-        appointmentId: visit.appointment_id,
         visitId: id,
-      })
-    }
-    await db.collection('patients').updateOne({ id: visit.patient_id, clinic_id: cid }, { $set: { last_visit_date: visit.visit_date, next_followup_date: b.next_visit_recommended ? b.next_visit_date : null }, $inc: { total_visits: 1 } })
-    await logActivity(db, profile, ACTIVITY_EVENTS.VISIT_COMPLETED, {
-      patientId: visit.patient_id,
-      visitId: id,
-      appointmentId: visit.appointment_id,
-    })
-
-    const invoice = invoiceId
-      ? await db.collection('invoices').findOne({ id: invoiceId, clinic_id: cid })
-      : null
-    onVisitCompleted(db, profile, { visit, invoice }).catch(e => console.error('Communication hook error:', e))
-
-    if (b.next_visit_recommended && b.next_visit_date) {
-      onFollowupAssigned(db, profile, {
-        patientId: visit.patient_id,
-        followUpDate: b.next_visit_date,
-      }).catch(e => console.error('Communication hook error:', e))
-    }
+        appointmentId: visit.appointment_id,
+      }),
+      ...(visit?.appointment_id
+        ? [
+            db.collection('appointments').updateOne(
+              { id: visit.appointment_id, clinic_id: cid },
+              { $set: { status: 'completed' } }
+            ),
+            logActivity(db, profile, ACTIVITY_EVENTS.APPOINTMENT_COMPLETED, {
+              patientId: visit.patient_id,
+              appointmentId: visit.appointment_id,
+              visitId: id,
+            }),
+          ]
+        : []),
+    ])
+    // Awaited, not fire-and-forget: a serverless instance can be frozen the
+    // moment the response is returned, which silently dropped the queued
+    // visit-summary and follow-up messages. Both are idempotent, and they run
+    // concurrently so the added latency is one hook's worth, not two.
+    await Promise.all([
+      onVisitCompleted(db, profile, { visit, invoice })
+        .catch(e => console.error('Communication hook error:', e)),
+      b.next_visit_recommended && b.next_visit_date
+        ? onFollowupAssigned(db, profile, {
+            patientId: visit.patient_id,
+            followUpDate: b.next_visit_date,
+          }).catch(e => console.error('Communication hook error:', e))
+        : Promise.resolve(),
+      db.collection('visits').updateOne(
+        { id, clinic_id: cid },
+        { $set: { workflow_status: 'completed', status: 'completed', updated_at: new Date() } }
+      ),
+    ])
   }
+  const saved = { ...visit, ...update, ...(b.complete ? { workflow_status: 'completed', status: 'completed' } : {}) }
   const { invalidateDashboardRelatedCaches } = await import('@/lib/dashboard-invalidation')
   invalidateDashboardRelatedCaches(cid, 'visit')
-  return json({ ok: true, invoice_id: invoiceId })
+  return json({
+    ok: true,
+    invoice_id: invoiceId,
+    workflow_status: saved.workflow_status,
+    clinical_saved_at: saved.clinical_saved_at || null,
+    inventory_step: saved.inventory_step || null,
+    invoice_step: saved.invoice_step || null,
+  })
 }

@@ -4,6 +4,9 @@ import { consumeStockFifo, applyTreatmentConsumption, InventoryFlowError } from 
 import { ACTIVITY_EVENTS } from '@/lib/activity-event-registry'
 import { logActivity } from '@/lib/activity-helpers'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 export async function OPTIONS() { return cors(new NextResponse(null, { status: 200 })) }
 
 export async function POST(request) {

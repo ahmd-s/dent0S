@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { FileText, Send, Download, Copy, Eye, Loader2, AlertCircle, CheckCircle2, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -21,7 +21,7 @@ export function ConsentFormsTab({ patientId, patientName, patientPhone }) {
   const [consentLink, setConsentLink] = useState('')
   const [copyButtonText, setCopyButtonText] = useState('Copy Link')
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
     const [cRes, tRes] = await Promise.all([
       fetch(`/api/consent-requests?patient_id=${patientId}`),
@@ -32,9 +32,9 @@ export function ConsentFormsTab({ patientId, patientName, patientPhone }) {
     setConsents(cData.consent_requests || [])
     setTemplates(tData.templates?.filter(t => t.active) || [])
     setLoading(false)
-  }
+  }, [patientId])
 
-  useEffect(() => { load() }, [patientId])
+  useEffect(() => { load() }, [load])
 
   const sendConsent = async () => {
     if (!selectedTemplate) { toast.error('Please select a template'); return }

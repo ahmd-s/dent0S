@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server'
 import { requireUser, json, err, cors, isClinicAccessBlocked, clinicAccessPausedResponse } from '@/lib/api-helpers'
-import { secureToken } from '@/lib/lab-case-helpers'
+import { secureToken } from '@/lib/lab-case-tokens'
 import { logAudit, AUDIT_ACTIONS, AUDIT_SOURCE } from '@/lib/audit'
+
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
 
 export async function OPTIONS() { return cors(new NextResponse(null, { status: 200 })) }
 

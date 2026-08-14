@@ -1,5 +1,8 @@
 import { requireUser, json, err } from '@/lib/api-helpers'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/patients/dashboard
  * Patient-centric dashboard data for Clinical Workspace widgets.

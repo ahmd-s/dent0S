@@ -3,8 +3,6 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { CheckCircle2, Calendar, Clock, MapPin, MessageCircle } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { ToothIcon } from '@/components/dentos/Logo'
 
 const fmtFull = d => { const x = new Date(d+'T00:00:00'); return x.toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long', year:'numeric' }) }
 

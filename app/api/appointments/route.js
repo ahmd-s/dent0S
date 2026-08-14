@@ -5,10 +5,12 @@ import { logActivity } from '@/lib/activity-helpers'
 import { ACTIVITY_EVENTS } from '@/lib/activity-event-registry'
 import { findAppointmentConflicts } from '@/lib/appointment-conflicts'
 import { enrichAppointments } from '@/lib/appointment-enrichment'
-import { addDays } from '@/lib/appointment-time'
 import { doctorAppointmentFilter } from '@/lib/doctor-scope'
 import { getProfileRoles } from '@/lib/profile-roles'
 import { onAppointmentCreated } from '@/lib/communication'
+
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
 
 export async function OPTIONS() {
   return cors(new NextResponse(null, { status: 204 }))
@@ -126,14 +128,19 @@ export async function POST(request) {
     },
   })
 
-  if (doc.status === 'confirmed') {
-    await logActivity(db, profile, ACTIVITY_EVENTS.APPOINTMENT_CONFIRMED, {
-      patientId: b.patient_id,
-      appointmentId: id,
-    })
-  }
-
-  onAppointmentCreated(db, profile, doc).catch(e => console.error('Communication hook error:', e))
+  // Awaited so the reminder rows are actually committed — an un-awaited
+  // promise can be dropped when the serverless response returns. The activity
+  // write is independent, so both run concurrently.
+  await Promise.all([
+    doc.status === 'confirmed'
+      ? logActivity(db, profile, ACTIVITY_EVENTS.APPOINTMENT_CONFIRMED, {
+          patientId: b.patient_id,
+          appointmentId: id,
+        })
+      : Promise.resolve(),
+    onAppointmentCreated(db, profile, doc)
+      .catch(e => console.error('Communication hook error:', e)),
+  ])
 
   const { invalidateDashboardRelatedCaches } = await import('@/lib/dashboard-invalidation')
   invalidateDashboardRelatedCaches(profile.clinic_id, 'appointment')

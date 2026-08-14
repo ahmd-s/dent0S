@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { requirePlatformAdmin, logPlatformAudit, AUDIT_ACTIONS, getClientIp } from '@/lib/platform-admin'
 import { signToken } from '@/lib/auth'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
   res.headers.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')

@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { Loader2, Clock, Paperclip, CheckCircle2, FlaskConical, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -38,15 +38,16 @@ export default function LabPortalPage() {
   const [updating, setUpdating] = useState('')
   const [note, setNote] = useState('')
 
-  const load = async () => {
+  const load = useCallback(async () => {
+    if (!token) return
     try {
       const r = await fetch(`/api/lab-portal/${token}`)
       if (!r.ok) { setError(r.status === 404 ? 'This link is invalid or has expired.' : 'Unable to load this case.'); return }
       setLc((await r.json()).lab_case)
     } catch { setError('Unable to load this case.') }
     finally { setLoading(false) }
-  }
-  useEffect(() => { if (token) load() }, [token])
+  }, [token])
+  useEffect(() => { load() }, [load])
 
   const updateStatus = async (status) => {
     setUpdating(status)

@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
 import { stripInvoiceAuditFields } from '@/lib/invoice-audit'
 import { getCurrentUser } from '@/lib/auth'
+import { loadUserContext } from '@/lib/auth-context'
+
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -17,10 +21,7 @@ const clean = o => { if (!o) return o; const { _id, password_hash, ...rest } = o
 async function requireUser() {
   const t = getCurrentUser(); if (!t) return null
   const db = await getDb()
-  const profile = await db.collection('profiles').findOne({ id: t.uid })
-  if (!profile) return null
-  const clinic = await db.collection('clinics').findOne({ id: profile.clinic_id })
-  return { profile, clinic, db }
+  return loadUserContext(db, t.uid)
 }
 
 export async function GET(request, { params }) {

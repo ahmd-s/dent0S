@@ -12,6 +12,9 @@ import {
 } from '@/lib/communication'
 import { WHATSAPP_POLICY_VERSION } from '@/lib/communication/constants'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 export async function OPTIONS() {
   return cors(new NextResponse(null, { status: 204 }))
 }

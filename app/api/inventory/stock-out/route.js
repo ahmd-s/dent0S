@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server'
-import { requireUser, json, err, clean, cors, isClinicAccessBlocked, clinicAccessPausedResponse } from '@/lib/api-helpers'
+import { requireUser, json, err, cors, isClinicAccessBlocked, clinicAccessPausedResponse } from '@/lib/api-helpers'
+
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
 
 export async function OPTIONS() { return cors(new NextResponse(null, { status: 200 })) }
 

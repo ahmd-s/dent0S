@@ -1,7 +1,6 @@
 'use client'
 
 import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
 import { ToggleRow, ToggleSection, SectionPanel } from './ToggleSection'
 import DragOrderList from './DragOrderList'
 import { NAVIGATION_FIELDS, LOCKED_NAV_KEYS } from '@/lib/workspace-ui-schema'

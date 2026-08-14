@@ -1,9 +1,10 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Search, Loader2, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
+import { EmptyState } from '@/components/dentos/EmptyState'
 
 function App() {
   const [movements, setMovements] = useState([])
@@ -15,7 +16,7 @@ function App() {
   const [page, setPage] = useState(1)
   const [pagination, setPagination] = useState(null)
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
     const params = new URLSearchParams()
     if (q) params.set('item_id', q)
@@ -29,9 +30,9 @@ function App() {
     setMovements(d.movements || [])
     setPagination(d.pagination)
     setLoading(false)
-  }
+  }, [q, movementType, dateFrom, dateTo, page])
 
-  useEffect(() => { load() }, [q, movementType, dateFrom, dateTo, page])
+  useEffect(() => { load() }, [load])
 
   const getMovementTypeBadge = (type) => {
     const badges = {
@@ -74,9 +75,11 @@ function App() {
 
       {loading && <div className="mt-6 flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]"/></div>}
       {!loading && movements.length === 0 && (
-        <Card className="mt-4 bg-card border-border rounded-lg py-16 text-center text-muted-foreground text-sm">
-          No movements found.
-        </Card>
+        <EmptyState
+          icon={Search}
+          title="No movements found"
+          description="Stock in, stock out, and consumption appear here as they happen."
+        />
       )}
       {!loading && movements.length > 0 && (
         <div className="mt-4 bg-card border-border rounded-lg overflow-hidden">

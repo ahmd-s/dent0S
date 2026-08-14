@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -8,7 +9,6 @@ import {
   AlertCircle,
   UserCheck,
   MoreVertical,
-  MessageCircle,
   Plus,
   FlaskConical,
   AlertTriangle,
@@ -17,7 +17,6 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Switch } from '@/components/ui/switch'
-import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { DASHBOARD_PANEL_CLASS, DASHBOARD_PANEL_TITLE_CLASS } from './dashboard-panel-styles'
 
@@ -49,7 +48,7 @@ const statusBadge = s => {
   )
 }
 
-function StatCard({ label, val, sub, icon: Icon, color, href, compact = false }) {
+const StatCard = memo(function StatCard({ label, val, sub, icon: Icon, color, href, compact = false }) {
   const inner = (
     <Card className={`bg-card border-border h-full rounded-xl ${compact ? 'p-3.5 sm:p-4' : 'p-4 sm:p-5 md:p-5 min-h-[108px]'} ${href ? 'hover:border-[#0D9488]/40 transition-colors cursor-pointer active:scale-[0.98]' : ''}`}>
       <div className="flex items-start justify-between gap-3">
@@ -68,11 +67,11 @@ function StatCard({ label, val, sub, icon: Icon, color, href, compact = false })
   )
   if (href) return <Link href={href} className="min-w-0 block h-full">{inner}</Link>
   return <div className="min-w-0 h-full">{inner}</div>
-}
+})
 
 export { DASHBOARD_PANEL_CLASS, DASHBOARD_PANEL_TITLE_CLASS } from './dashboard-panel-styles'
 
-export function TodaysPatientsWidget({ stats, compact }) {
+export const TodaysPatientsWidget = memo(function TodaysPatientsWidget({ stats, compact }) {
   return (
     <StatCard
       compact={compact}
@@ -83,9 +82,9 @@ export function TodaysPatientsWidget({ stats, compact }) {
       color="#0D9488"
     />
   )
-}
+})
 
-export function RevenueWidget({ stats, compact }) {
+export const RevenueWidget = memo(function RevenueWidget({ stats, compact }) {
   return (
     <StatCard
       compact={compact}
@@ -96,9 +95,9 @@ export function RevenueWidget({ stats, compact }) {
       color="#22C55E"
     />
   )
-}
+})
 
-export function PendingBillsWidget({ stats, compact }) {
+export const PendingBillsWidget = memo(function PendingBillsWidget({ stats, compact }) {
   return (
     <StatCard
       compact={compact}
@@ -109,9 +108,9 @@ export function PendingBillsWidget({ stats, compact }) {
       color={stats?.pending_today > 0 ? '#F59E0B' : '#94A3B8'}
     />
   )
-}
+})
 
-export function FollowupsStatWidget({ stats }) {
+export const FollowupsStatWidget = memo(function FollowupsStatWidget({ stats }) {
   return (
     <StatCard
       label="Follow-ups Due"
@@ -121,7 +120,7 @@ export function FollowupsStatWidget({ stats }) {
       color={stats?.followups_due_count > 0 ? '#EF4444' : '#94A3B8'}
     />
   )
-}
+})
 
 const LAB_CASE_SECONDARY_CARDS = stats => [
   { label: 'Cases In Production', val: stats?.in_production_lab_cases ?? '—', sub: 'Being made at the lab', icon: FlaskConical, color: '#0D9488', href: '/lab-cases?status=lab_received,in_production,in_progress' },
@@ -129,7 +128,7 @@ const LAB_CASE_SECONDARY_CARDS = stats => [
   { label: 'Overdue Cases', val: stats?.overdue_lab_cases ?? '—', sub: 'Past expected delivery', icon: AlertTriangle, color: stats?.overdue_lab_cases > 0 ? '#EF4444' : '#94A3B8', href: '/lab-cases?status=overdue' },
 ]
 
-export function AwaitingLabAcceptanceWidget({ stats, compact }) {
+export const AwaitingLabAcceptanceWidget = memo(function AwaitingLabAcceptanceWidget({ stats, compact }) {
   return (
     <StatCard
       compact={compact}
@@ -141,9 +140,9 @@ export function AwaitingLabAcceptanceWidget({ stats, compact }) {
       href="/lab-cases?status=sent"
     />
   )
-}
+})
 
-export function LabCasesSecondaryWidgets({ stats }) {
+export const LabCasesSecondaryWidgets = memo(function LabCasesSecondaryWidgets({ stats }) {
   return (
     <>
       {LAB_CASE_SECONDARY_CARDS(stats).map(c => (
@@ -151,19 +150,19 @@ export function LabCasesSecondaryWidgets({ stats }) {
       ))}
     </>
   )
-}
+})
 
 /** @deprecated Use AwaitingLabAcceptanceWidget + LabCasesSecondaryWidgets */
-export function LabCasesWidget({ stats }) {
+export const LabCasesWidget = memo(function LabCasesWidget({ stats }) {
   return (
     <>
       <AwaitingLabAcceptanceWidget stats={stats} />
       <LabCasesSecondaryWidgets stats={stats} />
     </>
   )
-}
+})
 
-export function QueueWidget({
+export const QueueWidget = memo(function QueueWidget({
   stats,
   showQueue,
   showQueueToggle,
@@ -247,7 +246,7 @@ export function QueueWidget({
                         )}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <button className="w-8 h-8 hover:bg-muted rounded flex items-center justify-center"><MoreVertical className="w-3.5 h-3.5" /></button>
+                            <button type="button" aria-label="Appointment actions" className="w-8 h-8 hover:bg-muted rounded flex items-center justify-center"><MoreVertical className="w-3.5 h-3.5" aria-hidden /></button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => setStatus(a.id, 'cancelled')}>Cancel Appointment</DropdownMenuItem>
@@ -297,9 +296,9 @@ export function QueueWidget({
       )}
     </Card>
   )
-}
+})
 
-export function FollowupsPanelWidget({ stats, className }) {
+export const FollowupsPanelWidget = memo(function FollowupsPanelWidget({ stats, className }) {
   return (
     <Card className={cn(DASHBOARD_PANEL_CLASS, className)}>
       <div className="flex items-center justify-between mb-3">
@@ -330,7 +329,7 @@ export function FollowupsPanelWidget({ stats, className }) {
       </div>
     </Card>
   )
-}
+})
 
 import {
   RecentPatientsWidget,

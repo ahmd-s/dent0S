@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { User, Box, AlertTriangle, Clock, FlaskConical } from 'lucide-react'
 import { LAB_CASE_STATUS_META, statusLabel } from '@/lib/lab-case-helpers'
+import { AsyncImage } from '@/components/ui/async-image'
 
 const urgencyColor = u => ({
   routine: 'bg-slate-100 text-slate-600',
@@ -20,11 +21,11 @@ export default function LabCaseCard({ labCase: c, onAction, showActions = true, 
       <Link href={`/lab-cases/${c.id}`} className="block p-3">
         <div className="flex gap-3">
           <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
-            {c.patient_photo_url ? (
-              <img src={c.patient_photo_url} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <User className="w-5 h-5 text-muted-foreground" />
-            )}
+            <AsyncImage
+              src={c.patient_photo_url}
+              className="w-full h-full object-cover"
+              fallback={<User className="w-5 h-5 text-muted-foreground" />}
+            />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">

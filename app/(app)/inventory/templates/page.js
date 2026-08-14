@@ -1,6 +1,5 @@
 'use client'
-import { Component } from 'react'
-import { useEffect, useState } from 'react'
+import { Component, useEffect, useRef, useState } from 'react'
 import { Plus, Loader2, Edit2, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -9,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { useRole } from '@/components/dentos/RoleContext'
+import { EmptyState } from '@/components/dentos/EmptyState'
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -78,9 +78,15 @@ function App() {
 
       {loading && <div className="mt-6 flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]"/></div>}
       {!loading && templates.length === 0 && (
-        <Card className="mt-4 bg-card border-border rounded-lg py-16 text-center text-muted-foreground text-sm">
-          No treatment templates yet. {!roleLoading && canManageInventory() && 'Create your first template to streamline inventory consumption.'}
-        </Card>
+        <EmptyState
+          icon={Plus}
+          title="No treatment templates yet"
+          description={
+            !roleLoading && canManageInventory()
+              ? 'Create your first template to streamline inventory consumption.'
+              : 'Ask an administrator to create treatment templates.'
+          }
+        />
       )}
       {!loading && templates.length > 0 && (
         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -121,7 +127,9 @@ function TemplateDialog({ open, setOpen, editing, items, onSaved }) {
   const [treatmentLoading, setTreatmentLoading] = useState(false)
   const [showTreatmentDropdown, setShowTreatmentDropdown] = useState(false)
   const [fromTreatmentTemplate, setFromTreatmentTemplate] = useState(false)
-  const treatmentSearchRef = { current: null }
+  // A plain object literal here was re-created every render, so the
+  // click-outside effect never saw the attached DOM node.
+  const treatmentSearchRef = useRef(null)
 
   useEffect(() => {
     if (open) {
@@ -292,7 +300,7 @@ function MaterialRow({ item, idx, items, updateItem, removeItem, canRemove }) {
   const [catalogLoading, setCatalogLoading] = useState(false)
   const [showCatalogDropdown, setShowCatalogDropdown] = useState(false)
   const [fromCatalog, setFromCatalog] = useState(false)
-  const searchRef = { current: null }
+  const searchRef = useRef(null)
 
   useEffect(() => {
     setCatalogSearch(item.item_name)

@@ -1,6 +1,20 @@
+import { Inter } from 'next/font/google'
 import './globals.css'
 import { Toaster } from '@/components/ui/sonner'
 import { ThemeProvider } from '@/components/theme-provider'
+
+/**
+ * Self-hosted at build time. globals.css previously started with
+ * `@import url('https://fonts.googleapis.com/...')`, which serialises three
+ * blocking round-trips before any text can paint: globals.css, then Google's
+ * stylesheet, then the font files on a third origin. Serving the font from our
+ * own origin removes two of them and the third-party dependency.
+ */
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter',
+})
 
 export const metadata = {
   title: {
@@ -23,7 +37,7 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={inter.variable}>
       <body>
         <ThemeProvider
           attribute="class"

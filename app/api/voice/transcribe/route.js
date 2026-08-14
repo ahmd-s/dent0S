@@ -4,6 +4,10 @@ import { canAccessClinical } from '@/lib/rbac'
 import { isClinicAccessBlocked, clinicAccessPausedResponse } from '@/lib/clinic-access'
 import { generateVoiceVisitSummary } from '@/lib/ai-engine'
 import { validateFileUpload } from '@/lib/security'
+import { filenameForAudioMime, groqMimeForAudio, isAllowedVoiceAudioType, mapVoiceProviderError, normalizeAudioMime } from '@/lib/voice-audio'
+
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
 
 export async function OPTIONS() {
   return cors(new NextResponse(null, { status: 204 }))
@@ -21,27 +25,46 @@ export async function POST(request) {
 
     const formData = await request.formData()
     const audioFile = formData.get('audio')
-    if (!audioFile) return err('No audio file provided', 400)
+    if (!audioFile || typeof audioFile.arrayBuffer !== 'function') return err('No audio file provided', 400)
+
+    const visitId = formData.get('visit_id')?.toString() || null
+    if (!visitId) return err('visit_id is required', 400)
+
+    const visit = await ctx.db.collection('visits').findOne({ id: visitId, clinic_id: ctx.profile.clinic_id })
+    if (!visit) return err('Visit not found', 404)
+
+    const originalName = audioFile.name || 'recording.webm'
+    const mimeType = groqMimeForAudio(audioFile.type, originalName)
+    if (!isAllowedVoiceAudioType(mimeType, originalName)) {
+      return err('This audio format is not supported. Record again in Safari or Chrome.', 400)
+    }
 
     const fileValidation = validateFileUpload({
-      mimeType: audioFile.type || 'audio/webm',
+      mimeType: normalizeAudioMime(mimeType, originalName) || mimeType,
       sizeBytes: audioFile.size,
-      allowedTypes: ['audio/webm', 'audio/wav', 'audio/mpeg', 'audio/mp4', 'audio/ogg'],
+      allowedTypes: [
+        'audio/webm', 'audio/wav', 'audio/mpeg', 'audio/mp3', 'audio/mp4',
+        'audio/ogg', 'audio/m4a', 'audio/x-m4a', 'audio/aac', 'audio/mp4a-latm',
+        'video/webm', 'video/mp4',
+      ],
       maxBytes: 25 * 1024 * 1024,
     })
     if (!fileValidation.ok) return err(fileValidation.error, 400)
 
     const audioBuffer = Buffer.from(await audioFile.arrayBuffer())
-    const visitId = formData.get('visit_id')?.toString() || null
-    const patientId = formData.get('patient_id')?.toString() || null
+    const patientId = formData.get('patient_id')?.toString() || visit.patient_id || null
 
     const result = await generateVoiceVisitSummary(ctx.db, ctx.profile, {
       audioBuffer,
       visitId,
       patientId,
+      mimeType,
+      filename: filenameForAudioMime(mimeType, originalName),
     })
 
-    if (!result.ok) return err(result.error || 'Voice processing failed', 502)
+    if (!result.ok) {
+      return err(mapVoiceProviderError(result.error, { hasGroqKey: Boolean(process.env.GROQ_API_KEY) }), 502)
+    }
 
     return json({
       transcript: result.transcript,
@@ -51,7 +74,7 @@ export async function POST(request) {
       disclaimer: result.disclaimer,
     })
   } catch (e) {
-    console.error('Voice transcribe error:', e)
+    console.error('Voice transcribe error:', e?.name || 'Error')
     return err('Internal server error', 500)
   }
 }

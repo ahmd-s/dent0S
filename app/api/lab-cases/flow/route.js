@@ -3,6 +3,9 @@ import { requireUser, json, err, cors } from '@/lib/api-helpers'
 import { executeLabFlowAction, LabFlowError } from '@/lib/lab-workflow-engine'
 import { populateNames } from '@/lib/lab-case-helpers'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 export async function OPTIONS() {
   return cors(new NextResponse(null, { status: 204 }))
 }

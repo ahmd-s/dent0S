@@ -1,9 +1,8 @@
 'use client'
 
-import { canAccessSettings } from '@/lib/rbac'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2 } from 'lucide-react'
+import { useRole } from '@/components/dentos/RoleContext'
 import PageHeader from '@/components/dentos/PageHeader'
 import SystemHealthDashboard from '@/components/system/SystemHealthDashboard'
 import DiagnosticsPanel from '@/components/system/DiagnosticsPanel'
@@ -11,32 +10,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 export default function SystemSettingsPage() {
   const router = useRouter()
-  const [allowed, setAllowed] = useState(null)
+  // Permission comes from RoleProvider's already-loaded session rather than a
+  // second /api/auth/me round-trip behind a spinner.
+  const { canAccessSettings } = useRole()
+  const allowed = canAccessSettings()
 
   useEffect(() => {
-    fetch('/api/auth/me')
-      .then(r => r.json())
-      .then(me => {
-        if (!me?.profile || !canAccessSettings(me.profile)) {
-          router.replace('/dashboard?error=unauthorized')
-          setAllowed(false)
-        } else {
-          setAllowed(true)
-        }
-      })
-      .catch(() => {
-        router.replace('/dashboard?error=unauthorized')
-        setAllowed(false)
-      })
-  }, [router])
-
-  if (allowed === null) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="w-6 h-6 animate-spin text-primary" />
-      </div>
-    )
-  }
+    if (!allowed) router.replace('/dashboard?error=unauthorized')
+  }, [allowed, router])
 
   if (!allowed) return null
 

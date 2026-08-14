@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { Printer, Loader2, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -18,15 +18,16 @@ function App() {
   const [data, setData] = useState(null)
   const [notFound, setNotFound] = useState(false)
 
-  const load = async () => {
+  const load = useCallback(async () => {
+    if (!visitId) return
     const r = await fetch(`/api/public/visit-summary/${visitId}`)
     if (r.status === 404) {
       setNotFound(true)
       return
     }
     if (r.ok) setData(await r.json())
-  }
-  useEffect(() => { if (visitId) load() }, [visitId])
+  }, [visitId])
+  useEffect(() => { load() }, [load])
 
   if (notFound) return (
     <div className="min-h-screen bg-background flex items-center justify-center">

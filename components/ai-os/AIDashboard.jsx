@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { Loader2, Sparkles, FileText, Mic, Lightbulb, Clock, Zap } from 'lucide-react'
 import { Card } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 
 function Metric({ label, value, icon: Icon, color }) {
   return (

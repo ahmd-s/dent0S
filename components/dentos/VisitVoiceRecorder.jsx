@@ -6,11 +6,28 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { toast } from 'sonner'
+import {
+  detectRecordingSupport,
+  filenameForAudioMime,
+  mapGetUserMediaError,
+  mapVoiceUploadHttpError,
+  pickRecorderMimeType,
+  fallbackAudioMime,
+} from '@/lib/voice-audio'
 
 function formatTimer(totalSec) {
   const m = Math.floor(totalSec / 60)
   const s = totalSec % 60
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
+function recordingSupport() {
+  return detectRecordingSupport({
+    isSecureContext: typeof window === 'undefined' ? true : window.isSecureContext,
+    hasMediaDevices: typeof navigator !== 'undefined' && !!navigator.mediaDevices,
+    hasGetUserMedia: typeof navigator !== 'undefined' && typeof navigator.mediaDevices?.getUserMedia === 'function',
+    hasMediaRecorder: typeof MediaRecorder !== 'undefined',
+  })
 }
 
 /**
@@ -20,10 +37,18 @@ export function VisitVoiceRecorder({ visitId, onApplyExtraction, disabled }) {
   const [phase, setPhase] = useState('idle')
   const [seconds, setSeconds] = useState(0)
   const [lastTranscript, setLastTranscript] = useState('')
+  const [error, setError] = useState('')
   const chunksRef = useRef([])
   const mediaRecorderRef = useRef(null)
   const streamRef = useRef(null)
   const tickRef = useRef(null)
+  const releaseTimerRef = useRef(null)
+
+  const showError = useCallback((message) => {
+    const text = message || 'Voice notes failed. Try again.'
+    setError(text)
+    toast.error(text)
+  }, [])
 
   const clearTick = useCallback(() => {
     if (tickRef.current) {
@@ -35,6 +60,10 @@ export function VisitVoiceRecorder({ visitId, onApplyExtraction, disabled }) {
   const stopStreamTracks = useCallback(() => {
     streamRef.current?.getTracks().forEach(t => t.stop())
     streamRef.current = null
+    if (releaseTimerRef.current) {
+      clearTimeout(releaseTimerRef.current)
+      releaseTimerRef.current = null
+    }
   }, [])
 
   useEffect(() => {
@@ -51,68 +80,78 @@ export function VisitVoiceRecorder({ visitId, onApplyExtraction, disabled }) {
 
   const uploadBlob = useCallback(
     async blob => {
-      if (!visitId) return
+      if (!visitId) {
+        showError('This visit is missing an id. Refresh the page and try again.')
+        setPhase('idle')
+        return
+      }
       setPhase('processing')
+      setError('')
+      const mime = blob.type || 'audio/webm'
       const fd = new FormData()
-      fd.append('audio', blob, blob.type?.includes('webm') ? 'recording.webm' : 'recording.audio')
+      fd.append('audio', blob, filenameForAudioMime(mime))
       fd.append('visit_id', visitId)
       try {
         const res = await fetch('/api/voice/transcribe', { method: 'POST', body: fd })
         const data = await res.json().catch(() => ({}))
         if (!res.ok) {
-          toast.error(typeof data.error === 'string' ? data.error : 'Could not process recording')
+          showError(mapVoiceUploadHttpError(res.status, data.error))
           if (data.transcript) setLastTranscript(data.transcript)
           setPhase('idle')
           return
         }
         setLastTranscript(data.transcript || '')
-        onApplyExtraction?.({ transcript: data.transcript || '', fields: data.extracted || {} })    
-            toast.success('Voice notes added to the form. Review and edit before saving.')
+        onApplyExtraction?.({ transcript: data.transcript || '', fields: data.extracted || {} })
+        toast.success('Voice notes added to the form. Review and edit before saving.')
       } catch {
-        toast.error('Network error while uploading audio')
+        showError('Network error while uploading audio. Check your connection and try again.')
       } finally {
         setPhase('idle')
         setSeconds(0)
       }
     },
-    [visitId, onApplyExtraction]
+    [visitId, onApplyExtraction, showError]
   )
 
   const startRecording = async () => {
-    if (!visitId || disabled) return
-    if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-      toast.error('Recording is not supported in this browser')
+    if (!visitId || disabled || phase === 'recording' || phase === 'processing') return
+    setError('')
+    const support = recordingSupport()
+    if (!support.ok) {
+      showError(support.error)
       return
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : MediaRecorder.isTypeSupported('audio/webm')
-          ? 'audio/webm'
-          : ''
-      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream)
+      const mimeType = pickRecorderMimeType()
+      let recorder
+      try {
+        recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream)
+      } catch {
+        recorder = new MediaRecorder(stream)
+      }
       chunksRef.current = []
       recorder.ondataavailable = e => {
         if (e.data?.size > 0) chunksRef.current.push(e.data)
       }
       recorder.onerror = () => {
-        toast.error('Recording was interrupted')
+        showError('Recording was interrupted. Tap Start Recording to try again.')
         clearTick()
         stopStreamTracks()
+        mediaRecorderRef.current = null
         setPhase('idle')
         setSeconds(0)
       }
       recorder.onstop = () => {
         clearTick()
-        const mime = recorder.mimeType || 'audio/webm'
+        const mime = recorder.mimeType || mimeType || fallbackAudioMime()
         const blob = new Blob(chunksRef.current, { type: mime })
         chunksRef.current = []
         stopStreamTracks()
         mediaRecorderRef.current = null
         if (!blob.size) {
-          toast.error('No audio was captured')
+          showError('No audio was captured. Check the microphone and try again.')
           setPhase('idle')
           setSeconds(0)
           return
@@ -120,35 +159,45 @@ export function VisitVoiceRecorder({ visitId, onApplyExtraction, disabled }) {
         void uploadBlob(blob)
       }
       mediaRecorderRef.current = recorder
-      recorder.start(1000)
+      try {
+        recorder.start(1000)
+      } catch {
+        recorder.start()
+      }
       setPhase('recording')
       setSeconds(0)
       tickRef.current = setInterval(() => setSeconds(s => s + 1), 1000)
     } catch (e) {
-      const name = e?.name || ''
-      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
-        toast.error('Microphone permission denied. Allow access in browser settings to use voice notes.')
-      } else if (name === 'NotFoundError') {
-        toast.error('No microphone found on this device')
-      } else {
-        toast.error('Could not start recording')
-      }
+      stopStreamTracks()
+      showError(mapGetUserMediaError(e))
       setPhase('idle')
     }
   }
 
   const stopRecording = () => {
     const mr = mediaRecorderRef.current
-    if (!mr || mr.state === 'inactive') return
+    clearTick()
+    if (!mr || mr.state === 'inactive') {
+      stopStreamTracks()
+      setPhase(phase === 'processing' ? 'processing' : 'idle')
+      setSeconds(0)
+      return
+    }
+    setPhase('processing')
     try {
+      if (typeof mr.requestData === 'function' && mr.state === 'recording') {
+        try { mr.requestData() } catch { /* Safari may not support timeslice flush */ }
+      }
       mr.stop()
     } catch {
-      toast.error('Could not stop recording')
-      clearTick()
+      showError('Could not stop recording. The microphone has been released.')
       stopStreamTracks()
+      mediaRecorderRef.current = null
       setPhase('idle')
       setSeconds(0)
+      return
     }
+    releaseTimerRef.current = setTimeout(() => stopStreamTracks(), 1500)
   }
 
   const recording = phase === 'recording'
@@ -204,12 +253,17 @@ export function VisitVoiceRecorder({ visitId, onApplyExtraction, disabled }) {
           )}
         </div>
       </div>
+      {error && (
+        <div role="alert" className="mt-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+          {error}
+        </div>
+      )}
       {lastTranscript && (
         <Accordion type="single" collapsible className="w-full mt-3 border border-border rounded-md bg-card px-2">
           <AccordionItem value="transcript" className="border-0">
             <AccordionTrigger className="text-xs py-2 hover:no-underline">Raw transcript (verification)</AccordionTrigger>
             <AccordionContent>
-              <pre className="text-xs whitespace-pre-wrap bg-muted/50 p-3 rounded-md max-h-48 overflow-y-auto text-foreground">
+              <pre className="text-xs whitespace-pre-wrap bg-muted/50 p-3 rounded-md max-h-48 overflow-auto text-foreground">
                 {lastTranscript}
               </pre>
             </AccordionContent>

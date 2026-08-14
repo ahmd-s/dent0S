@@ -1,10 +1,11 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useCallback, useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Upload, Trash2, Download, FileText, Loader2, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { AsyncImage } from '@/components/ui/async-image'
 
 function formatSize(bytes) {
   if (bytes < 1024) return bytes + ' B'
@@ -37,10 +38,11 @@ export function DocumentsTab({ patientId, readOnly = false, categoryFilter = nul
   const [dragOver, setDragOver] = useState(false)
   const fileInputRef = useRef(null)
 
-  const fetchDocuments = async () => {
+  const fetchDocuments = useCallback(async () => {
+    if (!patientId) return
     try {
-        const pid = typeof patientId === 'object' ? patientId.toString() : patientId
-        const res = await fetch(`/api/documents?patient_id=${pid}`)
+      const pid = typeof patientId === 'object' ? patientId.toString() : patientId
+      const res = await fetch(`/api/documents?patient_id=${pid}`)
       const data = await res.json()
       if (res.ok) setDocuments(data.documents || [])
     } catch (error) {
@@ -48,11 +50,9 @@ export function DocumentsTab({ patientId, readOnly = false, categoryFilter = nul
     } finally {
       setLoading(false)
     }
-  }
-
-  useEffect(() => {
-    if (patientId) fetchDocuments()
   }, [patientId])
+
+  useEffect(() => { fetchDocuments() }, [fetchDocuments])
 
   const uploadFile = async (file) => {
     if (!file) return
@@ -198,7 +198,7 @@ export function DocumentsTab({ patientId, readOnly = false, categoryFilter = nul
                     <span className="text-xs text-gray-500">PDF</span>
                   </div>
                 ) : (
-                  <img
+                  <AsyncImage
                     src={doc.file_url}
                     alt={doc.file_name}
                     className="w-full h-full object-cover"

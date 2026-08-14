@@ -1,9 +1,12 @@
-import { requireUser, json, err, clean } from '@/lib/api-helpers'
+import { requireUser, json, err } from '@/lib/api-helpers'
 import { findAppointmentConflicts } from '@/lib/appointment-conflicts'
 import { enrichAppointments } from '@/lib/appointment-enrichment'
 import { logAppointmentChanges } from '@/lib/appointment-activity'
 import { canTransition, normalizeStatus } from '@/lib/appointment-status'
 import { onAppointmentConfirmed, scheduleAppointmentReminders, cancelUnsentAppointmentMessages } from '@/lib/communication'
+
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
 
 export async function GET(request, { params }) {
   const ctx = await requireUser()
@@ -83,10 +86,13 @@ export async function PUT(request, { params }) {
     if (rescheduled) {
       await cancelUnsentAppointmentMessages(db, profile, id)
     }
+    // Awaited so the queued messages survive the response returning.
     if (update.status === 'confirmed' && existing.status !== 'confirmed') {
-      onAppointmentConfirmed(db, profile, merged).catch(e => console.error('Communication hook error:', e))
+      await onAppointmentConfirmed(db, profile, merged)
+        .catch(e => console.error('Communication hook error:', e))
     } else if (rescheduled) {
-      scheduleAppointmentReminders(db, profile, merged).catch(e => console.error('Communication hook error:', e))
+      await scheduleAppointmentReminders(db, profile, merged)
+        .catch(e => console.error('Communication hook error:', e))
     }
   }
 

@@ -1,7 +1,5 @@
 'use client'
 
-import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { ToggleRow, ToggleSection, SectionPanel } from './ToggleSection'
 import DragOrderList from './DragOrderList'

@@ -3,6 +3,9 @@ import { getDb } from '@/lib/mongo'
 import { getCurrentUser } from '@/lib/auth'
 import { canAccessSettings } from '@/lib/rbac'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 const json = (d, s=200) => NextResponse.json(d, { status: s })
 const err = (msg, s=400) => json({ error: msg }, s)
 

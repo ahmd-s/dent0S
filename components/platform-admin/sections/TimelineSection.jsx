@@ -5,7 +5,6 @@ import {
   Building2,
   CreditCard,
   HeadphonesIcon,
-  Loader2,
   RefreshCw,
   Shield,
 } from 'lucide-react'

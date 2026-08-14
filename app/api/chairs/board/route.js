@@ -7,6 +7,9 @@ import { normalizeChairStatus } from '@/lib/chair-status'
 import { logActivity } from '@/lib/activity-helpers'
 import { ACTIVITY_EVENTS } from '@/lib/activity-event-registry'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 export async function OPTIONS() {
   return cors(new NextResponse(null, { status: 204 }))
 }

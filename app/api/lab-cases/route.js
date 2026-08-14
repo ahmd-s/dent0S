@@ -1,12 +1,16 @@
 import { v4 as uuidv4 } from 'uuid'
 import { NextResponse } from 'next/server'
 import { requireUser, json, err, clean, cors } from '@/lib/api-helpers'
-import { LAB_CASE_STATUSES, safeIsoDate, populateNames, secureToken } from '@/lib/lab-case-helpers'
+import { safeIsoDate, populateNames } from '@/lib/lab-case-helpers'
+import { secureToken } from '@/lib/lab-case-tokens'
 import { logAudit, AUDIT_ACTIONS, AUDIT_SOURCE } from '@/lib/audit'
 import { logActivity } from '@/lib/activity-helpers'
 import { ACTIVITY_EVENTS } from '@/lib/activity-event-registry'
 import { canManageInventory } from '@/lib/rbac'
 import { isClinicAccessBlocked, clinicAccessPausedResponse } from '@/lib/clinic-access'
+
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
 
 export async function OPTIONS() { return cors(new NextResponse(null, { status: 200 })) }
 
@@ -80,8 +84,11 @@ export async function POST(request) {
       updated_at: now,
     })
 
-    // Notify lab via WhatsApp (fire and forget)
-    if (vendor?.phone) {
+    // Notification and bookkeeping are independent of each other, so they run
+    // concurrently. The WhatsApp send is awaited rather than dropped — an
+    // un-awaited fetch can be killed when the serverless response returns.
+    const notifyLab = async () => {
+      if (!vendor?.phone) return
       const { sendWhatsApp } = await import('@/lib/whatsapp')
       const msg = `🦷 New Lab Case from ${clinic?.name || 'Dental Clinic'}\n\n` +
         `Case: ${case_number}\n` +
@@ -91,16 +98,19 @@ export async function POST(request) {
         `Reply with:\n` +
         `RECEIVED ${case_number} — when you receive it\n` +
         `READY ${case_number} — when it's ready`
-      sendWhatsApp(vendor.phone, msg)
+      await sendWhatsApp(vendor.phone, msg)
     }
 
-    await logAudit(db, { clinicId: cid, labCaseId: id, caseNumber: case_number, action: AUDIT_ACTIONS.CASE_CREATED, source: AUDIT_SOURCE.CLINIC, actorId: profile.id, actorName: profile.full_name || '' })
-    await logAudit(db, { clinicId: cid, labCaseId: id, caseNumber: case_number, action: AUDIT_ACTIONS.LINK_GENERATED, source: AUDIT_SOURCE.SYSTEM, actorId: profile.id, actorName: profile.full_name || '' })
-    await logActivity(db, profile, ACTIVITY_EVENTS.LAB_CREATED, {
-      patientId: b.patient_id,
-      labCaseId: id,
-      metadata: { case_number, case_type: b.case_type },
-    })
+    await Promise.all([
+      notifyLab(),
+      logAudit(db, { clinicId: cid, labCaseId: id, caseNumber: case_number, action: AUDIT_ACTIONS.CASE_CREATED, source: AUDIT_SOURCE.CLINIC, actorId: profile.id, actorName: profile.full_name || '' }),
+      logAudit(db, { clinicId: cid, labCaseId: id, caseNumber: case_number, action: AUDIT_ACTIONS.LINK_GENERATED, source: AUDIT_SOURCE.SYSTEM, actorId: profile.id, actorName: profile.full_name || '' }),
+      logActivity(db, profile, ACTIVITY_EVENTS.LAB_CREATED, {
+        patientId: b.patient_id,
+        labCaseId: id,
+        metadata: { case_number, case_type: b.case_type },
+      }),
+    ])
     const { invalidateClinicDashboard } = await import('@/lib/dashboard-invalidation')
     invalidateClinicDashboard(cid, 'lab_case')
     return json({ ok: true, id, case_number, public_token })

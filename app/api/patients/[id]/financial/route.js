@@ -1,5 +1,8 @@
 import { requireUser, json, err, clean } from '@/lib/api-helpers'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 export async function GET(request, { params }) {
   const ctx = await requireUser()
   if (!ctx) return err('Unauthorized', 401)

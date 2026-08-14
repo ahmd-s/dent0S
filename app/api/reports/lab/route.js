@@ -3,6 +3,9 @@ import { requireUser, json, err, cors } from '@/lib/api-helpers'
 import { getLabAnalytics, parseAnalyticsRange, toCsv } from '@/lib/analytics-engine'
 import { normalizeLabStatus, CLOSED_STATUSES } from '@/lib/lab-case-helpers'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 export async function OPTIONS() {
   return cors(new NextResponse(null, { status: 204 }))
 }

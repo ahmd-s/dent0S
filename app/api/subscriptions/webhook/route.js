@@ -3,6 +3,9 @@ import { getDb } from '@/lib/mongo'
 import crypto from 'crypto'
 import { activateSubscription, startGracePeriod, cancelSubscription } from '@/lib/subscription-engine'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 export async function POST(request) {
   try {
     const body = await request.text()

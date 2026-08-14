@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useCallback, useState, useEffect, useRef } from 'react'
 import { Textarea } from '@/components/ui/textarea'
 
 export default function SmartTextarea({ value, onChange, category, placeholder, rows = 3, className = '', disabled = false }) {
@@ -20,7 +20,7 @@ export default function SmartTextarea({ value, onChange, category, placeholder, 
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const searchTemplates = async (query) => {
+  const searchTemplates = useCallback(async (query) => {
     if (disabled || !query || query.length < 1) {
       setSuggestions([])
       setShowDropdown(false)
@@ -36,7 +36,7 @@ export default function SmartTextarea({ value, onChange, category, placeholder, 
     } catch (error) {
       console.error('Error searching templates:', error)
     }
-  }
+  }, [disabled, category])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -50,7 +50,7 @@ export default function SmartTextarea({ value, onChange, category, placeholder, 
     }, 200)
 
     return () => clearTimeout(timer)
-  }, [value, category])
+  }, [value, category, searchTemplates])
 
   const handleSelect = (template) => {
     const textarea = textareaRef.current

@@ -5,6 +5,9 @@ import { todayIso } from '@/lib/appointment-time'
 import { getProfileRoles } from '@/lib/profile-roles'
 import { doctorAppointmentFilter } from '@/lib/doctor-scope'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 export async function OPTIONS() {
   return cors(new NextResponse(null, { status: 204 }))
 }

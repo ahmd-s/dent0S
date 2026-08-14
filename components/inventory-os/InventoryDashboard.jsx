@@ -123,7 +123,7 @@ export default function InventoryDashboard({ compact = false, showPurchases = tr
             onChange={e => setSearch(e.target.value)}
             className="h-8 w-40 text-sm"
           />
-          <Button size="sm" variant="outline" onClick={load}><Filter className="w-3.5 h-3.5" /></Button>
+          <Button size="sm" variant="outline" onClick={load} aria-label="Refresh inventory"><Filter className="w-3.5 h-3.5" aria-hidden /></Button>
           <Button size="sm" asChild>
             <a href="/inventory/items"><Plus className="w-3.5 h-3.5 mr-1" />Add Item</a>
           </Button>

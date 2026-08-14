@@ -5,6 +5,11 @@ import { hasPermission } from '@/lib/rbac'
 import { v4 as uuidv4 } from 'uuid'
 import { logActivity } from '@/lib/activity-helpers'
 import { ACTIVITY_EVENTS } from '@/lib/activity-event-registry'
+import { loadUserContext } from '@/lib/auth-context'
+import { initVisitWorkflowFields } from '@/lib/visit-completion'
+
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -22,10 +27,7 @@ const todayIso = () => new Date().toISOString().slice(0, 10)
 async function requireUser() {
   const t = getCurrentUser(); if (!t) return null
   const db = await getDb()
-  const profile = await db.collection('profiles').findOne({ id: t.uid })
-  if (!profile) return null
-  const clinic = await db.collection('clinics').findOne({ id: profile.clinic_id })
-  return { profile, clinic, db }
+  return loadUserContext(db, t.uid)
 }
 
 export async function GET(request) {
@@ -187,7 +189,7 @@ export async function POST(request) {
   const ownedPatient = await db.collection('patients').findOne({ id: b.patient_id, clinic_id: cid })
   if (!ownedPatient) return err('Not found', 404)
   const id = uuidv4()
-  await db.collection('visits').insertOne({ id, clinic_id: cid, patient_id: b.patient_id, doctor_id: b.doctor_id || profile.id, appointment_id: b.appointment_id || null, visit_date: todayIso(), chief_complaint: b.chief_complaint || '', clinical_notes: '', diagnosis: '', treatment_done: '', treatment_plan: '', next_visit_recommended: false, next_visit_date: null, created_at: new Date() })
+  await db.collection('visits').insertOne({ id, clinic_id: cid, patient_id: b.patient_id, doctor_id: b.doctor_id || profile.id, appointment_id: b.appointment_id || null, visit_date: todayIso(), chief_complaint: b.chief_complaint || '', clinical_notes: '', diagnosis: '', treatment_done: '', treatment_plan: '', next_visit_recommended: false, next_visit_date: null, ...initVisitWorkflowFields(), created_at: new Date() })
   if (b.appointment_id) await db.collection('appointments').updateOne({ id: b.appointment_id, clinic_id: cid }, { $set: { status: 'in_treatment' } })
 
   const patient = await db.collection('patients').findOne({ id: b.patient_id, clinic_id: cid })

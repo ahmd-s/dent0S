@@ -13,7 +13,6 @@ import {
   FileText,
   Gift,
   IndianRupee,
-  Lock,
   Mail,
   MessageSquare,
   RefreshCw,
@@ -29,7 +28,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Badge } from '@/components/ui/badge'
 import { AuditTimeline } from '@/components/platform-admin/AuditTimeline'
 import { ClinicsTable } from '@/components/platform-admin/ClinicsTable'
 import { StatCard } from '@/components/platform-admin/StatCard'

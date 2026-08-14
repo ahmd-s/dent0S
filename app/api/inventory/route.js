@@ -4,6 +4,9 @@ import { canManageInventory } from '@/lib/rbac'
 import { logActivity } from '@/lib/activity-helpers'
 import { ACTIVITY_EVENTS } from '@/lib/activity-event-registry'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 export async function OPTIONS() { return cors(new NextResponse(null, { status: 200 })) }
 
 export async function GET(request) {

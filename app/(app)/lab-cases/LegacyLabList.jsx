@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { Plus, Search, X, Loader2, Eye, AlertTriangle } from 'lucide-react'
+import { Plus, Search, X, Loader2, Eye, AlertTriangle, FlaskConical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { NewLabCaseDialog } from '@/components/dentos/NewLabCaseDialog'
 import { LAB_CASE_STATUS_META, statusLabel } from '@/lib/lab-case-helpers'
 import { useLiveRefresh } from '@/hooks/useLiveRefresh'
+import { EmptyState } from '@/components/dentos/EmptyState'
 
 const fmtDate = d => d ? `${String(new Date(d).getDate()).padStart(2,'0')}/${String(new Date(d).getMonth()+1).padStart(2,'0')}/${new Date(d).getFullYear()}` : '—'
 
@@ -46,7 +47,7 @@ export default function LegacyLabList() {
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
 
-  const load = async ({ silent } = {}) => {
+  const load = useCallback(async ({ silent } = {}) => {
     if (!silent) setLoading(true)
     const params = new URLSearchParams()
     if (status !== 'all' && status !== 'overdue') params.set('status', status)
@@ -54,8 +55,9 @@ export default function LegacyLabList() {
     const d = await r.json()
     setList(d.lab_cases || [])
     if (!silent) setLoading(false)
-  }
-  useEffect(() => { load() }, [status])
+  }, [status])
+
+  useEffect(() => { load() }, [load])
   useLiveRefresh(() => load({ silent: true }), [status])
 
   const visible = useMemo(() => {
@@ -86,7 +88,17 @@ export default function LegacyLabList() {
 
       <Card className="mt-4 bg-card border-border rounded-lg overflow-hidden">
         {loading && <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]"/></div>}
-        {!loading && visible.length === 0 && <div className="py-16 text-center text-muted-foreground text-sm">No lab cases found</div>}
+        {!loading && visible.length === 0 && (
+          <EmptyState
+            icon={FlaskConical}
+            title="No lab cases found"
+            description={
+              q || status !== 'all'
+                ? 'Try clearing the search or choosing a different status.'
+                : 'Lab cases you send to a dental lab will appear here.'
+            }
+          />
+        )}
         {!loading && visible.length > 0 && (
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">

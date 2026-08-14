@@ -3,6 +3,7 @@
 import { Package, Calendar, IndianRupee } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { AsyncImage } from '@/components/ui/async-image'
 
 const inr = n => '₹' + (n || 0).toLocaleString('en-IN')
 
@@ -13,12 +14,11 @@ export default function InventoryItemCard({ item, compact, onAction }) {
     <Card className={`overflow-hidden border-border bg-card hover:border-[#0D9488]/30 transition-colors ${compact ? 'p-3' : 'p-4'}`}>
       <div className="flex gap-3">
         <div className={`flex-shrink-0 rounded-lg bg-muted flex items-center justify-center ${compact ? 'w-12 h-12' : 'w-16 h-16'}`}>
-          {item.image_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={item.image_url} alt="" className="w-full h-full object-cover rounded-lg" />
-          ) : (
-            <Package className={`text-muted-foreground ${compact ? 'w-5 h-5' : 'w-7 h-7'}`} />
-          )}
+          <AsyncImage
+            src={item.image_url}
+            className="w-full h-full object-cover rounded-lg"
+            fallback={<Package className={`text-muted-foreground ${compact ? 'w-5 h-5' : 'w-7 h-7'}`} />}
+          />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">

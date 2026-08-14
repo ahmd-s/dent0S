@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Loader2, Clock, Armchair, Stethoscope } from 'lucide-react'
+import { Clock, Armchair, Stethoscope } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import AppointmentStatusBadge from '@/components/appointments/AppointmentStatusBadge'
 import { FlowStageIndicator } from '@/components/dental-flow/AppointmentFlowTimeline'

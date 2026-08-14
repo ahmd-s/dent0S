@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { ChevronDown, ChevronUp, Save, Loader2 } from 'lucide-react'
+import { Save, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { toast } from 'sonner'
@@ -12,7 +12,6 @@ const LOWER_LEFT = [31, 32, 33, 34, 35, 36, 37, 38]
 const LOWER_RIGHT = [48, 47, 46, 45, 44, 43, 42, 41]
 
 // Surface labels
-const SURFACES = ['B', 'M', 'O', 'D', 'L'] // Buccal, Mesial, Occlusal/Incisal, Distal, Lingual
 
 // Conditions with colors
 const CONDITIONS = {
@@ -55,13 +54,12 @@ function ToothChart({ visitId, patientId, readOnly = false, onChartChange }) {
   
   const saveTimeoutRef = useRef(null)
   const pickerRef = useRef(null)
+  // The debounced trigger is declared before saveChart, and saveChart depends
+  // on `teeth`. Going through a ref keeps the debounce callback stable so the
+  // 3s timer isn't restarted on every keystroke-level chart edit.
+  const saveChartRef = useRef(null)
 
-  // Load tooth chart on mount
-  useEffect(() => {
-    loadChart()
-  }, [visitId])
-
-  const loadChart = async () => {
+  const loadChart = useCallback(async () => {
     setLoading(true)
     try {
       const r = await fetch(`/api/visits/${visitId}/tooth-chart`)
@@ -75,10 +73,12 @@ function ToothChart({ visitId, patientId, readOnly = false, onChartChange }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [visitId])
+
+  useEffect(() => { loadChart() }, [loadChart])
 
   // Load previous visit chart
-  const loadPreviousChart = async () => {
+  const loadPreviousChart = useCallback(async () => {
     try {
       const r = await fetch(`/api/visits?patient_id=${patientId}`)
       const d = await r.json()
@@ -100,13 +100,13 @@ function ToothChart({ visitId, patientId, readOnly = false, onChartChange }) {
     } catch (e) {
       console.error('Failed to load previous chart:', e)
     }
-  }
+  }, [patientId, visitId])
 
   useEffect(() => {
     if (showPrevious) {
       loadPreviousChart()
     }
-  }, [showPrevious])
+  }, [showPrevious, loadPreviousChart])
 
   // Auto-save with debounce
   const debouncedSave = useCallback(() => {
@@ -115,9 +115,9 @@ function ToothChart({ visitId, patientId, readOnly = false, onChartChange }) {
     }
     setSaveStatus('saving')
     saveTimeoutRef.current = setTimeout(() => {
-      saveChart()
+      saveChartRef.current?.()
     }, 3000)
-  }, [teeth])
+  }, [])
 
   useEffect(() => {
     if (Object.keys(teeth).length > 0) {
@@ -130,7 +130,7 @@ function ToothChart({ visitId, patientId, readOnly = false, onChartChange }) {
     }
   }, [teeth, debouncedSave])
 
-  const saveChart = async () => {
+  const saveChart = useCallback(async () => {
     setSaving(true)
     try {
       const r = await fetch(`/api/visits/${visitId}/tooth-chart`, {
@@ -154,7 +154,9 @@ function ToothChart({ visitId, patientId, readOnly = false, onChartChange }) {
     } finally {
       setSaving(false)
     }
-  }
+  }, [visitId, patientId, teeth, onChartChange])
+
+  saveChartRef.current = saveChart
 
   const handleManualSave = async () => {
     if (saveTimeoutRef.current) {

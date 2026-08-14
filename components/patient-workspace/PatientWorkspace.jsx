@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Loader2 } from 'lucide-react'
@@ -74,7 +74,7 @@ export default function PatientWorkspace({ patientId }) {
     [patient, visits]
   )
 
-  const loadCore = async () => {
+  const loadCore = useCallback(async () => {
     const [pr, vr, ar] = await Promise.all([
       fetch(`/api/patients/${patientId}`),
       fetch(`/api/visits?patient_id=${patientId}`),
@@ -87,37 +87,38 @@ export default function PatientWorkspace({ patientId }) {
     }
     if (vr.ok) setVisits((await vr.json()).visits || [])
     if (ar.ok) setAppointments((await ar.json()).appointments || [])
-  }
+  }, [patientId])
 
-  const loadBalance = async () => {
+  const loadBalance = useCallback(async () => {
     const r = await fetch(`/api/patients/outstanding-balance?patient_id=${patientId}`)
     if (r.ok) {
       const d = await r.json()
       setBalance(d.outstandingBalance || 0)
     }
-  }
+  }, [patientId])
 
-  const loadLabCases = async () => {
+  const loadLabCases = useCallback(async () => {
     const r = await fetch(`/api/lab-cases?patient_id=${patientId}`)
     if (r.ok) setLabCases((await r.json()).lab_cases || [])
-  }
+  }, [patientId])
 
-  const load = async () => {
+  const load = useCallback(async () => {
+    if (!patientId) return
     setLoading(true)
     await Promise.all([loadCore(), loadBalance()])
     setLoading(false)
-  }
+  }, [patientId, loadCore, loadBalance])
+
+  useEffect(() => { load() }, [load])
 
   useEffect(() => {
-    if (!patientId) return
-    load()
     const saved = localStorage.getItem(TAB_STORAGE_KEY)
     if (saved) setActiveTab(saved)
-  }, [patientId])
+  }, [])
 
   useEffect(() => {
     if (activeTab === 'lab' && labCases.length === 0) loadLabCases()
-  }, [activeTab, labCases.length])
+  }, [activeTab, labCases.length, loadLabCases])
 
   const handleTabChange = v => {
     setActiveTab(v)

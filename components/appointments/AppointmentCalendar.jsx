@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/card'
 import AppointmentCard from './AppointmentCard'
 import { parseTimeToMinutes, minutesToTimeLabel, timeSlots, weekDates, monthGrid } from '@/lib/appointment-time'

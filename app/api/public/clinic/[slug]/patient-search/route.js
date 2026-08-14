@@ -2,6 +2,9 @@
 import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/public/clinic/:slug/patient-search?phone=XXXXXXXXXX
  *

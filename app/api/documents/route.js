@@ -1,10 +1,11 @@
-import { NextResponse } from 'next/server'
-import { v2 as cloudinary } from 'cloudinary'
-import { getDb } from '@/lib/mongo'
-import { getCurrentUser } from '@/lib/auth'
 import { ObjectId } from 'mongodb'
+import { v2 as cloudinary } from 'cloudinary'
+import { requireUser, json, err } from '@/lib/api-helpers'
+import { isClinicAccessBlocked, clinicAccessPausedResponse } from '@/lib/clinic-access'
 import { logActivity } from '@/lib/activity-helpers'
 import { ACTIVITY_EVENTS } from '@/lib/activity-event-registry'
+
+export const dynamic = 'force-dynamic'
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -14,114 +15,70 @@ cloudinary.config({
 
 export async function GET(request) {
   try {
-    const user = await getCurrentUser(request)
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
+    const ctx = await requireUser()
+    if (!ctx) return err('Unauthorized', 401)
+    if (isClinicAccessBlocked(ctx.clinic)) return clinicAccessPausedResponse(err)
 
     const { searchParams } = new URL(request.url)
     const patientId = searchParams.get('patient_id')
     const visitId = searchParams.get('visit_id')
 
     if (!patientId && !visitId) {
-      return NextResponse.json(
-        { error: 'patient_id or visit_id required' },
-        { status: 400 }
-      )
+      return err('patient_id or visit_id required', 400)
     }
 
-    const db = await getDb()
-    let query = { clinic_id: user.clinic_id }
-    
-    if (visitId) {
-      // Fetch documents for a specific visit
-      query.visit_id = visitId
-    } else if (patientId) {
-      // Fetch all documents for a patient (includes both patient-uploaded and visit-uploaded docs)
-      // No filter on visit_id — include ALL patient documents
-      query.patient_id = patientId
-    }
-    
-    const documents = await db
+    const query = { clinic_id: ctx.profile.clinic_id }
+    if (visitId) query.visit_id = visitId
+    else query.patient_id = patientId
+
+    const documents = await ctx.db
       .collection('documents')
       .find(query)
       .sort({ uploaded_at: -1 })
       .toArray()
 
-    return NextResponse.json({ documents })
-
+    return json({ documents })
   } catch (error) {
     console.error('Fetch documents error:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch documents' },
-      { status: 500 }
-    )
+    return err('Failed to fetch documents', 500)
   }
 }
 
 export async function DELETE(request) {
   try {
-    const user = await getCurrentUser(request)
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
+    const ctx = await requireUser()
+    if (!ctx) return err('Unauthorized', 401)
+    if (isClinicAccessBlocked(ctx.clinic)) return clinicAccessPausedResponse(err)
 
     const { searchParams } = new URL(request.url)
     const docId = searchParams.get('id')
+    if (!docId) return err('Document id required', 400)
 
-    if (!docId) {
-      return NextResponse.json(
-        { error: 'Document id required' },
-        { status: 400 }
-      )
-    }
-
-    const db = await getDb()
-    const doc = await db.collection('documents').findOne({
+    const cid = ctx.profile.clinic_id
+    const doc = await ctx.db.collection('documents').findOne({
       _id: new ObjectId(docId),
-      clinic_id: user.clinic_id,
+      clinic_id: cid,
     })
+    if (!doc) return err('Document not found', 404)
 
-    if (!doc) {
-      return NextResponse.json(
-        { error: 'Document not found' },
-        { status: 404 }
-      )
-    }
-
-    // Delete from Cloudinary
     await cloudinary.uploader.destroy(doc.public_id, {
-      resource_type: doc.file_type === 'pdf' ? 'raw' : 'image'
+      resource_type: doc.file_type === 'pdf' ? 'raw' : 'image',
     })
 
-    // Delete from MongoDB
-    await db.collection('documents').deleteOne({
+    await ctx.db.collection('documents').deleteOne({
       _id: new ObjectId(docId),
-      clinic_id: user.clinic_id,
+      clinic_id: cid,
     })
 
-    const profile = await db.collection('profiles').findOne({ id: user.uid || user.id })
-    if (profile) {
-      await logActivity(db, profile, ACTIVITY_EVENTS.DOCUMENT_DELETED, {
-        patientId: doc.patient_id,
-        visitId: doc.visit_id,
-        metadata: { file_name: doc.file_name },
-      })
-    }
+    await logActivity(ctx.db, ctx.profile, ACTIVITY_EVENTS.DOCUMENT_DELETED, {
+      patientId: doc.patient_id,
+      visitId: doc.visit_id,
+      metadata: { file_name: doc.file_name },
+    })
 
-    return NextResponse.json({ success: true })
-
+    return json({ success: true })
   } catch (error) {
     console.error('Delete document error:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete document' },
-      { status: 500 }
-    )
+    return err('Failed to delete document', 500)
   }
 }

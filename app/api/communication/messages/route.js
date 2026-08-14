@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server'
-import { requireUser, json, err, cors } from '@/lib/api-helpers'
+import { requireUser, json, err, cors, enforceRateLimit } from '@/lib/api-helpers'
 import { guardCommunication } from '@/lib/communication/guards'
 import { createMessage, listMessages } from '@/lib/communication'
+
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
 
 export async function OPTIONS() {
   return cors(new NextResponse(null, { status: 204 }))
@@ -41,6 +44,9 @@ export async function POST(request) {
 
     const denied = guardCommunication(ctx, 'createMessage', err)
     if (denied) return denied
+
+    const rate = await enforceRateLimit(request, ctx.profile.id)
+    if (!rate.allowed) return err('Rate limit exceeded. Try again later.', 429)
 
     const body = await request.json()
     if (body.clinic_id || body.clinicId) {

@@ -16,7 +16,6 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -240,8 +239,8 @@ export default function BroadcastPage() {
       <div>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-foreground">Broadcast History</h2>
-          <Button variant="outline" size="sm" onClick={load}>
-            <RefreshCw className="h-4 w-4" />
+          <Button variant="outline" size="sm" onClick={load} aria-label="Refresh broadcast history">
+            <RefreshCw className="h-4 w-4" aria-hidden />
           </Button>
         </div>
 

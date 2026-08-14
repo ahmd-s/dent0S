@@ -1,11 +1,10 @@
 'use client'
 
-import Link from 'next/link'
 import { Phone, Edit2, AlertTriangle, Calendar, IndianRupee } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import BalanceBadge from '@/components/dentos/BalanceBadge'
 import WorkspaceGate from '@/components/workspace/WorkspaceGate'
+import { AsyncImage } from '@/components/ui/async-image'
 import {
   fmtPatientDate,
   buildStatusChips,
@@ -15,13 +14,17 @@ import {
 
 function PatientAvatar({ patient }) {
   const initials = patient?.name?.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase() || '?'
-  if (patient?.photo_url) {
-    return <img src={patient.photo_url} alt="" className="w-16 h-16 rounded-full object-cover border-2 border-border" />
-  }
   return (
-    <div className="w-16 h-16 rounded-full bg-[#0D9488]/10 border-2 border-[#0D9488]/20 flex items-center justify-center text-xl font-bold text-[#0D9488]">
-      {initials}
-    </div>
+    <AsyncImage
+      src={patient?.photo_url}
+      eager
+      className="w-16 h-16 rounded-full object-cover border-2 border-border"
+      fallback={
+        <div className="w-16 h-16 rounded-full bg-[#0D9488]/10 border-2 border-[#0D9488]/20 flex items-center justify-center text-xl font-bold text-[#0D9488]">
+          {initials}
+        </div>
+      }
+    />
   )
 }
 

@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { User, FlaskConical, AlertCircle } from 'lucide-react'
 import AppointmentStatusBadge from '@/components/appointments/AppointmentStatusBadge'
+import { AsyncImage } from '@/components/ui/async-image'
 import { getWaitingMinutes, getTreatmentMinutes, waitColor, waitColorClass } from '@/lib/flow-waiting-timer'
 import { statusLabel } from '@/lib/appointment-status'
 
@@ -29,11 +30,11 @@ export default function FlowAppointmentCard({ appointment: a, compact = false, o
       <div className="p-3">
         <div className="flex gap-3">
           <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
-            {a.patient_photo_url ? (
-              <img src={a.patient_photo_url} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <User className="w-5 h-5 text-muted-foreground" />
-            )}
+            <AsyncImage
+              src={a.patient_photo_url}
+              className="w-full h-full object-cover"
+              fallback={<User className="w-5 h-5 text-muted-foreground" />}
+            />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">

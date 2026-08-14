@@ -8,7 +8,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { Badge } from '@/components/ui/badge'
 
 const TYPE_LABELS = {
   trial_expires_in_3_days: 'Trial Expiring',

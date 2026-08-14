@@ -2,7 +2,6 @@
 
 import { useMemo } from 'react'
 import { Eye } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { SectionPanel } from './ToggleSection'
 import {
   NAVIGATION_FIELDS,

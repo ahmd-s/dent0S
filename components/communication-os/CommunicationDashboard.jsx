@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Loader2, Bell, Send, CheckCircle, XCircle, Clock, Cake, Star, CreditCard, FlaskConical, Calendar } from 'lucide-react'
+import { Loader2, Bell, Send, CheckCircle, XCircle, Clock, Cake, Star, CreditCard, FlaskConical } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 
 function Metric({ label, value, icon: Icon, color }) {

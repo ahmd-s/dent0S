@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo'
 import { getQueueStatus, JOB_STATUS } from '@/lib/job-manager'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   const timestamp = new Date().toISOString()
   const environment = process.env.NODE_ENV || 'development'
@@ -26,7 +28,7 @@ export async function GET() {
         dbLatencyMs,
         environment,
         queues,
-        version: 'sprint-19',
+        version: '1.0.0',
         timestamp,
       },
       { status: 200 }

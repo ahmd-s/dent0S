@@ -1,9 +1,10 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useCallback, useState, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { Upload, Trash2, Download, FileText, Loader2, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { AsyncImage } from '@/components/ui/async-image'
 import { AIAnalysisModal } from './AIAnalysisModal'
 
 function formatSize(bytes) {
@@ -27,7 +28,8 @@ export function VisitDocuments({ visitId, patientId, onAddFindings }) {
   const [aiFindings, setAiFindings] = useState('')
   const [analyzing, setAnalyzing] = useState(false)
 
-  const fetchDocuments = async () => {
+  const fetchDocuments = useCallback(async () => {
+    if (!visitId) return
     try {
       const vid = typeof visitId === 'object' ? visitId.toString() : visitId
       const res = await fetch(`/api/documents?visit_id=${vid}`)
@@ -38,11 +40,9 @@ export function VisitDocuments({ visitId, patientId, onAddFindings }) {
     } finally {
       setLoading(false)
     }
-  }
-
-  useEffect(() => {
-    if (visitId) fetchDocuments()
   }, [visitId])
+
+  useEffect(() => { fetchDocuments() }, [fetchDocuments])
 
   const uploadFile = async (file) => {
     if (!file) return
@@ -221,7 +221,7 @@ export function VisitDocuments({ visitId, patientId, onAddFindings }) {
                     <span className="text-xs text-gray-500">PDF</span>
                   </div>
                 ) : (
-                  <img
+                  <AsyncImage
                     src={doc.file_url}
                     alt={doc.file_name}
                     className="w-full h-full object-cover"

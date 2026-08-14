@@ -1,7 +1,6 @@
 'use client'
-import { Component } from 'react'
-import { useEffect, useState } from 'react'
-import { Plus, Search, X, Loader2, Edit2, ArrowUp, ArrowDown, Package } from 'lucide-react'
+import { Component, useCallback, useEffect, useRef, useState } from 'react'
+import { Plus, Search, X, Loader2, Edit2, ArrowUp, ArrowDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -10,6 +9,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { useRole } from '@/components/dentos/RoleContext'
+import { EmptyState } from '@/components/dentos/EmptyState'
+import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -51,25 +52,30 @@ function App() {
   const [stockItem, setStockItem] = useState(null)
   const { canManageInventory } = useRole()
 
-  const load = async () => {
+  const debouncedQ = useDebouncedValue(q, 300)
+
+  const load = useCallback(async () => {
     setLoading(true)
     const params = new URLSearchParams()
-    if (q) params.set('q', q)
+    if (debouncedQ) params.set('q', debouncedQ)
     if (category) params.set('category', category)
     if (lowStockOnly) params.set('low_stock', 'true')
     const r = await fetch('/api/inventory?' + params)
     const d = await r.json()
     setItems(d.items || [])
     setLoading(false)
-  }
+  }, [debouncedQ, category, lowStockOnly])
 
-  const loadVendors = async () => {
+  const loadVendors = useCallback(async () => {
     const r = await fetch('/api/vendors?type=supplier')
     const d = await r.json()
     setVendors(d.vendors || [])
-  }
+  }, [])
 
-  useEffect(() => { load(); loadVendors() }, [q, category, lowStockOnly])
+  useEffect(() => { load() }, [load])
+  // Suppliers don't depend on the item filters, so this no longer re-fetches
+  // them on every filter change and keystroke.
+  useEffect(() => { loadVendors() }, [loadVendors])
 
   const openNew = () => { setEditing(null); setOpen(true) }
   const openEdit = (item) => { setEditing(item); setOpen(true) }
@@ -111,9 +117,15 @@ function App() {
 
       {loading && <div className="mt-6 flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]"/></div>}
       {!loading && items.length === 0 && (
-        <Card className="mt-4 bg-card border-border rounded-lg py-16 text-center text-muted-foreground text-sm">
-          No inventory items yet. {canManageInventory() && 'Add your first item to start tracking stock.'}
-        </Card>
+        <EmptyState
+          icon={Plus}
+          title="No inventory items yet"
+          description={
+            canManageInventory()
+              ? 'Add your first item to start tracking stock.'
+              : 'Ask an administrator to add inventory items.'
+          }
+        />
       )}
       {!loading && items.length > 0 && (
         <div className="mt-4 bg-card border-border rounded-lg overflow-hidden">
@@ -209,7 +221,11 @@ function ItemDialog({ open, setOpen, editing, vendors, onSaved }) {
   const [catalogLoading, setCatalogLoading] = useState(false)
   const [showCatalogDropdown, setShowCatalogDropdown] = useState(false)
   const [fromCatalog, setFromCatalog] = useState(false)
-  const searchRef = { current: null }
+  // Was a plain `{ current: null }` object literal, which React re-created on
+  // every render. The click-outside effect captured the first render's object
+  // while `ref={searchRef}` populated the latest one, so `searchRef.current`
+  // stayed null and the dropdown never closed on an outside click.
+  const searchRef = useRef(null)
 
   useEffect(() => {
     if (open) setF(editing ? { ...editing } : EMPTY)

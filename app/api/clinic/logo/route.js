@@ -5,6 +5,10 @@ import { getCurrentUser } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { isClinicAccessBlocked, clinicAccessPausedResponse } from '@/lib/clinic-access'
 import { uploadBuffer } from '@/lib/localStorage'
+import { loadUserContext } from '@/lib/auth-context'
+
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -26,10 +30,7 @@ async function requireUser() {
   const t = getCurrentUser()
   if (!t) return null
   const db = await getDb()
-  const profile = await db.collection('profiles').findOne({ id: t.uid })
-  if (!profile) return null
-  const clinic = await db.collection('clinics').findOne({ id: profile.clinic_id })
-  return { profile, clinic, db }
+  return loadUserContext(db, t.uid)
 }
 
 const MAX_SIZE_BYTES = 5 * 1024 * 1024

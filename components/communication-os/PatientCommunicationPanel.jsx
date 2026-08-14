@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Loader2, Send, MessageSquare, Clock, Zap } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -14,14 +14,15 @@ export default function PatientCommunicationPanel({ patientId, patientName }) {
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
 
-  const load = () => {
+  const load = useCallback(() => {
+    if (!patientId) return
     fetch(`/api/communication/dashboard?patient_id=${patientId}`)
       .then(r => r.json())
       .then(d => { setData(d); setLoading(false) })
       .catch(() => setLoading(false))
-  }
+  }, [patientId])
 
-  useEffect(() => { if (patientId) load() }, [patientId])
+  useEffect(() => { load() }, [load])
 
   const send = async (type) => {
     setSending(true)

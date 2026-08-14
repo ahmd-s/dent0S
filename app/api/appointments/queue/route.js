@@ -1,13 +1,16 @@
 import { NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'
 import { requireUser, json, err, cors, clean } from '@/lib/api-helpers'
-import { sortQueue, findAppointmentConflicts } from '@/lib/appointment-conflicts'
+import { sortQueue } from '@/lib/appointment-conflicts'
 import { enrichAppointments } from '@/lib/appointment-enrichment'
 import { normalizeStatus, isInQueue } from '@/lib/appointment-status'
 import { logAppointmentChanges } from '@/lib/appointment-activity'
 import { todayIso } from '@/lib/appointment-time'
 import { doctorAppointmentFilter } from '@/lib/doctor-scope'
 import { getProfileRoles } from '@/lib/profile-roles'
+
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
 
 export async function OPTIONS() {
   return cors(new NextResponse(null, { status: 204 }))

@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { requirePlatformAdmin } from '@/lib/platform-admin'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
   res.headers.set('Access-Control-Allow-Methods', 'GET,OPTIONS')
@@ -23,7 +26,7 @@ export async function GET(request, { params }) {
     const clinic = await db.collection('clinics').findOne({ id: params.id })
     if (!clinic) return cors(NextResponse.json({ error: 'Not found' }, { status: 404 }))
 
-    const [profiles, impersonationHistory, rateLimits] = await Promise.all([
+    const [profiles, impersonationHistory] = await Promise.all([
       db.collection('profiles')
         .find({ clinic_id: params.id, deleted_at: { $exists: false } })
         .sort({ created_at: 1 })
@@ -37,12 +40,6 @@ export async function GET(request, { params }) {
         .sort({ at: -1 })
         .limit(20)
         .toArray(),
-
-      // Rate limits (failed logins) for clinic users
-      db.collection('login_rate_limits')
-        .find({ email: { $in: [] } }) // enriched below
-        .toArray()
-        .catch(() => []),
     ])
 
     // Get rate limits for clinic user emails

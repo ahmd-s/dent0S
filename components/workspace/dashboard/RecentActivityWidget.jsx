@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Card } from '@/components/ui/card'
 import { Activity } from 'lucide-react'
@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 import ActivityTimeline from '@/components/dentos/ActivityTimeline'
 import { DASHBOARD_PANEL_CLASS, DASHBOARD_PANEL_TITLE_CLASS } from './dashboard-panel-styles'
 
-export function RecentActivityWidget({ className }) {
+export const RecentActivityWidget = memo(function RecentActivityWidget({ className }) {
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -41,4 +41,4 @@ export function RecentActivityWidget({ className }) {
       </div>
     </Card>
   )
-}
+})

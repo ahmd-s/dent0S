@@ -8,6 +8,9 @@ import {
 import { computeInventoryAlerts, getEnrichedInventoryItems } from '@/lib/inventory-workflow-engine'
 import { CONSUMPTION_MOVEMENT_TYPES } from '@/lib/inventory-helpers'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 export async function OPTIONS() {
   return cors(new NextResponse(null, { status: 204 }))
 }

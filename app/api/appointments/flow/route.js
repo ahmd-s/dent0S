@@ -3,6 +3,9 @@ import { requireUser, json, err, cors } from '@/lib/api-helpers'
 import { executeFlowAction, FlowError } from '@/lib/dental-flow-engine'
 import { enrichAppointments } from '@/lib/appointment-enrichment'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 export async function OPTIONS() {
   return cors(new NextResponse(null, { status: 204 }))
 }

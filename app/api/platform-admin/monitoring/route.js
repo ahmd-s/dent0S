@@ -4,6 +4,9 @@ import { runDiagnostics } from '@/lib/diagnostics-engine'
 import { getObservabilityMetrics, getRecentLogs } from '@/lib/system-observability'
 import { getQueueStatus, JOB_STATUS } from '@/lib/job-manager'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
   res.headers.set('Access-Control-Allow-Methods', 'GET,OPTIONS')

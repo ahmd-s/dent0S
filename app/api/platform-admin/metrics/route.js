@@ -3,7 +3,9 @@ import { requirePlatformAdmin } from '@/lib/platform-admin'
 import { getPlatformBusinessAnalytics } from '@/lib/analytics-engine'
 import { getPlatformCommunicationAnalytics } from '@/lib/communication-engine'
 import { getPlatformAIAnalytics } from '@/lib/ai-engine'
-import { getDb } from '@/lib/mongo'
+
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')

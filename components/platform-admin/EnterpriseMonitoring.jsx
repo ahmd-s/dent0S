@@ -6,8 +6,6 @@ import {
   AlertTriangle,
   Bot,
   Clock,
-  Database,
-  HardDrive,
   Loader2,
   MessageSquare,
   RefreshCw,

@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { ArrowLeft, Printer, MessageCircle, Loader2, Pencil } from 'lucide-react'
@@ -58,7 +58,8 @@ function App() {
   const [editDateOpen, setEditDateOpen] = useState(false)
   const canEditDate = canEditInvoiceDate()
 
-  const load = async () => {
+  const load = useCallback(async () => {
+    if (!id) return
     const r = await fetch(`/api/invoices/${id}`)
     if (r.ok) {
       const data = await r.json()
@@ -73,8 +74,8 @@ function App() {
         if (r2.ok) setInv((await r2.json()).invoice)
       }
     }
-  }
-  useEffect(() => { if (id) load() }, [id])
+  }, [id])
+  useEffect(() => { load() }, [load])
 
   if (!inv) return <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]"/></div>
 

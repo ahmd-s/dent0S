@@ -1,54 +1,43 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { IndianRupee, AlertCircle } from 'lucide-react'
+import { memo, useEffect, useState } from 'react'
+import { AlertCircle } from 'lucide-react'
+import { getOutstandingBalance } from '@/lib/outstanding-balance-client'
 
-const formatINR = (amount) => {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0
-  }).format(amount)
-}
+const inrFormatter = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 0,
+})
 
-export default function BalanceBadge({ patientId, onClick }) {
+/**
+ * Rendered once per row in appointment queues and search results, so the
+ * lookup goes through a batching client rather than firing its own request.
+ */
+function BalanceBadge({ patientId, onClick }) {
   const [balance, setBalance] = useState(null)
-  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (!patientId) return
-    
-    const fetchBalance = async () => {
-      setLoading(true)
-      try {
-        const res = await fetch(`/api/patients/outstanding-balance?patient_id=${patientId}`)
-        const data = await res.json()
-        if (res.ok && data.outstandingBalance > 0) {
-          setBalance(data.outstandingBalance)
-        } else {
-          setBalance(0)
-        }
-      } catch (error) {
-        console.error('Failed to fetch outstanding balance:', error)
-        setBalance(0)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchBalance()
+    let ignore = false
+    getOutstandingBalance(patientId).then(value => {
+      if (!ignore) setBalance(value)
+    })
+    return () => { ignore = true }
   }, [patientId])
 
-  if (loading) return null
-  if (!balance || balance === 0) return null
+  if (!balance) return null
 
   return (
     <button
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-medium rounded-full border border-amber-200 transition-colors cursor-pointer"
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-medium rounded-full border border-amber-200 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1"
       type="button"
+      aria-label={`Outstanding balance ${inrFormatter.format(balance)}. View details.`}
     >
-      <AlertCircle className="w-3.5 h-3.5" />
-      <span>{formatINR(balance)} Pending</span>
+      <AlertCircle className="w-3.5 h-3.5" aria-hidden />
+      <span>{inrFormatter.format(balance)} Pending</span>
     </button>
   )
 }
+
+export default memo(BalanceBadge)

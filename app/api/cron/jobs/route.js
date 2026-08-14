@@ -3,6 +3,9 @@ import { getDb } from '@/lib/mongo'
 import { processPendingJobs, scheduleRecurringJobs } from '@/lib/job-manager'
 import { logSystemEvent } from '@/lib/system-observability'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 function authorizeCron(request) {
   const secret = process.env.CRON_SECRET
   if (!secret) return process.env.NODE_ENV !== 'production'

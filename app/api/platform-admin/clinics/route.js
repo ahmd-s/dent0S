@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { DEFAULT_FEATURES, requirePlatformAdmin } from '@/lib/platform-admin'
 import { graceDaysRemaining, isInGracePeriod } from '@/lib/subscription-helpers'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
   res.headers.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH')
@@ -18,11 +21,48 @@ export async function GET() {
     if (!ctx) return notFound()
     const { db } = ctx
 
-    const clinics = await db.collection('clinics').find({}).sort({ created_at: -1 }).toArray()
+    const clinics = await db.collection('clinics')
+      .find({})
+      .project({
+        _id: 0,
+        id: 1,
+        name: 1,
+        created_at: 1,
+        is_active: 1,
+        onboarding_complete: 1,
+        subscription_status: 1,
+        monthly_ai_usage_limit: 1,
+        trial_auto_enforcement: 1,
+        manual_access_granted_at: 1,
+        trial_ends_at: 1,
+        features: 1,
+        emergency_locked_at: 1,
+        emergency_locked_by: 1,
+        emergency_locked_reason: 1,
+      })
+      .sort({ created_at: -1 })
+      .toArray()
     const clinicIds = clinics.map(c => c.id)
 
     const [subscriptions, staffLogins, visitActivity] = await Promise.all([
-      db.collection('subscriptions').find({ clinic_id: { $in: clinicIds } }).toArray(),
+      db.collection('subscriptions')
+        .find({ clinic_id: { $in: clinicIds } })
+        .project({
+          _id: 0,
+          clinic_id: 1,
+          plan_type: 1,
+          subscription_status: 1,
+          platform_status: 1,
+          subscription_reason: 1,
+          current_period_end: 1,
+          grace_period_end: 1,
+          razorpay_subscription_id: 1,
+          subscription_id: 1,
+          razorpay_customer_id: 1,
+          customer_id: 1,
+          payment_method: 1,
+        })
+        .toArray(),
       db.collection('profiles').aggregate([
         { $match: { clinic_id: { $in: clinicIds }, deleted_at: { $exists: false } } },
         { $group: { _id: '$clinic_id', last_staff_login: { $max: '$last_login_at' } } },

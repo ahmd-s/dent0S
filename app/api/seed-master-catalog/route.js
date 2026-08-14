@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'
-import { getDb } from '@/lib/mongo'
 import { requirePlatformAdmin } from '@/lib/platform-admin'
 import { MASTER_CATALOG, MASTER_TREATMENTS } from '@/lib/master-catalog-seed'
+
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
 
 export async function POST(request) {
   try {

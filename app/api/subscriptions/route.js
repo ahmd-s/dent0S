@@ -9,6 +9,10 @@ import {
   trialEndsAtFromClinic,
 } from '@/lib/subscription-helpers'
 import { activateSubscription } from '@/lib/subscription-engine'
+import { loadUserContext } from '@/lib/auth-context'
+
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
 
 const json = (d, s=200) => NextResponse.json(d, { status: s })
 const err = (msg, s=400) => json({ error: msg }, s)
@@ -18,10 +22,7 @@ async function requireUser() {
   const t = getCurrentUser()
   if (!t) return null
   const db = await getDb()
-  const profile = await db.collection('profiles').findOne({ id: t.uid })
-  if (!profile) return null
-  const clinic = await db.collection('clinics').findOne({ id: profile.clinic_id })
-  return { profile, clinic, db }
+  return loadUserContext(db, t.uid)
 }
 
 function deriveDisplayStatus(clinic, subscription) {

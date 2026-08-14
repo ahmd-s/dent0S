@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import PageHeader from '@/components/dentos/PageHeader'
 import ActivityViewer from '@/components/dentos/ActivityViewer'
 

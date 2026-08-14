@@ -1,0 +1,36 @@
+{
+  "root": true,
+  "extends": ["next/core-web-vitals"],
+  "ignorePatterns": [
+    "node_modules/",
+    ".next/",
+    "out/",
+    "public/",
+    "local-uploads/",
+    "test_reports/",
+    "docs/"
+  ],
+  "rules": {
+    "no-unused-vars": [
+      "warn",
+      {
+        "args": "none",
+        "ignoreRestSiblings": true,
+        "varsIgnorePattern": "^_"
+      }
+    ],
+    "no-console": ["warn", { "allow": ["warn", "error", "debug"] }],
+    "react-hooks/exhaustive-deps": "warn",
+    "react/jsx-key": "error",
+    "react/no-unescaped-entities": "off",
+    "@next/next/no-img-element": "warn"
+  },
+  "overrides": [
+    {
+      "files": ["scripts/**/*.js", "scripts/**/*.mjs", "lib/**/__tests__/**/*.js", "lib/__tests__/**/*.js"],
+      "rules": {
+        "no-console": "off"
+      }
+    }
+  ]
+}

@@ -1,11 +1,11 @@
-import { NextResponse } from 'next/server'
 import { v2 as cloudinary } from 'cloudinary'
-import { getDb } from '@/lib/mongo'
-import { getCurrentUser } from '@/lib/auth'
-import { isClinicAccessBlocked, CLINIC_ACCESS_PAUSED_MESSAGE } from '@/lib/clinic-access'
+import { requireUser, json, err } from '@/lib/api-helpers'
+import { isClinicAccessBlocked, clinicAccessPausedResponse } from '@/lib/clinic-access'
 import { uploadBuffer } from '@/lib/localStorage'
 import { logActivity } from '@/lib/activity-helpers'
 import { ACTIVITY_EVENTS } from '@/lib/activity-event-registry'
+
+export const dynamic = 'force-dynamic'
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -15,25 +15,12 @@ cloudinary.config({
 
 export async function POST(request) {
   try {
-    const user = getCurrentUser()
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
+    const ctx = await requireUser()
+    if (!ctx) return err('Unauthorized', 401)
+    if (isClinicAccessBlocked(ctx.clinic)) return clinicAccessPausedResponse(err)
 
-    const db = await getDb()
-    const profile = await db.collection('profiles').findOne({ id: user.uid })
-    const clinic = profile?.clinic_id
-      ? await db.collection('clinics').findOne({ id: profile.clinic_id })
-      : null
-    if (isClinicAccessBlocked(clinic)) {
-      return NextResponse.json(
-        { error: CLINIC_ACCESS_PAUSED_MESSAGE, code: 'CLINIC_ACCESS_PAUSED' },
-        { status: 403 }
-      )
-    }
+    const { profile, db } = ctx
+    const cid = profile.clinic_id
 
     const formData = await request.formData()
     const file = formData.get('file')
@@ -41,40 +28,27 @@ export async function POST(request) {
     const visitId = formData.get('visit_id') || null
     const description = formData.get('description') || ''
 
-    if (!file || !patientId) {
-      return NextResponse.json(
-        { error: 'File and patient_id required' },
-        { status: 400 }
-      )
-    }
+    if (!file || !patientId) return err('File and patient_id required', 400)
 
-    // Verify patient belongs to this clinic
-    const patient = await db.collection('patients').findOne({ id: patientId, clinic_id: profile.clinic_id })
-    if (!patient) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    }
+    const patient = await db.collection('patients').findOne({ id: patientId, clinic_id: cid })
+    if (!patient) return err('Not found', 404)
 
     if (file.size > 10 * 1024 * 1024) {
-      return NextResponse.json(
-        { error: 'File too large. Maximum size is 10MB' },
-        { status: 400 }
-      )
+      return err('File too large. Maximum size is 10MB', 400)
     }
 
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
+    const folder = `dentos/${cid}/${patientId}`
 
-    let uploadResult;
-
+    let uploadResult
     if (process.env.APP_MODE === 'local') {
-      // Use local file system
-      uploadResult = uploadBuffer(buffer, file.name, `dentos/${user.clinic_id}/${patientId}`);
+      uploadResult = uploadBuffer(buffer, file.name, folder)
     } else {
-      // Existing Cloudinary logic
       uploadResult = await new Promise((resolve, reject) => {
         cloudinary.uploader.upload_stream(
           {
-            folder: `dentos/${user.clinic_id}/${patientId}`,
+            folder,
             resource_type: 'auto',
             allowed_formats: ['jpg', 'jpeg', 'png', 'pdf'],
           },
@@ -89,14 +63,14 @@ export async function POST(request) {
     const doc = {
       patient_id: patientId,
       visit_id: visitId,
-      clinic_id: user.clinic_id,
+      clinic_id: cid,
       file_name: file.name,
       file_url: uploadResult.secure_url,
       file_type: uploadResult.resource_type,
       file_format: uploadResult.format,
       file_size: file.size,
       public_id: uploadResult.public_id,
-      uploaded_by: user.id,
+      uploaded_by: profile.id,
       description,
       uploaded_at: new Date(),
     }
@@ -109,13 +83,9 @@ export async function POST(request) {
       metadata: { file_name: file.name },
     })
 
-    return NextResponse.json({ document: doc })
-
+    return json({ document: doc })
   } catch (error) {
     console.error('Upload error:', error)
-    return NextResponse.json(
-      { error: 'Upload failed' },
-      { status: 500 }
-    )
+    return err('Upload failed', 500)
   }
 }

@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server'
 import { requireUser, json, err, clean, cors } from '@/lib/api-helpers'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 export async function OPTIONS() { return cors(new NextResponse(null, { status: 200 })) }
 
 export async function GET(request) {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
-    
-    console.log('Alerts clinic_id:', cid)
-    
+
     // Low stock items
     const lowStockItems = await db.collection('inventory_items')
       .find({ 

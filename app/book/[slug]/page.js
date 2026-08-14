@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
-  MapPin, Phone, Loader2, Calendar, User,
+  MapPin, Phone, Loader2, User,
   ChevronRight, Search, UserPlus, CheckCircle2, X
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'

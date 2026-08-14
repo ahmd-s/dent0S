@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Plus, Phone, Search, X, Loader2, Edit2, Trash2, Mail, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,6 +9,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { useRole } from '@/components/dentos/RoleContext'
+import { EmptyState } from '@/components/dentos/EmptyState'
+import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 
 const EMPTY = { name: '', contact_person: '', phone: '', email: '', material_types: '', address: '', notes: '', vendor_type: 'both' }
 
@@ -21,16 +23,19 @@ function App() {
   const { canManageInventory } = useRole()
   const canManage = canManageInventory()
 
-  const load = async () => {
+  const debouncedQ = useDebouncedValue(q, 300)
+
+  const load = useCallback(async () => {
     setLoading(true)
     const params = new URLSearchParams()
-    if (q) params.set('q', q)
+    if (debouncedQ) params.set('q', debouncedQ)
     const r = await fetch('/api/vendors?' + params)
     const d = await r.json()
     setList(d.vendors || [])
     setLoading(false)
-  }
-  useEffect(() => { load() }, [q])
+  }, [debouncedQ])
+
+  useEffect(() => { load() }, [load])
 
   const openNew = () => { setEditing(null); setOpen(true) }
   const openEdit = (v) => { setEditing(v); setOpen(true) }
@@ -60,9 +65,15 @@ function App() {
 
       {loading && <div className="mt-6 flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]"/></div>}
       {!loading && list.length === 0 && (
-        <Card className="mt-4 bg-card border-border rounded-lg py-16 text-center text-muted-foreground text-sm">
-          No vendors yet. {!canManage && 'Add your first dental lab to start tracking cases.'}
-        </Card>
+        <EmptyState
+          icon={User}
+          title="No vendors yet"
+          description={
+            canManage
+              ? 'Add your first dental lab to start tracking cases.'
+              : 'Ask an administrator to add a dental lab so you can send cases.'
+          }
+        />
       )}
       {!loading && list.length > 0 && (
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

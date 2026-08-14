@@ -1,6 +1,6 @@
 'use client'
 
-import { ToggleRow, ToggleSection, SectionPanel } from './ToggleSection'
+import { ToggleRow, SectionPanel } from './ToggleSection'
 import {
   LAYOUT_DENSITY_OPTIONS,
   LAYOUT_VIEW_OPTIONS,

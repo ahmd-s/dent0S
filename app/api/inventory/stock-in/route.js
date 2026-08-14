@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { requireUser, json, err, cors, isClinicAccessBlocked, clinicAccessPausedResponse } from '@/lib/api-helpers'
 import { receiveStockBatch, InventoryFlowError } from '@/lib/inventory-workflow-engine'
 
+// Reads cookies/headers per request, so it can never be statically rendered.
+export const dynamic = 'force-dynamic'
+
 export async function OPTIONS() { return cors(new NextResponse(null, { status: 200 })) }
 
 export async function POST(request) {

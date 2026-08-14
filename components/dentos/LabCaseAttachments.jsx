@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { Upload, Trash2, Download, FileText, Loader2, Paperclip } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { AsyncImage } from '@/components/ui/async-image'
 
 function formatSize(bytes) {
   if (!bytes && bytes !== 0) return ''
@@ -95,7 +96,7 @@ export function LabCaseAttachments({ caseId, attachments = [], onChange, readOnl
                 {isPdf(att) ? (
                   <div className="flex flex-col items-center gap-1"><FileText className="w-8 h-8 text-red-400"/><span className="text-xs text-gray-500">PDF</span></div>
                 ) : (
-                  <img src={att.file_url} alt={att.file_name} className="w-full h-full object-cover"/>
+                  <AsyncImage src={att.file_url} alt={att.file_name} className="w-full h-full object-cover" />
                 )}
               </a>
               <div>

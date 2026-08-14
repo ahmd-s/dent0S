@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Loader2 } from 'lucide-react'
 import LabCaseCard from '@/components/lab-os/LabCaseCard'
 import LabTimeline from '@/components/lab-os/LabTimeline'
 import VendorDashboardPanel from '@/components/lab-os/VendorDashboardPanel'

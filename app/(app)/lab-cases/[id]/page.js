@@ -56,16 +56,21 @@ function App() {
   const [generatingLink, setGeneratingLink] = useState(false)
   const [approvalLoading, setApprovalLoading] = useState(false)
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const r = await fetch(`/api/lab-cases/${id}`)
     if (r.ok) setLc((await r.json()).lab_case)
     else { toast.error('Lab case not found'); router.push('/lab-cases') }
-  }
-  const loadAudit = async () => {
+  }, [id, router])
+
+  const loadAudit = useCallback(async () => {
     const r = await fetch(`/api/lab-cases/${id}/audit`)
     if (r.ok) setAudit((await r.json()).audit || [])
-  }
-  useEffect(() => { if (id) { load(); loadAudit() } }, [id])
+  }, [id])
+
+  useEffect(() => {
+    if (!id) return
+    Promise.all([load(), loadAudit()])
+  }, [id, load, loadAudit])
 
   const portalLink = lc?.public_token && typeof window !== 'undefined' ? `${window.location.origin}/lab-portal/${lc.public_token}` : ''
 
