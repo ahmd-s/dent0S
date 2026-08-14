@@ -137,88 +137,21 @@ function App() {
     if (skipped) return
   }, [persistVisit])
 
-  const saveClinicalStep = async () => {
+  const startCompleteVisit = async () => {
     if (!stateRef.current.v?.chief_complaint?.trim()) { toast.error('Chief complaint is required'); return }
-    const { skipped } = await saveGuardRef.current.run(async () => {
-      setSaving(true)
-      try {
-        const cur = stateRef.current
-        const { ok, data } = await persistVisit({ ...cur.v, prescriptions: cur.rxs, save_clinical: true })
-        if (!ok) {
-          toast.error(data.error || 'Save failed')
-          return
-        }
-        toast.success('Clinical notes saved')
-        setV(prev => ({
-          ...prev,
-          workflow_status: data.workflow_status || 'inventory',
-          clinical_saved_at: data.clinical_saved_at || new Date().toISOString(),
-          inventory_step: data.inventory_step || prev.inventory_step || { status: 'pending', assigned_to: null, completed_at: null },
-          invoice_step: data.invoice_step || prev.invoice_step,
-        }))
-      } catch {
-        toast.error('Save failed. Check your connection and try again.')
-      } finally {
-        setSaving(false)
-      }
-    })
-    if (skipped) return
-  }
-
-  const runInventoryAction = async (action) => {
-    if (action === 'done') {
-      if (selectedTemplateMaterials.length > 0) {
-        setConsumeItems(selectedTemplateMaterials.map(item => ({
-          item_id: item.item_id, item_name: item.item_name,
-          suggested_quantity: item.suggested_quantity, actual_quantity: item.suggested_quantity, unit: item.unit,
-        })))
-      } else {
-        setConsumeItems([])
-      }
-      setConsumeModalOpen(true)
-      return
+    if (selectedTemplateMaterials.length > 0) {
+      setConsumeItems(selectedTemplateMaterials.map(item => ({
+        item_id: item.item_id, item_name: item.item_name,
+        suggested_quantity: item.suggested_quantity, actual_quantity: item.suggested_quantity, unit: item.unit,
+      })))
+    } else {
+      setConsumeItems([])
     }
-    setSaving(true)
-    const r = await fetch(`/api/visits/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ inventory_action: action }) })
-    setSaving(false)
-    if (r.ok) { toast.success(action === 'assign' ? 'Assigned to receptionist' : 'Inventory skipped'); load() }
-    else toast.error('Failed')
+    setConsumeModalOpen(true)
   }
 
-  const runInvoiceAction = async (action) => {
-    setSaving(true)
-    const cur = stateRef.current
-    const r = await fetch(`/api/visits/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        ...cur.v, prescriptions: cur.rxs, invoice_items: cur.items, discount: cur.discount,
-        gst_enabled: cur.gstOn, payment_mode: cur.paymentMode, payment_status: cur.paymentStatus,
-        invoice_action: action,
-      }) })
-    setSaving(false)
-    if (r.ok) {
-      toast.success(action === 'assign' ? 'Invoice assigned to receptionist' : 'Invoice saved')
-      if (action === 'done') load()
-    } else toast.error('Failed')
-  }
-
-  const completeVisitFlow = async () => {
-    setSaving(true)
-    const cur = stateRef.current
-    const r = await fetch(`/api/visits/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        ...cur.v, prescriptions: cur.rxs, invoice_items: cur.items, discount: cur.discount,
-        gst_enabled: cur.gstOn, payment_mode: cur.paymentMode, payment_status: cur.paymentStatus, complete: true,
-      }) })
-    setSaving(false)
-    if (r.ok) {
-      toast.success('Visit completed!')
-      setTimeout(() => router.push(`/patients/${cur.v.patient_id}`), 500)
-    } else toast.error((await r.json()).error || 'Failed to complete')
-  }
-  // autosave every 90s during clinical step only
   useEffect(() => {
-    if (!v || v.workflow_status !== 'clinical') return
+    if (!v || v.workflow_status === 'completed' || v.status === 'completed') return
     const i = setInterval(() => saveDraft(true), 90000)
     return () => clearInterval(i)
   }, [v, saveDraft])
@@ -385,15 +318,8 @@ function App() {
 
   if (!v) return <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]"/></div>
 
-  const workflow = v.workflow_status || (v.clinical_saved_at ? 'inventory' : 'clinical')
-  const invStatus = v.inventory_step?.status || 'pending'
-  const invcStatus = v.invoice_step?.status || 'pending'
-  const showClinical = workflow === 'clinical' || !v.clinical_saved_at
-  const showInventory = workflow === 'inventory' && v.clinical_saved_at && invStatus === 'pending'
-  const showInvoice = (workflow === 'invoice' || (invStatus === 'done' || invStatus === 'skipped')) && invcStatus === 'pending'
-  const showComplete = (invStatus === 'done' || invStatus === 'skipped' || invStatus === 'assigned') && (invcStatus === 'done' || invcStatus === 'assigned')
-  const assignedInventory = invStatus === 'assigned' && isReceptionist()
-  const assignedInvoice = invcStatus === 'assigned' && (isReceptionist() || canManageBilling())
+  const isCompleted = v.workflow_status === 'completed' || v.status === 'completed'
+  const canEditInvoice = canManageBilling() || isReceptionist()
 
   return (
     <div className="max-w-5xl mx-auto pb-12">
@@ -401,40 +327,15 @@ function App() {
         <Link href={`/patients/${v.patient_id}`} className="text-sm text-muted-foreground hover:text-[#0D9488] flex items-center gap-1"><ArrowLeft className="w-4 h-4"/>{v.patient?.name || 'Patient'}</Link>
         <div className="flex items-center gap-2 flex-wrap">
           {clinicalReadOnly && <span className="text-xs text-muted-foreground">View only</span>}
-          {showClinical && !clinicalReadOnly && (
+          {isCompleted && <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground">Completed</span>}
+          {!clinicalReadOnly && !isCompleted && (
             <>
               {autosaveAt && <span className="text-xs text-muted-foreground mr-1">Auto-saved {autosaveAt.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' })}</span>}
               <Button variant="outline" onClick={()=>saveDraft(false)} disabled={saving}>{saving?<Loader2 className="w-4 h-4 animate-spin"/>:<><Save className="w-4 h-4 mr-2"/>Save Draft</>}</Button>
-              <Button onClick={saveClinicalStep} disabled={saving} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Check className="w-4 h-4 mr-2"/>Save Clinical & Continue</Button>
+              <Button onClick={startCompleteVisit} disabled={saving} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Check className="w-4 h-4 mr-2"/>Complete Visit</Button>
             </>
-          )}
-          {showInventory && !clinicalReadOnly && (
-            <>
-              <Button variant="outline" onClick={()=>runInventoryAction('skip')} disabled={saving}>Skip Inventory</Button>
-              <Button variant="outline" onClick={()=>runInventoryAction('assign')} disabled={saving}>Assign to Receptionist</Button>
-              <Button onClick={()=>runInventoryAction('done')} disabled={saving} className="bg-[#0D9488] hover:bg-[#0B7E73]">Do Inventory Now</Button>
-            </>
-          )}
-          {(showInvoice || assignedInvoice) && (canManageBilling() || assignedInvoice) && (
-            <>
-              {!assignedInvoice && !clinicalReadOnly && <Button variant="outline" onClick={()=>runInvoiceAction('assign')} disabled={saving}>Assign Invoice</Button>}
-              <Button onClick={()=>runInvoiceAction('done')} disabled={saving} className="bg-[#0D9488] hover:bg-[#0B7E73]">Save Invoice</Button>
-            </>
-          )}
-          {showComplete && invcStatus === 'done' && !clinicalReadOnly && (
-            <Button onClick={completeVisitFlow} disabled={saving} className="bg-[#0D9488] hover:bg-[#0B7E73]"><Check className="w-4 h-4 mr-2"/>Complete Visit</Button>
-          )}
-          {assignedInventory && (
-            <Button onClick={()=>runInventoryAction('done')} disabled={saving} className="bg-[#0D9488] hover:bg-[#0B7E73]">Complete Inventory Task</Button>
           )}
         </div>
-      </div>
-      <div className="mt-2 flex gap-2 text-xs flex-wrap">
-        {['clinical','inventory','invoice','completed'].map((step, i) => (
-          <span key={step} className={`px-2 py-1 rounded-full capitalize ${workflow === step || (step === 'completed' && v.workflow_status === 'completed') ? 'bg-[#0D9488] text-white' : 'bg-muted text-muted-foreground'}`}>
-            {i + 1}. {step}
-          </span>
-        ))}
       </div>
       <div className="mt-3 flex items-end justify-between">
         <div>
@@ -467,9 +368,9 @@ function App() {
         </Card>
       )}
 
-      {!clinicalReadOnly && showClinical && <VisitVoiceRecorder visitId={id} disabled={saving} onApplyExtraction={handleVoiceApply} />}
+      {!clinicalReadOnly && <VisitVoiceRecorder visitId={id} disabled={saving} onApplyExtraction={handleVoiceApply} />}
 
-      {!clinicalReadOnly && showClinical && (
+      {!clinicalReadOnly && (
       <Card className="mt-5 bg-card border-border rounded-lg">
         <button type="button" onClick={()=>setShowToothChart(s=>!s)} className="w-full flex items-center justify-between p-4 text-sm font-medium hover:bg-muted transition-colors">
           <span className="flex items-center gap-2">🦷 Tooth Chart</span>
@@ -488,7 +389,7 @@ function App() {
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <Label className="text-base">Treatment Done</Label>
-            {!clinicalReadOnly && inventoryTemplates.length > 0 && showClinical && (
+            {!clinicalReadOnly && inventoryTemplates.length > 0 && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild><Button type="button" size="sm" variant="outline" className="h-7 text-xs">Apply Template</Button></DropdownMenuTrigger>
                 <DropdownMenuContent>
@@ -517,7 +418,7 @@ function App() {
         ))}
       </Card>
 
-      {!clinicalReadOnly && showClinical && (
+      {!clinicalReadOnly && (
       <Card className="mt-5 p-6 bg-card border-border rounded-lg">
         <div className="flex items-center gap-3 mb-3">
           <Switch checked={!!v.next_visit_recommended} onCheckedChange={val=>set('next_visit_recommended', val)} />
@@ -532,9 +433,9 @@ function App() {
       </Card>
       )}
 
-      {(showInvoice || assignedInvoice || invcStatus === 'done') && (canManageBilling() || assignedInvoice || clinicalReadOnly) && (
+      {(canEditInvoice || clinicalReadOnly) && (
       <Card className="mt-5 p-6 bg-card border-border rounded-lg">
-        <div className="flex items-center justify-between mb-3"><Label className="text-base">Invoice for This Visit</Label>{(canManageBilling() || assignedInvoice) && <Button type="button" size="sm" variant="outline" onClick={()=>addItem()}><Plus className="w-4 h-4 mr-1"/>Add Item</Button>}</div>
+        <div className="flex items-center justify-between mb-3"><Label className="text-base">Invoice for This Visit</Label>{canEditInvoice && <Button type="button" size="sm" variant="outline" onClick={()=>addItem()}><Plus className="w-4 h-4 mr-1"/>Add Item</Button>}</div>
         {items.length === 0 && <div className="text-sm text-muted-foreground py-2">No items added. Click “Apply Template” above or add items manually.</div>}
         {items.length > 0 && (
           <div className="space-y-2">
@@ -566,7 +467,7 @@ function App() {
       </Card>
       )}
 
-      {!clinicalReadOnly && showClinical && (
+      {!clinicalReadOnly && (
       <Card className="mt-5 p-6 bg-card border-border rounded-lg">
         <Label className="text-base mb-3 block">Documents & Scans</Label>
         <VisitDocuments visitId={id} patientId={v.patient_id} onAddFindings={handleAddToFindings} />
