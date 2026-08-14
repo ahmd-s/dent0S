@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, Phone, Mail, User, Building2, Loader2, AlertTriangle, Trash2, Clock, Paperclip, Link2, Copy, Check, MessageCircle, ScrollText } from 'lucide-react'

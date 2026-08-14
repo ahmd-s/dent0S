@@ -10,7 +10,13 @@
     "test_reports/",
     "docs/"
   ],
+  "env": {
+    "browser": true,
+    "node": true,
+    "es2021": true
+  },
   "rules": {
+    "no-undef": "error",
     "no-unused-vars": [
       "warn",
       {

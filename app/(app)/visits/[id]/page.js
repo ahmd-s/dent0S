@@ -18,6 +18,7 @@ import ToothChart from '@/components/dentos/ToothChart'
 import SmartTextarea from '@/components/SmartTextarea'
 import { toast } from 'sonner'
 import { useRole } from '@/components/dentos/RoleContext'
+import { createInFlightGuard } from '@/lib/visit-completion'
 
 const fmtDate = d => d ? `${String(new Date(d).getDate()).padStart(2,'0')}/${String(new Date(d).getMonth()+1).padStart(2,'0')}/${new Date(d).getFullYear()}` : ''
 const FREQS = ['OD','BD','TDS','QID','SOS','1-0-1','1-1-1','1-0-0','0-0-1']

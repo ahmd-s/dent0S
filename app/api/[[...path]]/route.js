@@ -1,10 +1,16 @@
 import { NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'
+import slugify from 'slugify'
 import { getDb } from '@/lib/mongo'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser, hashPassword, verifyPassword, signToken, setAuthCookie, clearAuthCookie } from '@/lib/auth'
+import { hasPermission, canManageStaff, canManageBilling, canAccessClinical } from '@/lib/rbac'
 import { timeToMinutes } from '@/lib/block-times'
 import { stripInvoiceAuditFields } from '@/lib/invoice-audit'
 import { loadUserContext } from '@/lib/auth-context'
+import { sendStaffInviteEmail } from '@/lib/invite-email'
+import { SMART_TYPING_SEED } from '@/lib/smart-typing-seed'
+import { setupIndexes } from '@/lib/setup-indexes'
+import { createAnthropicMessage } from '@/lib/anthropic-messages'
 
 // Reads cookies/headers per request, so it can never be statically rendered.
 export const dynamic = 'force-dynamic'
@@ -20,6 +26,7 @@ const json = (d, s=200) => cors(NextResponse.json(d, { status: s }))
 const err = (msg, s=400) => json({ error: msg }, s)
 const clean = o => { if (!o) return o; const { _id, password_hash, ...rest } = o; return rest }
 const todayIso = () => new Date().toISOString().slice(0,10)
+const monthBack = m => { const d = new Date(); d.setMonth(d.getMonth() - m); return d.toISOString().slice(0, 10) }
 
 // time helpers for slot generation
 const toMin = t => { const m = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(t.trim()); if (!m) return null; let h = parseInt(m[1]); const mm = parseInt(m[2]); const ap = m[3].toUpperCase(); if (ap==='PM' && h!==12) h+=12; if (ap==='AM' && h===12) h=0; return h*60+mm }
@@ -552,7 +559,7 @@ async function handle(request, { params }) {
         ...(category ? { category } : {}),
         $or: [
           { clinic_id: null },
-          ...(clinicId ? [{ clinic_id }] : [])
+          ...(clinicId ? [{ clinic_id: clinicId }] : [])
         ]
       }).limit(6).toArray()
       

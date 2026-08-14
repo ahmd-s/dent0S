@@ -41,7 +41,7 @@ export async function GET(request) {
       ...(category ? { category } : {}),
       $or: [
         { clinic_id: null },
-        ...(clinicId ? [{ clinic_id }] : [])
+        ...(clinicId ? [{ clinic_id: clinicId }] : [])
       ]
     }).limit(20).toArray()
     
