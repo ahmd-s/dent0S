@@ -101,7 +101,10 @@ export function VisitVoiceRecorder({ visitId, onApplyExtraction, disabled }) {
           return
         }
         setLastTranscript(data.transcript || '')
-        onApplyExtraction?.({ transcript: data.transcript || '', fields: data.extracted || {} })
+        onApplyExtraction?.({
+          transcript: data.transcript || '',
+          fields: data.extracted || data.visit_draft || {},
+        })
         toast.success('Voice notes added to the form. Review and edit before saving.')
       } catch {
         showError('Network error while uploading audio. Check your connection and try again.')
