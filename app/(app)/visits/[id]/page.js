@@ -251,6 +251,10 @@ function App() {
       clinical_notes: mergeTextBlock(prev.clinical_notes, fields.clinical_notes),
       diagnosis: mergeSingleLine(prev.diagnosis, fields.diagnosis),
       treatment_done: mergeTextBlock(prev.treatment_done, fields.treatment_done),
+      treatment_plan: mergeTextBlock(prev.treatment_plan, fields.treatment_plan),
+      next_visit_recommended: fields.next_visit_recommended ? true : prev.next_visit_recommended,
+      next_visit_date: fields.next_visit_date || prev.next_visit_date,
+      next_visit_notes: fields.next_visit_notes ? mergeTextBlock(prev.next_visit_notes, fields.next_visit_notes) : prev.next_visit_notes,
     }))
     const rxList = Array.isArray(fields.prescriptions) ? fields.prescriptions : []
     const valid = rxList.filter(p => p && String(p.medicine_name || '').trim())
