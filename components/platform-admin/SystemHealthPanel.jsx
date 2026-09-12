@@ -61,21 +61,21 @@ export function SystemHealthPanel({ health, loading }) {
       {checks.map(check => {
         const Icon = ICONS[check.id] || Activity
         return (
-          <Card key={check.id || check.name} className="border-border/70 shadow-sm">
-            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <Card key={check.id || check.name} className="border-zinc-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
+            <CardHeader className="flex flex-row items-start justify-between space-y-0 p-3 pb-1">
+              <CardTitle className="text-[10px] font-medium leading-snug text-zinc-500">
                 {check.name}
               </CardTitle>
-              <span className={cn('flex h-7 w-7 items-center justify-center rounded-lg', statusSurface(check.status))}>
-                <Icon className="h-3.5 w-3.5" />
+              <span className={cn('flex h-6 w-6 shrink-0 items-center justify-center rounded-md', statusSurface(check.status))}>
+                <Icon className="h-3 w-3" />
               </span>
             </CardHeader>
-            <CardContent className="space-y-1">
+            <CardContent className="space-y-1 p-3 pt-1">
               <div className="flex items-center gap-2">
-                <span className={cn('h-2 w-2 rounded-full', statusDot(check.status))} />
-                <p className="text-lg font-semibold tabular-nums leading-none">{check.value ?? '—'}</p>
+                <span className={cn('h-1.5 w-1.5 rounded-full', statusDot(check.status))} />
+                <p className="text-[15px] font-semibold tabular-nums leading-none">{check.value ?? '—'}</p>
               </div>
-              <p className="truncate text-xs text-muted-foreground">{check.label}</p>
+              <p className="text-[10px] leading-snug text-muted-foreground">{check.label}</p>
             </CardContent>
           </Card>
         )

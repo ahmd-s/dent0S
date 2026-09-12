@@ -14,9 +14,9 @@ import {
   LogOut,
   Megaphone,
   Settings,
-  Shield,
   Stethoscope,
   UserPlus,
+  Wallet,
   Wrench,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { NotificationBell } from '@/components/platform-admin/NotificationBell'
 import { GlobalSearch } from '@/components/platform-admin/GlobalSearch'
+import { Connec8Logo } from '@/components/platform-admin/Connec8Logo'
 import { cn } from '@/lib/utils'
 
 const NAV_GROUPS = [
@@ -44,6 +45,7 @@ const NAV_GROUPS = [
     label: 'Insights',
     items: [
       { href: '/platform-admin/analytics', label: 'Analytics', icon: BarChart3 },
+      { href: '/platform-admin/razorpay', label: 'Razorpay', icon: Wallet },
       { href: '/platform-admin/health', label: 'System Health', icon: HeartPulse },
       { href: '/platform-admin/monitoring', label: 'Monitoring', icon: Stethoscope },
     ],
@@ -106,18 +108,19 @@ export default function PlatformAdminLayout({ children }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-6 h-6 animate-spin text-[#0D9488]" />
+      <div className="flex min-h-screen items-center justify-center bg-[#07070a]">
+        <Loader2 className="h-6 w-6 animate-spin text-[#2EE6D6]" />
       </div>
     )
   }
 
   if (denied) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4">
-        <h1 className="text-4xl font-bold text-foreground">404</h1>
-        <p className="text-muted-foreground mt-2">This page could not be found.</p>
-        <Link href="/login" className="mt-6 text-sm text-[#0D9488] hover:underline">Go to login</Link>
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#07070a] px-4">
+        <Connec8Logo variant="full" className="mb-6 w-40" />
+        <h1 className="text-4xl font-bold text-white">404</h1>
+        <p className="mt-2 text-white/50">This page could not be found.</p>
+        <Link href="/login" className="mt-6 text-sm text-[#2EE6D6] hover:underline">Go to login</Link>
       </div>
     )
   }
@@ -128,22 +131,17 @@ export default function PlatformAdminLayout({ children }) {
   }
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="min-h-screen bg-[#f4f5f7]">
       <div className="flex min-h-screen">
-        <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-border bg-card/90 px-3 py-4 lg:flex">
-          <Link href="/platform-admin" className="mb-6 flex items-center gap-3 px-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-              <Shield className="h-4 w-4 text-[#0D9488]" />
-            </span>
-            <div>
-              <div className="text-sm font-semibold leading-tight">DentOS Console</div>
-              <div className="text-[10px] text-muted-foreground">Super Admin</div>
-            </div>
+        <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-white/5 bg-[#07070a] px-3 py-4 lg:flex">
+          <Link href="/platform-admin" className="mb-6 block px-1">
+            <Connec8Logo variant="full" />
+            <p className="mt-2 px-1 text-[10px] font-medium tracking-wide text-white/40">DentOS Super Admin</p>
           </Link>
           <nav className="flex-1 space-y-5 overflow-y-auto">
             {NAV_GROUPS.map(group => (
               <div key={group.label}>
-                <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/35">
                   {group.label}
                 </p>
                 <div className="space-y-0.5">
@@ -155,13 +153,13 @@ export default function PlatformAdminLayout({ children }) {
                         key={item.href}
                         href={item.href}
                         className={cn(
-                          'flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors',
+                          'flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] transition-colors',
                           active
-                            ? 'bg-accent font-medium text-accent-foreground'
-                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                            ? 'bg-white/10 font-medium text-white'
+                            : 'text-white/55 hover:bg-white/5 hover:text-white'
                         )}
                       >
-                        <Icon className="h-4 w-4 shrink-0" />
+                        <Icon className="h-3.5 w-3.5 shrink-0" />
                         {item.label}
                       </Link>
                     )
@@ -173,12 +171,10 @@ export default function PlatformAdminLayout({ children }) {
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-40 border-b border-border bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60">
+          <header className="sticky top-0 z-40 border-b border-zinc-200/80 bg-white/85 backdrop-blur">
             <div className="flex items-center gap-3 px-4 py-3 sm:px-6">
               <Link href="/platform-admin" className="flex shrink-0 items-center gap-2 lg:hidden">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                  <Shield className="h-4 w-4 text-[#0D9488]" />
-                </span>
+                <Connec8Logo />
               </Link>
               <div className="flex lg:hidden">
                 <DropdownMenu>

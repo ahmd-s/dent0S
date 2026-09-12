@@ -68,8 +68,8 @@ export default function PlatformAdminPage() {
     <div className="space-y-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Platform console</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Platform console</h1>
+          <p className="text-sm text-zinc-500">
             Monitor every clinic, follow up on quiet leads, and keep DentOS healthy.
           </p>
         </div>
@@ -80,22 +80,22 @@ export default function PlatformAdminPage() {
       </div>
 
       {kpiLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
-          {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-[102px] rounded-xl" />)}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+          {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-[96px] rounded-xl" />)}
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
-          <StatCard label="Total Clinics" value={kpis.total ?? 0} icon={Building2} tone="teal" trend={trends.total} />
-          <StatCard label="Active Clinics" value={kpis.active ?? 0} icon={CircleCheck} tone="green" />
-          <StatCard label="Inactive Clinics" value={kpis.inactive ?? 0} icon={UserMinus} tone="slate" />
-          <StatCard label="Trial Clinics" value={kpis.trial ?? consoleKpis.trial ?? 0} icon={Timer} tone="blue" />
-          <StatCard label="Paid Clinics" value={kpis.paid ?? consoleKpis.paid ?? 0} icon={CreditCard} tone="teal" />
-          <StatCard label="Expired Subscriptions" value={kpis.expired ?? consoleKpis.expired ?? 0} icon={Ban} tone="red" />
-          <StatCard label="New This Month" value={kpis.new_this_month ?? consoleKpis.new_this_month ?? 0} icon={UserPlus} tone="violet" trend={trends.new_this_month} />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+          <StatCard label="Total clinics" value={kpis.total ?? 0} icon={Building2} tone="teal" trend={trends.total} />
+          <StatCard label="Active clinics" value={kpis.active ?? 0} icon={CircleCheck} tone="green" />
+          <StatCard label="Inactive clinics" value={kpis.inactive ?? 0} icon={UserMinus} tone="slate" />
+          <StatCard label="Trial clinics" value={kpis.trial ?? consoleKpis.trial ?? 0} icon={Timer} tone="blue" />
+          <StatCard label="Paid clinics" value={kpis.paid ?? consoleKpis.paid ?? 0} icon={CreditCard} tone="teal" />
+          <StatCard label="Expired subscriptions" value={kpis.expired ?? consoleKpis.expired ?? 0} icon={Ban} tone="red" />
+          <StatCard label="New this month" value={kpis.new_this_month ?? consoleKpis.new_this_month ?? 0} icon={UserPlus} tone="violet" trend={trends.new_this_month} />
           <StatCard
-            label="Monthly Revenue"
+            label="Monthly revenue"
             value={fmtCurrency(consoleKpis.monthly_revenue)}
-            hint={consoleKpis.monthly_revenue ? undefined : 'Placeholder until billing is complete'}
+            hint={consoleKpis.monthly_revenue ? undefined : 'Until billing is complete'}
             icon={IndianRupee}
             tone="green"
             trend={trends.revenue}
@@ -104,11 +104,11 @@ export default function PlatformAdminPage() {
       )}
 
       <div>
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">System health</p>
+        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400">System health</p>
         <SystemHealthPanel health={health} loading={healthLoading} />
       </div>
 
-      <Card className="border-border/70 shadow-sm">
+      <Card className="border-zinc-200/80 shadow-sm">
         <CardHeader>
           <CardTitle>Clinic directory</CardTitle>
           <CardDescription>Search, filter, and open a clinic without leaving this console.</CardDescription>
