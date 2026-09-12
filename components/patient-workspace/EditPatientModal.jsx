@@ -28,6 +28,7 @@ export default function EditPatientModal({ open, setOpen, patient, onSaved, clin
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
+    const d = await r.json().catch(() => ({}))
     setLoading(false)
     if (r.ok) { toast.success('Saved'); setOpen(false); onSaved?.() }
     else toast.error(d.error || 'Could not save patient details')
