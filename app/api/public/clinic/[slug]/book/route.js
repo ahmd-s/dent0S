@@ -125,6 +125,20 @@ export async function POST(request, { params }) {
     const { invalidateClinicDashboard } = await import('@/lib/dashboard-invalidation')
     invalidateClinicDashboard(clinic.id, 'appointment')
 
+    try {
+      const { onAppointmentCreated } = await import('@/lib/communication')
+      await onAppointmentCreated(db, { id: 'public_booking', clinic_id: clinic.id }, {
+        id: appointmentId,
+        patient_id: patient.id,
+        appointment_date,
+        appointment_time,
+        status: 'scheduled',
+        patient_name_temp: patient.name,
+      })
+    } catch (commErr) {
+      console.error('public book communication failed:', commErr?.message || commErr)
+    }
+
     return NextResponse.json({
       ok: true,
       appointment_id: appointmentId,

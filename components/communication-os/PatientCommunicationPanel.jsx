@@ -5,6 +5,7 @@ import { Loader2, Send, MessageSquare, Clock, Zap } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
 import { toast } from 'sonner'
 import CommunicationTimeline from './CommunicationTimeline'
 
@@ -13,12 +14,20 @@ export default function PatientCommunicationPanel({ patientId, patientName }) {
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
+  const [optedIn, setOptedIn] = useState(false)
+  const [optSaving, setOptSaving] = useState(false)
 
   const load = useCallback(() => {
     if (!patientId) return
-    fetch(`/api/communication/dashboard?patient_id=${patientId}`)
-      .then(r => r.json())
-      .then(d => { setData(d); setLoading(false) })
+    Promise.all([
+      fetch(`/api/communication/dashboard?patient_id=${patientId}`).then(r => r.json()),
+      fetch(`/api/communication/preferences?patient_id=${patientId}`).then(r => r.json()),
+    ])
+      .then(([dash, prefs]) => {
+        setData(dash)
+        setOptedIn(prefs?.whatsapp_opted_in === true)
+        setLoading(false)
+      })
       .catch(() => setLoading(false))
   }, [patientId])
 
@@ -59,10 +68,41 @@ export default function PatientCommunicationPanel({ patientId, patientName }) {
     } else toast.error('Send failed')
   }
 
+  const toggleOptIn = async (next) => {
+    setOptSaving(true)
+    try {
+      const r = await fetch('/api/communication/preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patient_id: patientId,
+          action: next ? 'opt_in' : 'opt_out',
+          source: 'staff_patient_panel',
+        }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(d.error || 'Could not update WhatsApp consent')
+      setOptedIn(next)
+      toast.success(next ? 'WhatsApp updates enabled for this patient' : 'WhatsApp updates stopped for this patient')
+    } catch (e) {
+      toast.error(e.message || 'Could not update WhatsApp consent')
+    } finally {
+      setOptSaving(false)
+    }
+  }
+
   if (loading) return <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-[#0D9488]" /></div>
 
   return (
     <div className="space-y-4">
+      <Card className="p-3 border-border flex items-center justify-between gap-3">
+        <div>
+          <div className="text-sm font-medium">WhatsApp appointment updates</div>
+          <div className="text-xs text-muted-foreground">Required before booking and visit summaries can auto-send.</div>
+        </div>
+        <Switch checked={optedIn} disabled={optSaving} onCheckedChange={toggleOptIn} />
+      </Card>
+
       <div className="grid sm:grid-cols-3 gap-3">
         <Card className="p-3 border-border">
           <div className="text-xs text-muted-foreground">Last Communication</div>

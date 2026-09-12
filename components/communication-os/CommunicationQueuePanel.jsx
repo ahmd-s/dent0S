@@ -119,7 +119,7 @@ export default function CommunicationQueuePanel() {
         <div>
           <h2 className="text-sm font-semibold">Communication Queue</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Manual WhatsApp send required for click-to-chat messages. Delivery/read status is not tracked.
+            Manual WhatsApp send is used until WhatsApp Business Cloud API credentials are allocated. Delivery receipts are tracked after Cloud API is connected.
           </p>
         </div>
         <div className="flex bg-muted border border-border rounded-md p-0.5 flex-wrap">

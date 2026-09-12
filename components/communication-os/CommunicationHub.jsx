@@ -1,17 +1,20 @@
 'use client'
 
 import { Suspense, useState, useEffect } from 'react'
-import { Loader2, LayoutGrid, Megaphone, Bell, Star, MessageSquare, Users, Inbox } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
+import { Loader2, LayoutGrid, Megaphone, Bell, Star, MessageSquare, Users, Inbox, MessageCircle } from 'lucide-react'
 import CommunicationDashboard from './CommunicationDashboard'
 import CampaignCenter from './CampaignCenter'
 import ReminderCenter from './ReminderCenter'
 import ReviewPanel from './ReviewPanel'
 import CommunicationTimeline from './CommunicationTimeline'
 import CommunicationQueuePanel from './CommunicationQueuePanel'
+import WhatsAppCloudSetup from './WhatsAppCloudSetup'
 
 const VIEWS = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutGrid },
   { id: 'queue', label: 'Queue', icon: Inbox },
+  { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle },
   { id: 'campaigns', label: 'Campaigns', icon: Megaphone },
   { id: 'reminders', label: 'Reminders', icon: Bell },
   { id: 'reviews', label: 'Reviews', icon: Star },
@@ -59,7 +62,9 @@ function SegmentsPanel() {
 }
 
 function App() {
-  const [view, setView] = useState('dashboard')
+  const searchParams = useSearchParams()
+  const initial = VIEWS.some(v => v.id === searchParams.get('view')) ? searchParams.get('view') : 'dashboard'
+  const [view, setView] = useState(initial)
 
   return (
     <div className="max-w-7xl mx-auto space-y-4">
@@ -83,6 +88,7 @@ function App() {
 
       {view === 'dashboard' && <CommunicationDashboard />}
       {view === 'queue' && <CommunicationQueuePanel />}
+      {view === 'whatsapp' && <WhatsAppCloudSetup />}
       {view === 'campaigns' && <CampaignCenter />}
       {view === 'reminders' && <ReminderCenter />}
       {view === 'reviews' && <ReviewPanel />}

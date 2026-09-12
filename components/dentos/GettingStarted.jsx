@@ -6,6 +6,7 @@ import { Calendar, CheckCircle2, LayoutGrid, Users, X } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useRole } from '@/components/dentos/RoleContext'
 
 const STEPS = [
   { id: 'patient', label: 'Add your first patient', href: '/patients', icon: Users },
@@ -13,23 +14,62 @@ const STEPS = [
   { id: 'workspace', label: 'Customize your workspace', href: '/settings/workspace', icon: LayoutGrid },
 ]
 
-const DISMISS_KEY = 'dentos_getting_started_dismissed'
+const DISMISS_KEY_PREFIX = 'dentos_getting_started_dismissed'
+const NEW_CLINIC_DAYS = 7
+
+function dismissKey(clinicId) {
+  return clinicId ? `${DISMISS_KEY_PREFIX}:${clinicId}` : DISMISS_KEY_PREFIX
+}
+
+export function isNewClinicWindow(clinic, now = Date.now()) {
+  const raw = clinic?.created_at
+  if (!raw) return false
+  const created = new Date(raw).getTime()
+  if (Number.isNaN(created)) return false
+  return now - created < NEW_CLINIC_DAYS * 24 * 60 * 60 * 1000
+}
+
+function hasPatientActivity(stats) {
+  if (!stats) return false
+  if ((stats.patients_seen_today || 0) > 0) return true
+  if ((stats.today_queue || []).length > 0) return true
+  if ((stats.followups || []).length > 0) return true
+  if ((stats.followups_due_count || 0) > 0) return true
+  return false
+}
+
+function hasAppointmentActivity(stats) {
+  return (stats?.today_queue?.length ?? 0) > 0
+}
 
 export function GettingStarted({ stats, className }) {
-  const [dismissed, setDismissed] = useState(true)
+  const { me } = useRole()
+  const clinicId = me?.clinic?.id
+  const [dismissed, setDismissed] = useState(null)
 
   useEffect(() => {
-    setDismissed(localStorage.getItem(DISMISS_KEY) === 'true')
-  }, [])
+    try {
+      const scoped = localStorage.getItem(dismissKey(clinicId)) === 'true'
+      const legacy = localStorage.getItem(DISMISS_KEY_PREFIX) === 'true'
+      setDismissed(scoped || legacy)
+    } catch {
+      setDismissed(false)
+    }
+  }, [clinicId])
 
-  if (dismissed) return null
+  // Established clinics: hide immediately (do not wait for stats — that was the layout jump).
+  if (!isNewClinicWindow(me?.clinic)) return null
+  if (dismissed !== false) return null
+  if (!stats) return null
 
-  const hasPatients = (stats?.recent_patients?.length ?? 0) > 0 || (stats?.todays_patients ?? 0) > 0
-  const hasAppointments = (stats?.today_queue?.length ?? 0) > 0
+  const hasPatients = hasPatientActivity(stats)
+  const hasAppointments = hasAppointmentActivity(stats)
   if (hasPatients && hasAppointments) return null
 
   const dismiss = () => {
-    localStorage.setItem(DISMISS_KEY, 'true')
+    try {
+      localStorage.setItem(dismissKey(clinicId), 'true')
+    } catch { /* private mode */ }
     setDismissed(true)
   }
 

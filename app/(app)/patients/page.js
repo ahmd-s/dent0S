@@ -16,6 +16,7 @@ import ImportPatientsModal from '@/components/dentos/ImportPatientsModal'
 import { EmptyState } from '@/components/dentos/EmptyState'
 import { useClinicSync, publishClinicSync } from '@/hooks/useClinicSync'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
+import { Checkbox } from '@/components/ui/checkbox'
 
 const fmtDate = d => d ? `${String(new Date(d).getDate()).padStart(2,'0')}/${String(new Date(d).getMonth()+1).padStart(2,'0')}/${new Date(d).getFullYear()}` : '—'
 const PAGE_SIZE = 20
@@ -265,9 +266,9 @@ function App() {
 
 function AddPatientButton({ onCreated, open, setOpen }) {
   const router = useRouter()
-  const [f, setF] = useState({ name:'', phone:'', dob:'', age:'', gender:'', blood_group:'', allergies:'', medical_history:'', address:'', referral_source:'' })
+  const [f, setF] = useState({ name:'', phone:'', dob:'', age:'', gender:'', blood_group:'', allergies:'', medical_history:'', address:'', referral_source:'', whatsapp_opt_in: true })
   const [loading, setLoading] = useState(false)
-  const reset = () => setF({ name:'', phone:'', dob:'', age:'', gender:'', blood_group:'', allergies:'', medical_history:'', address:'', referral_source:'' })
+  const reset = () => setF({ name:'', phone:'', dob:'', age:'', gender:'', blood_group:'', allergies:'', medical_history:'', address:'', referral_source:'', whatsapp_opt_in: true })
 
   const onDob = v => {
     let age = f.age
@@ -311,6 +312,13 @@ function AddPatientButton({ onCreated, open, setOpen }) {
           <div className="space-y-1.5 col-span-2"><Label>Medical History</Label><Textarea rows={2} value={f.medical_history} onChange={e=>setF({...f,medical_history:e.target.value})}/></div>
           <div className="space-y-1.5 col-span-2"><Label>Address</Label><Textarea rows={2} value={f.address} onChange={e=>setF({...f,address:e.target.value})}/></div>
           <div className="space-y-1.5 col-span-2"><Label>Referral Source</Label><Input value={f.referral_source} onChange={e=>setF({...f,referral_source:e.target.value})} placeholder="e.g. Google, Friend referral"/></div>
+          <label className="col-span-2 flex items-start gap-2 rounded-md border border-border px-3 py-2">
+            <Checkbox checked={f.whatsapp_opt_in} onCheckedChange={v => setF({ ...f, whatsapp_opt_in: v === true })} className="mt-0.5" />
+            <span className="text-sm leading-snug">
+              Patient agrees to receive appointment updates and visit summaries on WhatsApp
+              <span className="block text-xs text-muted-foreground font-normal">Needed for automatic booking and visit messages once WhatsApp Business is connected.</span>
+            </span>
+          </label>
           <div className="col-span-2 flex justify-end gap-2 mt-2"><Button type="button" variant="outline" onClick={()=>setOpen(false)}>Cancel</Button><Button type="submit" disabled={loading} className="bg-[#0D9488] hover:bg-[#0B7E73]">{loading?<Loader2 className="w-4 h-4 animate-spin"/>:'Save Patient'}</Button></div>
         </form>
       </DialogContent>

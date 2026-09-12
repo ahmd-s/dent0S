@@ -190,6 +190,11 @@ export async function POST(request) {
       metadata: { patient_name: name, patient_code: patientCode },
     })
 
+    if (b.whatsapp_opt_in === true) {
+      const { setWhatsAppOptIn } = await import('@/lib/communication')
+      await setWhatsAppOptIn(db, cid, id, { source: 'staff_patient_create', optedInByUserId: profile.id })
+    }
+
     const { invalidateClinicDashboard } = await import('@/lib/dashboard-invalidation')
     invalidateClinicDashboard(cid, 'patient')
     return json({ ok: true, id, existing: false }, 201)
