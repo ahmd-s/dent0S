@@ -13,7 +13,6 @@ import {
   UserPlus,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ClinicsTable } from '@/components/platform-admin/ClinicsTable'
 import { StatCard } from '@/components/platform-admin/StatCard'
@@ -65,26 +64,26 @@ export default function PlatformAdminPage() {
   const trends = consoleKpis.trends || {}
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="space-y-7">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Platform console</h1>
-          <p className="text-sm text-zinc-500">
-            Monitor every clinic, follow up on quiet leads, and keep DentOS healthy.
+          <h1 className="text-[22px] font-semibold tracking-[-0.03em] text-zinc-900">Overview</h1>
+          <p className="text-[13px] text-zinc-500">
+            Clinics, billing health, and platform signals — no patient data.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => loadChrome({ silent: true })} disabled={refreshing}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+        <Button variant="outline" size="sm" className="h-8 border-zinc-200 text-[13px]" onClick={() => loadChrome({ silent: true })} disabled={refreshing}>
+          <RefreshCw className={`mr-2 h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
       </div>
 
       {kpiLoading ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
-          {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-[96px] rounded-xl" />)}
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-[108px] rounded-xl" />)}
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard label="Total clinics" value={kpis.total ?? 0} icon={Building2} tone="teal" trend={trends.total} />
           <StatCard label="Active clinics" value={kpis.active ?? 0} icon={CircleCheck} tone="green" />
           <StatCard label="Inactive clinics" value={kpis.inactive ?? 0} icon={UserMinus} tone="slate" />
@@ -103,20 +102,23 @@ export default function PlatformAdminPage() {
         </div>
       )}
 
-      <div>
-        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400">System health</p>
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-[13px] font-medium text-zinc-900">System health</h2>
+          <p className="text-[12px] text-zinc-400">Live infrastructure checks for the DentOS platform.</p>
+        </div>
         <SystemHealthPanel health={health} loading={healthLoading} />
-      </div>
+      </section>
 
-      <Card className="border-zinc-200/80 shadow-sm">
-        <CardHeader>
-          <CardTitle>Clinic directory</CardTitle>
-          <CardDescription>Search, filter, and open a clinic without leaving this console.</CardDescription>
-        </CardHeader>
-        <CardContent>
+      <section className="overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-[0_1px_1px_rgba(15,23,42,0.04)]">
+        <div className="border-b border-zinc-100 px-5 py-4">
+          <h2 className="text-[15px] font-semibold tracking-tight text-zinc-900">Clinic directory</h2>
+          <p className="mt-0.5 text-[13px] text-zinc-500">Search, filter, and open a clinic without leaving this console.</p>
+        </div>
+        <div className="p-5">
           <ClinicsTable onKpis={setTableKpis} />
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </div>
   )
 }

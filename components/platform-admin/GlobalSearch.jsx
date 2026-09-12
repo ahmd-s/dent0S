@@ -72,14 +72,14 @@ export function GlobalSearch() {
   return (
     <Popover open={open && q.length >= 2} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <div className="relative w-64">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <div className="relative w-full max-w-xl">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
           <Input
             ref={inputRef}
             value={q}
             onChange={handleChange}
             placeholder="Search clinics, staff, IDs…"
-            className="h-9 pl-9 text-sm"
+            className="h-8 rounded-lg border-zinc-200/80 bg-zinc-50/80 pl-9 text-[13px] shadow-none placeholder:text-zinc-400 focus-visible:bg-white"
           />
         </div>
       </PopoverTrigger>
