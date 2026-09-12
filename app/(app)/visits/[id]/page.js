@@ -18,25 +18,10 @@ import ToothChart from '@/components/dentos/ToothChart'
 import { toast } from 'sonner'
 import { useRole } from '@/components/dentos/RoleContext'
 import { createInFlightGuard } from '@/lib/visit-completion'
+import { applyVoiceFieldsToVisit } from '@/lib/visit-notes'
 
 const fmtDate = d => d ? `${String(new Date(d).getDate()).padStart(2,'0')}/${String(new Date(d).getMonth()+1).padStart(2,'0')}/${new Date(d).getFullYear()}` : ''
 const FREQS = ['OD','BD','TDS','QID','SOS','1-0-1','1-1-1','1-0-0','0-0-1']
-
-function mergeTextBlock(prev, next) {
-  const n = (next || '').trim()
-  if (!n) return prev || ''
-  const p = (prev || '').trim()
-  if (!p) return n
-  return `${p}\n\n${n}`
-}
-
-function mergeSingleLine(prev, next) {
-  const n = (next || '').trim()
-  if (!n) return prev || ''
-  const p = (prev || '').trim()
-  if (!p) return n
-  return `${p}; ${n}`
-}
 
 function App() {
   const { id } = useParams()
@@ -245,17 +230,7 @@ function App() {
 
   const handleVoiceApply = useCallback(({ fields }) => {
     if (!fields || typeof fields !== 'object') return
-    setV(prev => ({
-      ...prev,
-      chief_complaint: mergeTextBlock(prev.chief_complaint, fields.chief_complaint),
-      clinical_notes: mergeTextBlock(prev.clinical_notes, fields.clinical_notes),
-      diagnosis: mergeSingleLine(prev.diagnosis, fields.diagnosis),
-      treatment_done: mergeTextBlock(prev.treatment_done, fields.treatment_done),
-      treatment_plan: mergeTextBlock(prev.treatment_plan, fields.treatment_plan),
-      next_visit_recommended: fields.next_visit_recommended ? true : prev.next_visit_recommended,
-      next_visit_date: fields.next_visit_date || prev.next_visit_date,
-      next_visit_notes: fields.next_visit_notes ? mergeTextBlock(prev.next_visit_notes, fields.next_visit_notes) : prev.next_visit_notes,
-    }))
+    setV(prev => ({ ...prev, ...applyVoiceFieldsToVisit(prev, fields) }))
     const rxList = Array.isArray(fields.prescriptions) ? fields.prescriptions : []
     const valid = rxList.filter(p => p && String(p.medicine_name || '').trim())
     if (valid.length) {

@@ -63,7 +63,9 @@ export async function POST(request) {
     })
 
     if (!result.ok) {
-      return err(mapVoiceProviderError(result.error, { hasGroqKey: Boolean(process.env.GROQ_API_KEY) }), 502)
+      const mapped = mapVoiceProviderError(result.error, { hasGroqKey: Boolean(process.env.GROQ_API_KEY) })
+      console.error('Voice transcribe provider error:', mapped)
+      return err(mapped, 502)
     }
 
     return json({

@@ -3,7 +3,7 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Plus, Search, ChevronDown, LayoutGrid } from 'lucide-react'
+import { Plus, Search, ChevronDown, LayoutGrid, Loader2 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -31,11 +31,15 @@ import ReceptionistPendingTasks from '@/components/dentos/ReceptionistPendingTas
 import GettingStarted from '@/components/dentos/GettingStarted'
 import { StatGridSkeleton } from '@/components/dentos/PageSkeleton'
 import PatientCombobox from '@/components/dentos/PatientCombobox'
+import ConflictWarnings from '@/components/appointments/ConflictWarnings'
 import { useLiveRefresh } from '@/hooks/useLiveRefresh'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
+import { readAppointmentApiError } from '@/lib/appointment-api-error'
+import { localTodayIso, minutesToTimeLabel, timeSlots } from '@/lib/appointment-time'
 
 const QUEUE_TOGGLE_KEY = 'dentos_show_booking_queue'
-const todayIso = () => new Date().toISOString().slice(0, 10)
+const todayIso = () => localTodayIso()
+const TIME_SLOT_LABELS = timeSlots().map(minutesToTimeLabel)
 const fmtDate = d => {
   const x = new Date(d)
   return `${String(x.getDate()).padStart(2, '0')}/${String(x.getMonth() + 1).padStart(2, '0')}/${x.getFullYear()}`
@@ -331,14 +335,88 @@ const QuickSearchBar = memo(function QuickSearchBar({ onBook, canStartVisit }) {
 })
 
 const BookAppointmentModal = memo(function BookAppointmentModal({ open, setOpen, onCreated }) {
-  const [f, setF] = useState({ patient_id: '', appointment_date: todayIso(), appointment_time: '10:00 AM', appointment_type: 'consultation', chief_complaint: '', notes: '' })
+  const { me } = useRole()
+  const doctorId = me?.profile?.id || ''
+  const emptyForm = () => ({
+    patient_id: '',
+    appointment_date: todayIso(),
+    appointment_time: '',
+    appointment_type: 'consultation',
+    chief_complaint: '',
+    notes: '',
+  })
+  const [f, setF] = useState(emptyForm)
+  const [busy, setBusy] = useState(false)
+  const [conflicts, setConflicts] = useState([])
+  const [warnings, setWarnings] = useState([])
+
+  useEffect(() => {
+    if (!open) return
+    setF(emptyForm())
+    setConflicts([])
+    setWarnings([])
+    setBusy(false)
+  }, [open])
+
+  useEffect(() => {
+    if (!open || !f.appointment_date || !f.appointment_time) {
+      setConflicts([])
+      setWarnings([])
+      return
+    }
+    const params = new URLSearchParams({
+      date: f.appointment_date,
+      time: f.appointment_time,
+      duration: '30',
+    })
+    if (doctorId) params.set('doctor_id', doctorId)
+    let ignore = false
+    fetch(`/api/appointments/conflicts?${params}`)
+      .then(r => r.json())
+      .then(d => {
+        if (ignore) return
+        setConflicts(d.conflicts || [])
+        setWarnings(d.warnings || [])
+      })
+      .catch(() => {
+        if (!ignore) { setConflicts([]); setWarnings([]) }
+      })
+    return () => { ignore = true }
+  }, [open, doctorId, f.appointment_date, f.appointment_time])
+
   const submit = async e => {
     e.preventDefault()
-    if (!f.patient_id) { toast.error('Select patient'); return }
-    const r = await fetch('/api/appointments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(f) })
-    if (r.ok) { toast.success('Appointment booked'); setOpen(false); onCreated && onCreated() }
-    else toast.error('Failed')
+    if (!f.patient_id) { toast.error('Select a patient'); return }
+    if (!f.appointment_date) { toast.error('Choose a date'); return }
+    if (!f.appointment_time) { toast.error('Choose a time'); return }
+    if (conflicts.length) {
+      toast.error(conflicts[0].message || 'This slot is already booked. Choose another time.')
+      return
+    }
+    setBusy(true)
+    try {
+      const r = await fetch('/api/appointments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...f, doctor_id: doctorId || undefined }),
+      })
+      if (r.ok) {
+        toast.success('Appointment booked')
+        setOpen(false)
+        onCreated && onCreated()
+        return
+      }
+      const { message } = await readAppointmentApiError(r)
+      console.error('Quick Book failed:', r.status, message)
+      toast.error(message)
+    } catch (err) {
+      console.error('Quick Book network error:', err?.name || 'Error')
+      toast.error('Could not book the appointment. Check your connection and try again.')
+    } finally {
+      setBusy(false)
+    }
   }
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-w-lg">
@@ -354,11 +432,25 @@ const BookAppointmentModal = memo(function BookAppointmentModal({ open, setOpen,
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5"><Label>Date</Label><Input type="date" value={f.appointment_date} onChange={e => setF({ ...f, appointment_date: e.target.value })} /></div>
-            <div className="space-y-1.5"><Label>Time</Label><Input value={f.appointment_time} onChange={e => setF({ ...f, appointment_time: e.target.value })} /></div>
+            <div className="space-y-1.5">
+              <Label htmlFor="quick-book-time">Time</Label>
+              <select
+                id="quick-book-time"
+                value={f.appointment_time}
+                onChange={e => setF({ ...f, appointment_time: e.target.value })}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Select time</option>
+                {TIME_SLOT_LABELS.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
           </div>
+          <ConflictWarnings conflicts={conflicts} warnings={warnings} />
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button type="submit" className="bg-[#0D9488] hover:bg-[#0B7E73]">Book</Button>
+            <Button type="submit" disabled={busy} className="bg-[#0D9488] hover:bg-[#0B7E73]">
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Book'}
+            </Button>
           </div>
         </form>
       </DialogContent>

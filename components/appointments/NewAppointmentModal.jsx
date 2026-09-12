@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
 import ConflictWarnings from './ConflictWarnings'
+import { readAppointmentApiError } from '@/lib/appointment-api-error'
 
 const TYPES = ['new_patient', 'follow_up', 'emergency', 'consultation', 'procedure']
 
@@ -98,10 +99,11 @@ export default function NewAppointmentModal({ open, setOpen, initialDate, onCrea
       setWalkin(false)
       setWalkinForm({ name: '', phone: '' })
       onCreated?.()
-    } else if (r.status === 409) {
-      const d = await r.json()
-      toast.error(d.message || 'Slot already booked')
-    } else toast.error('Failed')
+    } else {
+      const { message } = await readAppointmentApiError(r)
+      console.error('Book appointment failed:', r.status, message)
+      toast.error(message)
+    }
   }
 
   return (

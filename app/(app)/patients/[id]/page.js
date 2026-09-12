@@ -20,6 +20,7 @@ import BalanceBadge from '@/components/dentos/BalanceBadge'
 import OutstandingBalanceModal from '@/components/dentos/OutstandingBalanceModal'
 import EditPatientModal from '@/components/patient-workspace/EditPatientModal'
 import BookForPatientModal from '@/components/patient-workspace/BookForPatientModal'
+import PatientVoiceNotes from '@/components/dentos/PatientVoiceNotes'
 
 const labStatusBadge = (s) => {
   const cls = LAB_CASE_STATUS_META[s]?.badge || 'bg-slate-100 text-slate-700'
@@ -132,6 +133,9 @@ export default function PatientDetailPage() {
         </div>
 
         <div className="lg:col-span-7">
+          {canEditClinical() && (
+            <PatientVoiceNotes patientId={id} visits={visits} onUpdated={load} canRecord={canStartWalkin} />
+          )}
           <Tabs defaultValue={canViewClinical() ? 'visits' : 'appointments'}>
             <TabsList className="bg-muted flex-wrap h-auto">
               {canViewClinical() && <TabsTrigger value="visits">Visit History</TabsTrigger>}

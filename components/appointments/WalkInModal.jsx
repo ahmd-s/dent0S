@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
+import { readAppointmentApiError } from '@/lib/appointment-api-error'
 
 export default function WalkInModal({ open, setOpen, date, onCreated }) {
   const [doctors, setDoctors] = useState([])
@@ -72,7 +73,11 @@ export default function WalkInModal({ open, setOpen, date, onCreated }) {
       setPicked(null)
       setPq('')
       onCreated?.()
-    } else toast.error('Failed')
+    } else {
+      const { message } = await readAppointmentApiError(r)
+      console.error('Walk-in queue failed:', r.status, message)
+      toast.error(message)
+    }
   }
 
   return (

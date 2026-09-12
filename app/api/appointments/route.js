@@ -84,7 +84,9 @@ export async function POST(request) {
     durationMinutes: b.duration_minutes || 30,
   })
   if (hasConflict && !b.force) {
-    return json({ success: false, message: conflicts[0]?.message || 'This slot is already booked.', conflicts }, 409)
+    const message = conflicts[0]?.message || 'This slot is already booked. Choose another time.'
+    console.error('Appointment conflict:', { status: 409, message, conflict_count: conflicts.length })
+    return json({ success: false, error: message, message, conflicts }, 409)
   }
 
   const id = uuidv4()
@@ -111,39 +113,48 @@ export async function POST(request) {
     created_at: new Date(),
   }
 
-  await db.collection('appointments').insertOne(doc)
-
-  let patientName = b.patient_name_temp
-  if (b.patient_id) {
-    const pt = await db.collection('patients').findOne({ id: b.patient_id, clinic_id: cid })
-    patientName = pt?.name || patientName
+  try {
+    await db.collection('appointments').insertOne(doc)
+  } catch (e) {
+    console.error('Appointment insert failed:', e?.name || 'Error')
+    return err('Could not save the appointment. Try again.', 500)
   }
-  await logActivity(db, profile, ACTIVITY_EVENTS.APPOINTMENT_CREATED, {
-    patientId: b.patient_id,
-    appointmentId: id,
-    metadata: {
-      patient_name: patientName,
-      appointment_date: b.appointment_date,
-      appointment_time: b.appointment_time,
-    },
-  })
 
-  // Awaited so the reminder rows are actually committed — an un-awaited
-  // promise can be dropped when the serverless response returns. The activity
-  // write is independent, so both run concurrently.
-  await Promise.all([
-    doc.status === 'confirmed'
-      ? logActivity(db, profile, ACTIVITY_EVENTS.APPOINTMENT_CONFIRMED, {
-          patientId: b.patient_id,
-          appointmentId: id,
-        })
-      : Promise.resolve(),
-    onAppointmentCreated(db, profile, doc)
-      .catch(e => console.error('Communication hook error:', e)),
-  ])
+  try {
+    let patientName = b.patient_name_temp
+    if (b.patient_id) {
+      const pt = await db.collection('patients').findOne({ id: b.patient_id, clinic_id: cid })
+      patientName = pt?.name || patientName
+    }
+    await logActivity(db, profile, ACTIVITY_EVENTS.APPOINTMENT_CREATED, {
+      patientId: b.patient_id,
+      appointmentId: id,
+      metadata: {
+        patient_name: patientName,
+        appointment_date: b.appointment_date,
+        appointment_time: b.appointment_time,
+      },
+    })
 
-  const { invalidateDashboardRelatedCaches } = await import('@/lib/dashboard-invalidation')
-  invalidateDashboardRelatedCaches(profile.clinic_id, 'appointment')
+    // Awaited so the reminder rows are actually committed — an un-awaited
+    // promise can be dropped when the serverless response returns. The activity
+    // write is independent, so both run concurrently.
+    await Promise.all([
+      doc.status === 'confirmed'
+        ? logActivity(db, profile, ACTIVITY_EVENTS.APPOINTMENT_CONFIRMED, {
+            patientId: b.patient_id,
+            appointmentId: id,
+          })
+        : Promise.resolve(),
+      onAppointmentCreated(db, profile, doc)
+        .catch(e => console.error('Communication hook error:', e?.name || 'Error')),
+    ])
+
+    const { invalidateDashboardRelatedCaches } = await import('@/lib/dashboard-invalidation')
+    invalidateDashboardRelatedCaches(profile.clinic_id, 'appointment')
+  } catch (e) {
+    console.error('Appointment post-create hook failed:', e?.name || 'Error')
+  }
 
   return json({ ok: true, id })
 }

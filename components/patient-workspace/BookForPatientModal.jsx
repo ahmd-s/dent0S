@@ -8,21 +8,41 @@ import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
+import { readAppointmentApiError } from '@/lib/appointment-api-error'
 
 const todayIso = () => new Date().toISOString().slice(0, 10)
 
 export default function BookForPatientModal({ open, setOpen, patient, onCreated }) {
   const [f, setF] = useState({ appointment_date: todayIso(), appointment_time: '10:00 AM', appointment_type: 'follow_up', chief_complaint: '' })
 
+  const [busy, setBusy] = useState(false)
+
   const submit = async e => {
     e.preventDefault()
-    const r = await fetch('/api/appointments', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...f, patient_id: patient.id }),
-    })
-    if (r.ok) { toast.success('Booked'); setOpen(false); onCreated?.() }
-    else toast.error('Failed')
+    if (!f.appointment_date) { toast.error('Choose a date'); return }
+    if (!f.appointment_time) { toast.error('Choose a time'); return }
+    setBusy(true)
+    try {
+      const r = await fetch('/api/appointments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...f, patient_id: patient.id }),
+      })
+      if (r.ok) {
+        toast.success('Booked')
+        setOpen(false)
+        onCreated?.()
+        return
+      }
+      const { message } = await readAppointmentApiError(r)
+      console.error('Patient book failed:', r.status, message)
+      toast.error(message)
+    } catch (err) {
+      console.error('Patient book network error:', err?.name || 'Error')
+      toast.error('Could not book the appointment. Check your connection and try again.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -41,7 +61,7 @@ export default function BookForPatientModal({ open, setOpen, patient, onCreated 
             </Select>
           </div>
           <div className="space-y-1.5"><Label>Chief Complaint</Label><Textarea rows={2} value={f.chief_complaint} onChange={e => setF({ ...f, chief_complaint: e.target.value })} /></div>
-          <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button type="submit" className="bg-[#0D9488] hover:bg-[#0B7E73]">Book</Button></div>
+          <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button type="submit" disabled={busy} className="bg-[#0D9488] hover:bg-[#0B7E73]">{busy ? 'Booking…' : 'Book'}</Button></div>
         </form>
       </DialogContent>
     </Dialog>
