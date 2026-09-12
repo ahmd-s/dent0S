@@ -13,7 +13,7 @@ const ICON_TONES = {
   slate: 'bg-muted text-muted-foreground',
 }
 
-export function StatCard({ label, value, hint, icon: Icon, tone = 'slate', muted = false }) {
+export function StatCard({ label, value, hint, icon: Icon, tone = 'slate', muted = false, trend }) {
   return (
     <Card className="border-border/70 bg-card/60 shadow-sm transition-colors hover:border-border">
       <CardContent className="flex items-start gap-4 p-5">
@@ -27,6 +27,16 @@ export function StatCard({ label, value, hint, icon: Icon, tone = 'slate', muted
           <p className={cn('text-2xl font-semibold tabular-nums leading-none', muted && 'text-muted-foreground')}>
             {value}
           </p>
+          {trend && (
+            <p className={cn(
+              'text-xs font-medium',
+              trend.direction === 'up' && 'text-emerald-600 dark:text-emerald-400',
+              trend.direction === 'down' && 'text-red-600 dark:text-red-400',
+              trend.direction === 'flat' && 'text-muted-foreground',
+            )}>
+              {trend.label}
+            </p>
+          )}
           {hint && <p className="truncate text-xs text-muted-foreground">{hint}</p>}
         </div>
       </CardContent>

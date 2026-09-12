@@ -177,12 +177,51 @@ export async function GET(request) {
       value: docGrowth.find(r => matchBucket(b, r))?.count || 0,
     }))
 
-    // Current snapshot totals
-    const [totalClinics, totalPatients, totalDocs] = await Promise.all([
-      db.collection('clinics').countDocuments({}),
+    const [totalClinics, totalPatients, totalDocs, planDist, billingDist, inactiveCount, dailyLoginsRaw] = await Promise.all([
+      db.collection('clinics').countDocuments({ deleted_at: { $exists: false } }),
       db.collection('patients').countDocuments({ deleted_at: { $exists: false } }),
       db.collection('documents').countDocuments({ deleted_at: { $exists: false } }).catch(() => 0),
+      db.collection('subscriptions').aggregate([
+        { $group: { _id: { $ifNull: ['$plan_type', 'unset'] }, count: { $sum: 1 } } },
+      ]).toArray(),
+      db.collection('subscriptions').aggregate([
+        { $group: { _id: { $ifNull: ['$subscription_status', 'unset'] }, count: { $sum: 1 } } },
+      ]).toArray(),
+      db.collection('clinics').countDocuments({ is_active: false, deleted_at: { $exists: false } }),
+      db.collection('profiles').aggregate([
+        {
+          $match: {
+            last_login_at: { $gte: firstBucketStart, $lt: lastBucketEnd },
+            is_platform_admin: { $ne: true },
+          },
+        },
+        {
+          $group: {
+            _id: {
+              year: { $year: '$last_login_at' },
+              month: { $month: '$last_login_at' },
+              day: period !== '12m' ? { $dayOfMonth: '$last_login_at' } : undefined,
+            },
+            count: { $sum: 1 },
+          },
+        },
+      ]).toArray().catch(() => []),
     ])
+
+    const dailyLogins = buckets.map(b => ({
+      label: b.label,
+      value: dailyLoginsRaw.find(r => matchBucket(b, r))?.count || 0,
+    }))
+
+    const subscriptionDistribution = billingDist.map(r => ({
+      label: r._id,
+      value: r.count,
+    }))
+
+    const usageByPlan = planDist.map(r => ({
+      label: r._id,
+      value: r.count,
+    }))
 
     return json({
       period,
@@ -191,10 +230,15 @@ export async function GET(request) {
       trialConversions,
       patients,
       documents,
+      dailyLogins,
+      subscriptionDistribution,
+      usageByPlan,
+      inactiveClinics: buckets.map(b => ({ label: b.label, value: inactiveCount })),
       totals: {
         clinics: totalClinics,
         patients: totalPatients,
         documents: totalDocs,
+        inactive: inactiveCount,
       },
     })
   } catch (e) {

@@ -21,6 +21,7 @@ import {
   Users,
   Waves,
 } from 'lucide-react'
+import { DEFAULT_FEATURES } from '@/lib/default-features'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -46,7 +47,10 @@ const FEATURE_GROUPS = [
       { id: 'ai', label: 'AI Assistant', description: 'Clinical AI suggestions', icon: BrainCircuit },
       { id: 'analytics', label: 'Analytics', description: 'Advanced analytics dashboard', icon: BarChart3 },
       { id: 'xray_ai', label: 'X-Ray AI', description: 'AI-powered X-ray analysis', icon: Camera },
-      { id: 'voice', label: 'Voice', description: 'Voice notes and dictation', icon: Waves },
+      { id: 'voice', label: 'AI Voice', description: 'Voice notes and dictation', icon: Waves },
+      { id: 'smart_typing', label: 'Smart Typing', description: 'AI-assisted clinical typing', icon: BrainCircuit },
+      { id: 'queue', label: 'Queue System', description: 'Chair-side patient queue', icon: CalendarClock },
+      { id: 'custom_branding', label: 'Custom Branding', description: 'Clinic logo and brand colors', icon: Globe },
     ],
   },
   {
@@ -73,12 +77,7 @@ const FEATURE_GROUPS = [
   },
 ]
 
-const ALL_DEFAULTS = Object.fromEntries(
-  FEATURE_GROUPS.flatMap(g => g.features.map(f => [f.id, false]))
-)
-// Defaults that are on by default
-const DEFAULT_ON = ['appointments', 'billing', 'inventory', 'labs', 'reports', 'booking', 'uploads', 'ai', 'email_notifications']
-DEFAULT_ON.forEach(k => { ALL_DEFAULTS[k] = true })
+const ALL_DEFAULTS = { ...DEFAULT_FEATURES }
 
 export default function FeaturesSection({ clinic, onClinicUpdate }) {
   const [flags, setFlags] = useState({ ...ALL_DEFAULTS, ...(clinic.features || {}) })
@@ -133,7 +132,7 @@ export default function FeaturesSection({ clinic, onClinicUpdate }) {
           <CardContent className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 pt-0">
             {group.features.map(f => {
               const Icon = f.icon
-              const enabled = flags[f.id] !== false
+              const enabled = Boolean(flags[f.id] ?? ALL_DEFAULTS[f.id])
               const isSaving = saving === f.id
 
               return (

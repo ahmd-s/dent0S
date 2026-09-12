@@ -3,9 +3,11 @@ import { requirePlatformAdmin } from '@/lib/platform-admin'
 import { getPlatformBusinessAnalytics } from '@/lib/analytics-engine'
 import { getPlatformCommunicationAnalytics } from '@/lib/communication-engine'
 import { getPlatformAIAnalytics } from '@/lib/ai-engine'
+import { trendFromCounts } from '@/lib/platform-admin-console-core'
 
 // Reads cookies/headers per request, so it can never be statically rendered.
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -15,6 +17,15 @@ function cors(res) {
   return res
 }
 const json = (d, s = 200) => cors(NextResponse.json(d, { status: s }))
+
+async function safe(promise, fallback) {
+  try {
+    return await promise
+  } catch (e) {
+    console.error('Platform metrics query failed:', e)
+    return fallback
+  }
+}
 
 export async function OPTIONS() {
   return cors(new NextResponse(null, { status: 204 }))
@@ -29,6 +40,7 @@ export async function GET() {
     const now = new Date()
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
 
     const [
       clinicStats,
@@ -47,9 +59,16 @@ export async function GET() {
       labEventsToday,
       inventoryEventsToday,
       inventoryValueAgg,
+      newClinicsThisMonth,
+      newClinicsLastMonth,
+      inactiveClinics,
+      activeAccessClinics,
+      revenueLastMonth,
+      paidSubscriptions,
+      expiredSubscriptions,
     ] = await Promise.all([
       // Clinic breakdown by status
-      db.collection('clinics').aggregate([
+      safe(db.collection('clinics').aggregate([
         {
           $lookup: {
             from: 'subscriptions',
@@ -58,7 +77,7 @@ export async function GET() {
             as: 'sub',
           },
         },
-        { $unwind: { path: '$sub', preserveNullAndEmpty: true } },
+        { $unwind: { path: '$sub', preserveNullAndEmptyArrays: true } },
         {
           $group: {
             _id: null,
@@ -90,97 +109,125 @@ export async function GET() {
             },
           },
         },
-      ]).toArray(),
+      ]).toArray(), []),
 
       // Staff counts by role
-      db.collection('profiles').aggregate([
+      safe(db.collection('profiles').aggregate([
         { $match: { clinic_id: { $ne: null }, deleted_at: { $exists: false }, is_platform_admin: { $ne: true } } },
         { $group: { _id: '$role', count: { $sum: 1 } } },
-      ]).toArray(),
+      ]).toArray(), []),
 
       // Total patients
-      db.collection('patients').countDocuments({ deleted_at: { $exists: false } }),
+      safe(db.collection('patients').countDocuments({ deleted_at: { $exists: false } }), 0),
 
       // Visits today
-      db.collection('visits').countDocuments({ created_at: { $gte: todayStart } }),
+      safe(db.collection('visits').countDocuments({ created_at: { $gte: todayStart } }), 0),
 
       // Appointments today
-      db.collection('appointments').countDocuments({
+      safe(db.collection('appointments').countDocuments({
         $or: [
           { appointment_date: { $gte: todayStart } },
           { start_time: { $gte: todayStart } },
         ],
-      }),
+      }), 0),
 
       // AI usage today — from audit logs of AI actions
-      db.collection('audit_logs').countDocuments({ action: 'ai_suggestion', at: { $gte: todayStart } })
-        .catch(() => 0),
+      safe(db.collection('audit_logs').countDocuments({ action: 'ai_suggestion', at: { $gte: todayStart } }), 0),
 
       // Documents stored
-      db.collection('documents').countDocuments({ deleted_at: { $exists: false } }).catch(() => 0),
+      safe(db.collection('documents').countDocuments({ deleted_at: { $exists: false } }), 0),
 
       // Revenue this month from manual payments
-      db.collection('clinic_manual_payments').aggregate([
+      safe(db.collection('clinic_manual_payments').aggregate([
         { $match: { recorded_at: { $gte: monthStart } } },
         { $group: { _id: null, total: { $sum: '$amount' } } },
-      ]).toArray(),
+      ]).toArray(), []),
 
       // Payment status counts from subscriptions
-      db.collection('subscriptions').aggregate([
+      safe(db.collection('subscriptions').aggregate([
         {
           $group: {
             _id: '$subscription_status',
             count: { $sum: 1 },
           },
         },
-      ]).toArray(),
+      ]).toArray(), []),
 
       // Trials expiring in ≤7 days
-      db.collection('clinics').countDocuments({
+      safe(db.collection('clinics').countDocuments({
         trial_ends_at: {
           $gte: now,
           $lte: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
         },
         subscription_status: 'active',
-      }),
+      }), 0),
 
       // Grace expiring in ≤7 days
-      db.collection('subscriptions').countDocuments({
+      safe(db.collection('subscriptions').countDocuments({
         subscription_status: 'halted',
         grace_period_end: {
           $gte: now,
           $lte: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
         },
-      }),
+      }), 0),
 
       // Platform settings for infra health
-      db.collection('platform_settings').findOne({ _type: 'global' }),
+      safe(db.collection('platform_settings').findOne({ _type: 'global' }), null),
 
       // Sprint 13 — flow events today for platform-wide queue health
-      db.collection('activity_events').aggregate([
+      safe(db.collection('activity_events').aggregate([
         { $match: { module: 'appointments', created_at: { $gte: todayStart } } },
         { $group: { _id: '$event', count: { $sum: 1 } } },
-      ]).toArray(),
+      ]).toArray(), []),
 
-      db.collection('activity_events').aggregate([
+      safe(db.collection('activity_events').aggregate([
         { $match: { module: 'lab', created_at: { $gte: todayStart } } },
         { $group: { _id: '$event', count: { $sum: 1 } } },
-      ]).toArray(),
+      ]).toArray(), []),
 
-      db.collection('activity_events').aggregate([
+      safe(db.collection('activity_events').aggregate([
         { $match: { module: 'inventory', created_at: { $gte: todayStart } } },
         { $group: { _id: '$event', count: { $sum: 1 } } },
-      ]).toArray(),
+      ]).toArray(), []),
 
-      db.collection('inventory_items').aggregate([
+      safe(db.collection('inventory_items').aggregate([
         { $group: { _id: '$clinic_id', value: { $sum: { $multiply: [{ $ifNull: ['$current_stock', 0] }, { $ifNull: ['$purchase_price', 0] }] } } } },
         { $group: { _id: null, total_value: { $sum: '$value' }, clinics: { $sum: 1 } } },
-      ]).toArray(),
+      ]).toArray(), []),
+
+      safe(db.collection('clinics').countDocuments({
+        created_at: { $gte: monthStart },
+        deleted_at: { $exists: false },
+      }), 0),
+      safe(db.collection('clinics').countDocuments({
+        created_at: { $gte: lastMonthStart, $lt: monthStart },
+        deleted_at: { $exists: false },
+      }), 0),
+      safe(db.collection('clinics').countDocuments({ is_active: false, deleted_at: { $exists: false } }), 0),
+      safe(db.collection('clinics').countDocuments({
+        deleted_at: { $exists: false },
+        $or: [{ is_active: true }, { is_active: { $exists: false } }],
+        subscription_status: { $ne: 'blocked' },
+      }), 0),
+      safe(db.collection('clinic_manual_payments').aggregate([
+        { $match: { recorded_at: { $gte: lastMonthStart, $lt: monthStart } } },
+        { $group: { _id: null, total: { $sum: '$amount' } } },
+      ]).toArray(), []),
+      safe(db.collection('subscriptions').countDocuments({
+        subscription_status: 'active',
+        current_period_end: { $gt: now },
+      }), 0),
+      safe(db.collection('subscriptions').countDocuments({
+        $or: [
+          { subscription_status: 'cancelled' },
+          { subscription_status: 'active', current_period_end: { $lt: now } },
+        ],
+      }), 0),
     ])
 
-    const platformBi = await getPlatformBusinessAnalytics(db)
-    const platformCommunication = await getPlatformCommunicationAnalytics(db)
-    const platformAI = await getPlatformAIAnalytics(db)
+    const platformBi = await safe(getPlatformBusinessAnalytics(db), null)
+    const platformCommunication = await safe(getPlatformCommunicationAnalytics(db), null)
+    const platformAI = await safe(getPlatformAIAnalytics(db), null)
 
     // Mongo health via ping
     let mongoHealthy = true
@@ -193,9 +240,9 @@ export async function GET() {
       mongoHealthy = false
     }
 
-    const clinicRow = clinicStats[0] || {}
-    const roleMap = Object.fromEntries(profileCounts.map(r => [r._id, r.count]))
-    const paymentMap = Object.fromEntries(paymentCounts.map(r => [r._id, r.count]))
+    const clinicRow = clinicStats?.[0] || {}
+    const roleMap = Object.fromEntries((profileCounts || []).map(r => [r._id, r.count]))
+    const paymentMap = Object.fromEntries((paymentCounts || []).map(r => [r._id, r.count]))
     const flowMap = Object.fromEntries((flowEventsToday || []).map(r => [r._id, r.count]))
     const labMap = Object.fromEntries((labEventsToday || []).map(r => [r._id, r.count]))
     const inventoryMap = Object.fromEntries((inventoryEventsToday || []).map(r => [r._id, r.count]))
@@ -210,6 +257,26 @@ export async function GET() {
         trial: clinicRow.trial || 0,
         grace: clinicRow.grace || 0,
         comped: clinicRow.comped || 0,
+        inactive: inactiveClinics || 0,
+        paid: paidSubscriptions || 0,
+        expired: expiredSubscriptions || 0,
+        new_this_month: newClinicsThisMonth || 0,
+        operating: activeAccessClinics || 0,
+      },
+      console: {
+        total: clinicRow.total || 0,
+        active: activeAccessClinics || 0,
+        inactive: inactiveClinics || 0,
+        trial: clinicRow.trial || 0,
+        paid: paidSubscriptions || 0,
+        expired: expiredSubscriptions || 0,
+        new_this_month: newClinicsThisMonth || 0,
+        monthly_revenue: revenueMonth?.[0]?.total || 0,
+        trends: {
+          total: trendFromCounts(clinicRow.total || 0, Math.max(0, (clinicRow.total || 0) - (newClinicsThisMonth || 0))),
+          new_this_month: trendFromCounts(newClinicsThisMonth || 0, newClinicsLastMonth || 0),
+          revenue: trendFromCounts(revenueMonth?.[0]?.total || 0, revenueLastMonth?.[0]?.total || 0),
+        },
       },
       usage: {
         doctors: roleMap.doctor || 0,
@@ -222,7 +289,7 @@ export async function GET() {
         documents_stored: documentCount,
       },
       revenue: {
-        monthly_manual_revenue: revenueMonth[0]?.total || 0,
+        monthly_manual_revenue: revenueMonth?.[0]?.total || 0,
         failed_payments: paymentMap.halted || 0,
         expiring_trials: expiringTrials,
         expiring_grace: expiringGrace,
@@ -275,6 +342,34 @@ export async function GET() {
     })
   } catch (e) {
     console.error('Metrics error:', e)
-    return cors(NextResponse.json({ error: 'Internal server error' }, { status: 500 }))
+    const now = new Date()
+    return json({
+      error: e?.message || 'Internal server error',
+      degraded: true,
+      platform: { total: 0, active: 0, blocked: 0, trial: 0, grace: 0, comped: 0 },
+      console: {
+        total: 0,
+        active: 0,
+        inactive: 0,
+        trial: 0,
+        paid: 0,
+        expired: 0,
+        new_this_month: 0,
+        monthly_revenue: 0,
+        trends: {},
+      },
+      usage: {},
+      revenue: {},
+      infrastructure: {
+        mongo_healthy: false,
+        mongo_latency_ms: null,
+        last_cron_run: null,
+        email_configured: !!process.env.RESEND_API_KEY || !!process.env.SMTP_HOST,
+        whatsapp_configured: !!process.env.WHATSAPP_API_KEY,
+        razorpay_configured: !!process.env.RAZORPAY_KEY_ID,
+        server_time: now.toISOString(),
+        environment: process.env.NODE_ENV || 'development',
+      },
+    })
   }
 }

@@ -1,8 +1,8 @@
 'use client'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { AccessBadge, BillingBadge, PlanBadge, StatusBadge } from '@/components/platform-admin/Badges'
+import { Card, CardContent } from '@/components/ui/card'
+import { AccessBadge, BillingBadge, ConsoleStatusBadge, PlanBadge } from '@/components/platform-admin/Badges'
 import { DetailCard } from '@/components/platform-admin/StatCard'
-import { PlaceholderCard, SectionHeading } from '@/components/platform-admin/Placeholder'
+import { SectionHeading } from '@/components/platform-admin/Placeholder'
 import { fmtDate, fmtDateTime, fmtRelative, initials } from '@/components/platform-admin/format'
 
 export default function OverviewSection({ clinic }) {
@@ -21,7 +21,7 @@ export default function OverviewSection({ clinic }) {
           <div className="min-w-0 space-y-2">
             <h3 className="truncate text-xl font-semibold tracking-tight text-foreground">{clinic.name}</h3>
             <div className="flex flex-wrap items-center gap-2">
-              <StatusBadge active={clinic.is_active} />
+              <ConsoleStatusBadge status={clinic.console_status} />
               <AccessBadge status={clinic.subscription_status} />
               <PlanBadge plan={clinic.plan_type} />
               <BillingBadge status={clinic.billing_status} />
@@ -41,27 +41,16 @@ export default function OverviewSection({ clinic }) {
           hint={clinic.onboarding_complete ? undefined : 'Clinic has not finished setup'}
         />
         <DetailCard label="Current plan" value={clinic.plan_type ? clinic.plan_type : 'No plan'} />
-        <DetailCard label="Trial ends" value="—" hint="Coming in Sprint 2" />
+        <DetailCard label="Trial ends" value={fmtDate(clinic.trial_ends_at)} />
         <DetailCard label="Last activity" value={fmtRelative(clinic.last_activity)} hint={fmtDateTime(clinic.last_activity)} />
         <DetailCard label="Last staff login" value={fmtRelative(clinic.last_staff_login)} hint={fmtDateTime(clinic.last_staff_login)} />
+        <DetailCard label="Doctors" value={clinic.doctor_count ?? 0} />
+        <DetailCard label="Receptionists" value={clinic.receptionist_count ?? 0} />
+        <DetailCard label="Patients" value={clinic.patient_count ?? 0} />
+        <DetailCard label="Appointments" value={clinic.appointment_count ?? 0} />
+        <DetailCard label="Storage" value={clinic.storage_files != null ? `${clinic.storage_files} files` : '—'} />
+        <DetailCard label="Version" value={clinic.version || '1.0.0'} />
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Clinic footprint</CardTitle>
-          <CardDescription>
-            These counters are wired to the UI but not yet exposed by the platform admin API.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <PlaceholderCard label="Doctors" />
-          <PlaceholderCard label="Receptionists" />
-          <PlaceholderCard label="Patients" />
-          <PlaceholderCard label="Visits" />
-          <PlaceholderCard label="Storage used" />
-          <PlaceholderCard label="AI usage" />
-        </CardContent>
-      </Card>
     </div>
   )
 }

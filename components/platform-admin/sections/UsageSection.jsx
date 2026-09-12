@@ -1,38 +1,14 @@
 'use client'
 import { useEffect, useState } from 'react'
-import {
-  Boxes,
-  Brain,
-  CalendarClock,
-  FileText,
-  FlaskConical,
-  HardDrive,
-  Loader2,
-  Stethoscope,
-  UserCog,
-  Users,
-} from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { PlaceholderCard, SectionHeading } from '@/components/platform-admin/Placeholder'
+import { SectionHeading } from '@/components/platform-admin/Placeholder'
 import { DetailCard } from '@/components/platform-admin/StatCard'
 import { fmtDate, fmtRelative } from '@/components/platform-admin/format'
-
-const METRICS = [
-  { label: 'Doctors', icon: Stethoscope },
-  { label: 'Receptionists', icon: UserCog },
-  { label: 'Patients', icon: Users },
-  { label: 'Appointments', icon: CalendarClock },
-  { label: 'Visits', icon: FileText },
-  { label: 'Invoices', icon: FileText },
-  { label: 'Lab cases', icon: FlaskConical },
-  { label: 'Inventory items', icon: Boxes },
-  { label: 'AI requests', icon: Brain },
-  { label: 'Storage', icon: HardDrive },
-]
 
 export default function UsageSection({ clinic, onClinicUpdate }) {
   const [aiLimit, setAiLimit] = useState(
@@ -80,7 +56,15 @@ export default function UsageSection({ clinic, onClinicUpdate }) {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {METRICS.map(m => <PlaceholderCard key={m.label} label={m.label} icon={m.icon} />)}
+        <DetailCard label="Doctors" value={clinic.doctor_count ?? 0} />
+        <DetailCard label="Receptionists" value={clinic.receptionist_count ?? 0} />
+        <DetailCard label="Patients" value={clinic.patient_count ?? 0} />
+        <DetailCard label="Appointments" value={clinic.appointment_count ?? 0} />
+        <DetailCard label="Visits" value={clinic.visit_count ?? 0} />
+        <DetailCard label="Invoices" value={clinic.invoice_count ?? 0} />
+        <DetailCard label="Documents" value={clinic.document_count ?? clinic.storage_files ?? 0} />
+        <DetailCard label="Revenue" value={clinic.revenue_total != null ? `₹${Number(clinic.revenue_total).toLocaleString('en-IN')}` : '—'} />
+        <DetailCard label="Sessions" value={clinic.session_count ?? 0} />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">

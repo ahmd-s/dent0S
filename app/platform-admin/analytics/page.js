@@ -115,11 +115,12 @@ export default function AnalyticsPage() {
 
       {/* Totals row */}
       {data?.totals && (
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-4">
           {[
             { label: 'Total Clinics', value: data.totals.clinics },
             { label: 'Total Patients', value: data.totals.patients },
             { label: 'Total Documents', value: data.totals.documents },
+            { label: 'Inactive Clinics', value: data.totals.inactive },
           ].map(t => (
             <Card key={t.label}>
               <CardContent className="pt-5">
@@ -166,6 +167,27 @@ export default function AnalyticsPage() {
           description="Documents uploaded per period"
           data={data?.documents}
           color="#8b5cf6"
+          type="bar"
+        />
+        <ChartCard
+          title="Daily logins"
+          description="Staff with a last-login falling in each period"
+          data={data?.dailyLogins}
+          color="#0ea5e9"
+          type="area"
+        />
+        <ChartCard
+          title="Subscription distribution"
+          description="Current billing status mix"
+          data={data?.subscriptionDistribution}
+          color="#6366f1"
+          type="bar"
+        />
+        <ChartCard
+          title="Usage by plan"
+          description="Clinics grouped by plan type"
+          data={data?.usageByPlan}
+          color="#14b8a6"
           type="bar"
         />
       </div>

@@ -40,6 +40,7 @@ export async function GET(request) {
     const [clinics, staff, subscriptions] = await Promise.all([
       // Search clinics by name, slug, id
       db.collection('clinics').find({
+        deleted_at: { $exists: false },
         $or: [
           { name: regexOpts },
           { slug: regexOpts },

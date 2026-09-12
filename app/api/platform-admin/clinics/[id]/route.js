@@ -5,6 +5,13 @@ import {
 } from '@/lib/platform-admin'
 import { TRIAL_AUTO_ENFORCEMENT } from '@/lib/subscription-helpers'
 import {
+  activateClinic,
+  deactivateClinic,
+  getClinicConsoleDetail,
+  permanentlyDeleteClinic,
+  saveClinicNotes,
+} from '@/lib/platform-admin-console'
+import {
   blockClinic,
   unblockClinic,
   emergencyLock,
@@ -44,6 +51,39 @@ function stateToResponse(state) {
   }
 }
 
+export async function OPTIONS() {
+  return cors(new NextResponse(null, { status: 204 }))
+}
+
+export async function GET(request, { params }) {
+  try {
+    const ctx = await requirePlatformAdmin()
+    if (!ctx) return notFound()
+    const clinic = await getClinicConsoleDetail(ctx.db, params.id)
+    if (!clinic) return notFound()
+    return json({ clinic })
+  } catch (e) {
+    console.error('Platform admin clinic GET error:', e)
+    return cors(NextResponse.json({ error: 'Internal server error' }, { status: 500 }))
+  }
+}
+
+export async function DELETE(request, { params }) {
+  try {
+    const ctx = await requirePlatformAdmin()
+    if (!ctx) return notFound()
+    const b = await request.json().catch(() => ({}))
+    const result = await permanentlyDeleteClinic(ctx.db, ctx.profile, params.id, {
+      confirmationName: b.confirmation_name,
+    })
+    if (!result.ok) return err(result.error, result.error?.includes('not found') ? 404 : 400)
+    return json({ ok: true })
+  } catch (e) {
+    console.error('Platform admin clinic DELETE error:', e)
+    return cors(NextResponse.json({ error: 'Internal server error' }, { status: 500 }))
+  }
+}
+
 export async function PATCH(request, { params }) {
   try {
     const ctx = await requirePlatformAdmin()
@@ -55,6 +95,20 @@ export async function PATCH(request, { params }) {
 
     const b = await request.json()
     let anyChange = false
+
+    if (b.is_active !== undefined) {
+      const result = b.is_active
+        ? await activateClinic(db, profile, params.id)
+        : await deactivateClinic(db, profile, params.id, { reason: b.deactivation_reason || b.reason })
+      if (!result.ok) return err(result.error)
+      anyChange = true
+    }
+
+    if (b.platform_notes !== undefined) {
+      const result = await saveClinicNotes(db, profile, params.id, b.platform_notes)
+      if (!result.ok) return err(result.error)
+      anyChange = true
+    }
 
     // ── Clinic access toggle ──────────────────────────────────────────────────
     if (b.subscription_status !== undefined) {
@@ -125,7 +179,15 @@ export async function PATCH(request, { params }) {
 
     void anyChange
     const state = await readState(db, params.id)
-    return json(stateToResponse(state))
+    const detail = await getClinicConsoleDetail(db, params.id)
+    return json({
+      ...stateToResponse(state),
+      clinic: detail,
+      is_active: detail?.is_active,
+      platform_notes: detail?.platform_notes,
+      console_status: detail?.console_status,
+      deactivation_reason: detail?.deactivation_reason,
+    })
   } catch (e) {
     console.error('Platform admin clinic patch error:', e)
     return cors(NextResponse.json({ error: 'Internal server error' }, { status: 500 }))

@@ -11,6 +11,8 @@ import { sendStaffInviteEmail } from '@/lib/invite-email'
 import { SMART_TYPING_SEED } from '@/lib/smart-typing-seed'
 import { setupIndexes } from '@/lib/setup-indexes'
 import { createAnthropicMessage } from '@/lib/anthropic-messages'
+import { canClinicStaffLogin } from '@/lib/platform-admin-console-core'
+import { CLINIC_ACCESS_PAUSED_MESSAGE } from '@/lib/authorization-engine'
 
 // Reads cookies/headers per request, so it can never be statically rendered.
 export const dynamic = 'force-dynamic'
@@ -277,7 +279,12 @@ async function handle(request, { params }) {
       if (!profile || !profile.is_active) return err('Invalid credentials', 401)
       if (!await verifyPassword(b.password, profile.password_hash)) return err('Invalid credentials', 401)
       const c = await db.collection('clinics').findOne({ id: profile.clinic_id })
-      await db.collection('profiles').updateOne({ id: profile.id }, { $set: { last_login_at: new Date() } })
+      const access = canClinicStaffLogin(c)
+      if (!access.ok) {
+        if (access.deleted) return err('Invalid credentials', 401)
+        return err(CLINIC_ACCESS_PAUSED_MESSAGE, 403)
+      }
+      await db.collection('profiles').updateOne({ id: profile.id }, { $set: { last_login_at: new Date() }, $inc: { login_count: 1 } })
       setAuthCookie(signToken({ uid: profile.id, cid: profile.clinic_id, role: profile.role }))
       return json({ ok:true, onboarding_complete: !!c?.onboarding_complete })
     }

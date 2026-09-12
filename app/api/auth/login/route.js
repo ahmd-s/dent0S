@@ -20,6 +20,8 @@ import {
 } from '@/lib/platform-admin'
 import { issuePendingToken } from '@/lib/platform-admin-auth'
 import { ensureProfileRolesMigrated } from '@/lib/profile-roles'
+import { canClinicStaffLogin } from '@/lib/platform-admin-console-core'
+import { CLINIC_ACCESS_PAUSED_MESSAGE } from '@/lib/authorization-engine'
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -119,8 +121,13 @@ export async function POST(request) {
     }
 
     const c = await db.collection('clinics').findOne({ id: profile.clinic_id })
+    const access = canClinicStaffLogin(c)
+    if (!access.ok) {
+      if (access.deleted) return err('Invalid credentials', 401)
+      return err(CLINIC_ACCESS_PAUSED_MESSAGE, 403)
+    }
     const roles = await ensureProfileRolesMigrated(db, profile)
-    await db.collection('profiles').updateOne({ id: profile.id }, { $set: { last_login_at: new Date() } })
+    await db.collection('profiles').updateOne({ id: profile.id }, { $set: { last_login_at: new Date() }, $inc: { login_count: 1 } })
     setAuthCookie(signToken({ uid: profile.id, cid: profile.clinic_id, roles, role: roles[0] || profile.role }))
     setCsrfCookie(generateCsrfToken())
     return json({ ok: true, onboarding_complete: !!c?.onboarding_complete })

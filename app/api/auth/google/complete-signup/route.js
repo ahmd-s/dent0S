@@ -46,11 +46,14 @@ export async function POST(request) {
     })
 
     clearGoogleSignupPendingCookie()
-    const { onboarding_complete } = await issueClinicSession(db, profile)
+    const session = await issueClinicSession(db, profile)
+    if (session.denied) {
+      return err('Unable to start clinic session', 403)
+    }
 
     return json({
       ok: true,
-      onboarding_complete,
+      onboarding_complete: session.onboarding_complete,
     })
   } catch (e) {
     console.error('Google complete-signup error:', e)

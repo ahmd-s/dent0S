@@ -100,3 +100,35 @@ export const SUBSCRIPTION_TIMELINE_ACTIONS = new Set([
 ])
 
 export const isBlocked = clinic => clinic?.subscription_status === 'blocked'
+
+export function csvEscape(value) {
+  const s = value == null ? '' : String(value)
+  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`
+  return s
+}
+
+export function downloadCsv(filename, headers, rows) {
+  const lines = [
+    headers.map(h => csvEscape(h.label)).join(','),
+    ...rows.map(row => headers.map(h => csvEscape(typeof h.value === 'function' ? h.value(row) : row[h.key])).join(',')),
+  ]
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+export function formatBytes(bytes) {
+  if (!bytes) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let n = bytes
+  let i = 0
+  while (n >= 1024 && i < units.length - 1) {
+    n /= 1024
+    i += 1
+  }
+  return `${n.toFixed(i === 0 ? 0 : 1)} ${units[i]}`
+}

@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { AccessBadge, BillingBadge, PlanBadge, StatusBadge } from '@/components/platform-admin/Badges'
+import { AccessBadge, BillingBadge, ConsoleStatusBadge, PlanBadge } from '@/components/platform-admin/Badges'
 import { CLINIC_SECTIONS, ClinicSectionNav } from '@/components/platform-admin/ClinicSectionNav'
 import { initials } from '@/components/platform-admin/format'
 
@@ -62,18 +62,21 @@ export default function ClinicControlCenterPage({ params }) {
     if (silent) setRefreshing(true)
     else setLoading(true)
     try {
-      const r = await fetch('/api/platform-admin/clinics')
+      const r = await fetch(`/api/platform-admin/clinics/${clinicId}`)
       if (!r.ok) {
+        if (r.status === 404) {
+          setMissing(true)
+          return
+        }
         toast.error('Failed to load clinic')
         return
       }
       const d = await r.json()
-      const found = (d.clinics || []).find(c => c.id === clinicId)
-      if (!found) {
+      if (!d.clinic) {
         setMissing(true)
         return
       }
-      setClinic(found)
+      setClinic(d.clinic)
       setMissing(false)
     } catch {
       toast.error('Network error')
@@ -134,7 +137,7 @@ export default function ClinicControlCenterPage({ params }) {
         <p className="text-lg font-medium text-foreground">Clinic not found</p>
         <p className="mt-1 text-sm text-muted-foreground">It may have been removed from the platform.</p>
         <Button asChild variant="outline" size="sm" className="mt-6">
-          <Link href="/platform-admin">Back to control center</Link>
+          <Link href="/platform-admin/clinics">Back to clinics</Link>
         </Button>
       </div>
     )
@@ -147,7 +150,7 @@ export default function ClinicControlCenterPage({ params }) {
     <div className="space-y-8">
       <div className="space-y-4">
         <Link
-          href="/platform-admin"
+          href="/platform-admin/clinics"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -162,7 +165,7 @@ export default function ClinicControlCenterPage({ params }) {
             <div className="min-w-0 space-y-1.5">
               <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground">{clinic.name}</h1>
               <div className="flex flex-wrap items-center gap-2">
-                <StatusBadge active={clinic.is_active} />
+                <ConsoleStatusBadge status={clinic.console_status} />
                 <AccessBadge status={clinic.subscription_status} />
                 <PlanBadge plan={clinic.plan_type} />
                 <BillingBadge status={clinic.billing_status} />

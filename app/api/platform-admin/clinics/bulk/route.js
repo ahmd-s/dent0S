@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server'
 import { requirePlatformAdmin } from '@/lib/platform-admin'
-import { listConsoleClinics, parseClinicListQuery } from '@/lib/platform-admin-console'
+import { runBulkClinicAction } from '@/lib/platform-admin-console'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
 
 function cors(res) {
   res.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
-  res.headers.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH')
+  res.headers.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
   res.headers.set('Access-Control-Allow-Headers', 'Content-Type,Authorization')
   res.headers.set('Access-Control-Allow-Credentials', 'true')
   return res
@@ -19,17 +18,22 @@ export async function OPTIONS() {
   return cors(new NextResponse(null, { status: 204 }))
 }
 
-export async function GET(request) {
+export async function POST(request) {
   try {
     const ctx = await requirePlatformAdmin()
     if (!ctx) return notFound()
-    const { db } = ctx
-
-    const query = parseClinicListQuery(new URL(request.url).searchParams)
-    const result = await listConsoleClinics(db, query)
+    const body = await request.json().catch(() => ({}))
+    const result = await runBulkClinicAction(ctx.db, ctx.profile, {
+      action: body.action,
+      clinicIds: body.clinic_ids,
+      reason: body.reason,
+      days: body.days,
+      confirmation: body.confirmation,
+    })
+    if (!result.ok && result.error) return json({ error: result.error }, 400)
     return json(result)
   } catch (e) {
-    console.error('Platform admin clinics error:', e)
+    console.error('Platform admin bulk clinics error:', e)
     return cors(NextResponse.json({ error: 'Internal server error' }, { status: 500 }))
   }
 }

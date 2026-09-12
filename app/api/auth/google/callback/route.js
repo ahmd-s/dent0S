@@ -12,6 +12,7 @@ import {
 } from '@/lib/google-oauth-cookies'
 import { issueClinicSession } from '@/lib/clinic-session'
 import { isPlatformAdminProfile } from '@/lib/platform-admin'
+import { CLINIC_ACCESS_PAUSED_MESSAGE } from '@/lib/authorization-engine'
 import { issuePendingToken } from '@/lib/platform-admin-auth'
 import { AUTH_COOKIE_NAME, authCookieOptions } from '@/lib/auth'
 
@@ -103,14 +104,20 @@ export async function GET(request) {
         )
       }
 
-      const { onboarding_complete, token } = await issueClinicSession(db, profile, {
+      const session = await issueClinicSession(db, profile, {
         attachCookie: false,
       })
+      if (session.denied) {
+        return loginErrorRedirect(
+          origin,
+          session.deleted ? 'Invalid credentials' : CLINIC_ACCESS_PAUSED_MESSAGE
+        )
+      }
       return redirectWithCookie(
         origin,
-        onboarding_complete ? '/dashboard' : '/onboarding',
+        session.onboarding_complete ? '/dashboard' : '/onboarding',
         AUTH_COOKIE_NAME,
-        token,
+        session.token,
         AUTH_MAX_AGE
       )
     }
