@@ -56,8 +56,8 @@ export function LabCaseAttachments({ caseId, attachments = [], onChange, readOnl
     try {
       const res = await fetch(`/api/lab-cases/${caseId}/attachments?attachment_id=${att.id}`, { method: 'DELETE' })
       if (res.ok) { toast.success('Attachment deleted'); onChange && onChange() }
-      else toast.error('Failed to delete attachment')
-    } catch { toast.error('Failed to delete attachment') }
+      else toast.error('Could not delete this attachment')
+    } catch { toast.error('Could not delete this attachment') }
   }
 
   return (

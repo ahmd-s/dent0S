@@ -40,7 +40,7 @@ export function WorkspaceProvider({ children }) {
     try {
       const r = await fetch('/api/workspace')
       const d = await r.json()
-      if (!r.ok) throw new Error(d.error || 'Failed to load workspace')
+      if (!r.ok) throw new Error(d.error || 'Could not load workspace settings')
       setWorkspace(d.workspace)
       setRole(d.role)
       setConfig(d.config)
@@ -58,6 +58,14 @@ export function WorkspaceProvider({ children }) {
 
   useEffect(() => {
     if (!me) return
+    if (me.workspace && me.workspace_config) {
+      setWorkspace(me.workspace)
+      setRole(me.workspace_role)
+      setConfig(me.workspace_config)
+      setLoading(false)
+      setError(null)
+      return
+    }
     let cancelled = false
     ;(async () => {
       setLoading(true)

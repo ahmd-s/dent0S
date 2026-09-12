@@ -1,13 +1,14 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Calendar, Loader2 } from 'lucide-react'
+import { Calendar } from 'lucide-react'
+import { TableSkeleton } from '@/components/dentos/PageSkeleton'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import { useLiveRefresh } from '@/hooks/useLiveRefresh'
+import { useClinicSync, publishClinicSync } from '@/hooks/useClinicSync'
 import { useWorkspace } from '@/components/workspace/useWorkspace'
 import { isActionEnabled } from '@/lib/workspace-client'
 import { todayIso, weekDates } from '@/lib/appointment-time'
@@ -64,6 +65,7 @@ export default function AppointmentsPage() {
   const [balanceModalOpen, setBalanceModalOpen] = useState(false)
   const [selectedPatientId, setSelectedPatientId] = useState(null)
   const [prefillPatient, setPrefillPatient] = useState(null)
+  const metaLoadedRef = useRef(false)
 
   useEffect(() => {
     const saved = localStorage.getItem(VIEW_STORAGE_KEY)
@@ -83,26 +85,43 @@ export default function AppointmentsPage() {
   }
 
   const load = useCallback(async ({ silent } = {}) => {
-    if (!silent) setLoading(true)
+    if (!silent) {
+      setLoading(true)
+      setList([])
+    }
     const { from, to } = getDateRange(view, date)
     const params = view === 'day' || view === 'queue' || view === 'doctor' || view === 'chair'
       || view === 'reception' || view === 'flow' || view === 'chairs' || view === 'doctor_flow'
       ? `date=${date}`
       : `date_from=${from}&date_to=${to}`
-    const [apptRes, docRes, chairRes] = await Promise.all([
-      fetch(`/api/appointments?${params}`),
-      fetch('/api/doctors'),
-      fetch('/api/chairs'),
-    ])
-    const [apptData, docData, chairData] = await Promise.all([apptRes.json(), docRes.json(), chairRes.json()])
-    setList(apptData.appointments || [])
-    setDoctors(docData.doctors || [])
-    setChairs(chairData.chairs || [])
-    if (!silent) setLoading(false)
+    try {
+      const fetches = [fetch(`/api/appointments?${params}`)]
+      const needMeta = !metaLoadedRef.current
+      if (needMeta) {
+        fetches.push(fetch('/api/doctors'), fetch('/api/chairs'))
+      }
+      const responses = await Promise.all(fetches)
+      const apptData = await responses[0].json()
+      if (!responses[0].ok) {
+        toast.error(apptData.error || 'Could not load appointments')
+      } else {
+        setList(apptData.appointments || [])
+      }
+      if (needMeta && responses[1] && responses[2]) {
+        const [docData, chairData] = await Promise.all([responses[1].json(), responses[2].json()])
+        setDoctors(docData.doctors || [])
+        setChairs(chairData.chairs || [])
+        metaLoadedRef.current = true
+      }
+    } catch {
+      if (!silent) toast.error('Could not load appointments. Check your connection.')
+    } finally {
+      if (!silent) setLoading(false)
+    }
   }, [date, view])
 
   useEffect(() => { load() }, [load])
-  useLiveRefresh(() => load({ silent: true }), [date, view])
+  useClinicSync(() => load({ silent: true }), [date, view])
 
   const summary = useMemo(() => ({
     scheduled: list.filter(a => ['scheduled', 'confirmed'].includes(normalizeStatus(a.status))).length,
@@ -112,27 +131,44 @@ export default function AppointmentsPage() {
   }), [list])
 
   const setStatus = async (id, status) => {
-    const r = await fetch(`/api/appointments/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
-    })
-    if (r.ok) { toast.success('Updated'); load(); setSelected(null) }
-    else toast.error((await r.json()).message || 'Failed')
+    setList(prev => prev.map(a => a.id === id ? { ...a, status } : a))
+    try {
+      const r = await fetch(`/api/appointments/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (r.ok) {
+        toast.success('Updated')
+        publishClinicSync('appointment')
+        setSelected(null)
+      } else {
+        toast.error(d.message || d.error || 'Could not update appointment status')
+        load({ silent: true })
+      }
+    } catch {
+      toast.error('Could not update appointment status. Check your connection.')
+      load({ silent: true })
+    }
   }
 
   const startVisit = async (a) => {
     if (a.status !== 'called' && a.status !== 'doctor_ready' && a.status !== 'checked_in' && a.status !== 'arrived' && a.status !== 'waiting') {
       await setStatus(a.id, 'checked_in')
     }
-    const r = await fetch('/api/visits', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ patient_id: a.patient_id || null, appointment_id: a.id }),
-    })
-    const d = await r.json()
-    if (r.ok) router.push(`/visits/${d.id}`)
-    else toast.error(d.error || 'Failed')
+    try {
+      const r = await fetch('/api/visits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patient_id: a.patient_id || null, appointment_id: a.id }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (r.ok) router.push(`/visits/${d.id}`)
+      else toast.error(d.error || 'Could not start the visit')
+    } catch {
+      toast.error('Could not start the visit. Check your connection.')
+    }
   }
 
   const onDropAppointment = async (id, update) => {
@@ -178,8 +214,8 @@ export default function AppointmentsPage() {
 
       <ConflictWarnings conflicts={conflicts} />
 
-      {loading ? (
-        <div className="flex justify-center py-16"><Loader2 className="w-8 h-8 animate-spin text-[#0D9488]" /></div>
+      {loading && list.length === 0 ? (
+        <TableSkeleton rows={8} />
       ) : view === 'reception' ? (
         <ReceptionDashboard date={date} onRefresh={load} />
       ) : view === 'flow' ? (

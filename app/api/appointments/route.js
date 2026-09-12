@@ -43,9 +43,16 @@ export async function GET(request) {
   if (doctor_id) f.doctor_id = doctor_id
   if (chair_id) f.chair_id = chair_id
 
+  const limit = Math.min(1000, Math.max(1, parseInt(url.searchParams.get('limit') || '500', 10) || 500))
   const apps = await db.collection('appointments')
-    .find(f)
+    .find(f, {
+      projection: {
+        _id: 0,
+        password_hash: 0,
+      },
+    })
     .sort({ appointment_date: 1, appointment_time: 1 })
+    .limit(limit)
     .toArray()
 
   const enriched = await enrichAppointments(db, cid, apps)

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Plus, Search, X, Loader2, Eye, AlertTriangle, FlaskConical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,7 +10,7 @@ import { Card } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { NewLabCaseDialog } from '@/components/dentos/NewLabCaseDialog'
 import { LAB_CASE_STATUS_META, statusLabel } from '@/lib/lab-case-helpers'
-import { useLiveRefresh } from '@/hooks/useLiveRefresh'
+import { useClinicSync } from '@/hooks/useClinicSync'
 import { EmptyState } from '@/components/dentos/EmptyState'
 
 const fmtDate = d => d ? `${String(new Date(d).getDate()).padStart(2,'0')}/${String(new Date(d).getMonth()+1).padStart(2,'0')}/${new Date(d).getFullYear()}` : '—'
@@ -39,6 +39,7 @@ const urgencyBadge = (u) => {
 }
 
 export default function LegacyLabList() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const initialStatus = searchParams.get('status') || 'all'
   const [list, setList] = useState([])
@@ -58,7 +59,7 @@ export default function LegacyLabList() {
   }, [status])
 
   useEffect(() => { load() }, [load])
-  useLiveRefresh(() => load({ silent: true }), [status])
+  useClinicSync(() => load({ silent: true }), [status])
 
   const visible = useMemo(() => {
     let l = status === 'overdue' ? list.filter(c => c.overdue) : list
@@ -116,7 +117,7 @@ export default function LegacyLabList() {
               </thead>
               <tbody>
                 {visible.map(c => (
-                  <tr key={c.id} className="border-t border-border hover:bg-muted/50 cursor-pointer" onClick={()=>window.location.href=`/lab-cases/${c.id}`}>
+                  <tr key={c.id} className="border-t border-border hover:bg-muted/50 cursor-pointer" onClick={()=>router.push(`/lab-cases/${c.id}`)}>
                     <td className="px-5 py-3 font-medium text-foreground">{c.case_number}</td>
                     <td className="px-5 py-3">{c.patient_name}</td>
                     <td className="px-5 py-3">{c.vendor_name}</td>

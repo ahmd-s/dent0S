@@ -27,11 +27,26 @@ export async function GET() {
   try {
     const ctx = await requireUser(); if (!ctx) return err('Unauthorized', 401)
     const { profile, db } = ctx; const cid = profile.clinic_id
-    const docs = await db.collection('profiles').find({
-      clinic_id: cid,
-      is_active: true,
-      $or: [{ roles: 'doctor' }, { role: 'doctor' }],
-    }).toArray()
+    const docs = await db.collection('profiles').find(
+      {
+        clinic_id: cid,
+        is_active: true,
+        $or: [{ roles: 'doctor' }, { role: 'doctor' }],
+      },
+      {
+        projection: {
+          _id: 0,
+          id: 1,
+          full_name: 1,
+          specialization: 1,
+          profile_photo_url: 1,
+          consultation_fee: 1,
+          roles: 1,
+          role: 1,
+          is_active: 1,
+        },
+      }
+    ).toArray()
     return json({
       doctors: docs.filter(d => hasRole(getProfileRoles(d), 'doctor')).map(d => ({
         id: d.id,

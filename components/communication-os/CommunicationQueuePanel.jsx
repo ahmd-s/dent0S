@@ -53,7 +53,7 @@ export default function CommunicationQueuePanel() {
       const data = await res.json()
       setMessages(data.messages || [])
     } catch {
-      toast.error('Failed to load communication queue')
+      toast.error('Could not load the communication queue')
     } finally {
       setLoading(false)
     }

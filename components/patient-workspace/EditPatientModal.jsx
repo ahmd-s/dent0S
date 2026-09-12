@@ -30,7 +30,7 @@ export default function EditPatientModal({ open, setOpen, patient, onSaved, clin
     })
     setLoading(false)
     if (r.ok) { toast.success('Saved'); setOpen(false); onSaved?.() }
-    else toast.error('Failed')
+    else toast.error(d.error || 'Could not save patient details')
   }
 
   if (!f) return null

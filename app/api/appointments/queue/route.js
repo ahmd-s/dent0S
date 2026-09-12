@@ -33,11 +33,11 @@ export async function GET(request) {
     ...doctorAppointmentFilter(roles, ctx.profile.id),
   }
 
-  const raw = await ctx.db.collection('appointments').find(filter).toArray()
-  const queueItems = raw.filter(a => isInQueue(a.status))
-  const sorted = sortQueue(queueItems)
-  const enriched = await enrichAppointments(ctx.db, ctx.profile.clinic_id, sorted)
+  const raw = await ctx.db.collection('appointments')
+    .find(filter, { projection: { _id: 0 } })
+    .toArray()
   const allEnriched = await enrichAppointments(ctx.db, ctx.profile.clinic_id, raw)
+  const enriched = sortQueue(allEnriched.filter(a => isInQueue(a.status)))
 
   const stats = {
     waiting: allEnriched.filter(a => normalizeStatus(a.status) === 'waiting').length,
@@ -64,19 +64,16 @@ export async function POST(request) {
   const body = await request.json()
   const cid = ctx.profile.clinic_id
 
-  if (body.action === 'reorder' && Array.isArray(body.order)) {
-    for (let i = 0; i < body.order.length; i++) {
-      const id = body.order[i]
-      const existing = await ctx.db.collection('appointments').findOne({ id, clinic_id: cid })
-      if (!existing) continue
-      await ctx.db.collection('appointments').updateOne(
-        { id, clinic_id: cid },
-        { $set: { queue_position: i + 1 } }
-      )
-      if (existing.queue_position !== i + 1) {
-        await logAppointmentChanges(ctx.db, ctx.profile, existing, { queue_position: i + 1 })
-      }
-    }
+    if (body.action === 'reorder' && Array.isArray(body.order)) {
+    const ops = body.order.map((id, i) => ({
+      updateOne: {
+        filter: { id, clinic_id: cid },
+        update: { $set: { queue_position: i + 1 } },
+      },
+    }))
+    if (ops.length) await ctx.db.collection('appointments').bulkWrite(ops, { ordered: false })
+    const { invalidateClinicDashboard } = await import('@/lib/dashboard-invalidation')
+    invalidateClinicDashboard(cid, 'appointment')
     return json({ ok: true })
   }
 
@@ -95,6 +92,8 @@ export async function POST(request) {
       { $set: { status: 'doctor_ready', doctor_ready_at: new Date() } }
     )
     await logAppointmentChanges(ctx.db, ctx.profile, next, { status: 'doctor_ready' })
+    const { invalidateClinicDashboard } = await import('@/lib/dashboard-invalidation')
+    invalidateClinicDashboard(cid, 'appointment')
     return json({ ok: true, appointment: clean({ ...next, status: 'doctor_ready' }) })
   }
 
@@ -141,6 +140,8 @@ export async function POST(request) {
       metadata: { walk_in: true, appointment_date: date },
     })
     await logAppointmentChanges(ctx.db, ctx.profile, { ...doc, status: 'scheduled' }, { status: 'waiting' })
+    const { invalidateClinicDashboard } = await import('@/lib/dashboard-invalidation')
+    invalidateClinicDashboard(cid, 'appointment')
 
     return json({ ok: true, id })
   }

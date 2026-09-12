@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner'
 import ConflictWarnings from './ConflictWarnings'
 import { readAppointmentApiError } from '@/lib/appointment-api-error'
+import { publishClinicSync } from '@/hooks/useClinicSync'
 
 const TYPES = ['new_patient', 'follow_up', 'emergency', 'consultation', 'procedure']
 
@@ -81,7 +82,7 @@ export default function NewAppointmentModal({ open, setOpen, initialDate, onCrea
       const r = await fetch('/api/patients', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: walkinForm.name, phone: walkinForm.phone }) })
       const d = await r.json()
       if (r.ok) patient_id = d.id
-      else { toast.error('Failed to create patient'); setBusy(false); return }
+      else { toast.error(d.error || 'Could not create patient'); setBusy(false); return }
     }
     if (!patient_id) { toast.error('Select a patient'); setBusy(false); return }
 
@@ -93,6 +94,7 @@ export default function NewAppointmentModal({ open, setOpen, initialDate, onCrea
     setBusy(false)
     if (r.ok) {
       toast.success(`Appointment booked${picked ? ` for ${picked.name}` : ''}`)
+      publishClinicSync('appointment')
       setOpen(false)
       setPicked(null)
       setPq('')

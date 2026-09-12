@@ -93,7 +93,7 @@ export function NewLabCaseDialog({ open, setOpen, onCreated, lockedPatient = nul
       setOpen(false)
       onCreated && onCreated(d)
       if (navigateOnCreate) router.push(`/lab-cases/${d.id}`)
-    } else toast.error(d.error || 'Failed to create lab case')
+    } else toast.error(d.error || 'Could not create this lab case')
   }
 
   return (

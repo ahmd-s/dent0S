@@ -37,11 +37,11 @@ export default function OutstandingBalanceModal({ open, onOpenChange, patientId 
         if (res.ok) {
           setData(balanceData)
         } else {
-          toast.error('Failed to load outstanding balance')
+          toast.error('Could not load outstanding balance')
         }
       } catch (error) {
         console.error('Failed to fetch outstanding balance:', error)
-        toast.error('Failed to load outstanding balance')
+        toast.error('Could not load outstanding balance')
       } finally {
         setLoading(false)
       }

@@ -53,7 +53,7 @@ export function ConsentFormsTab({ patientId, patientName, patientPhone }) {
       setLinkDialogOpen(true)
       load()
     } else {
-      toast.error(d.error || 'Failed to send consent')
+      toast.error(d.error || 'Could not send the consent form')
     }
   }
 

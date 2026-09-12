@@ -46,8 +46,8 @@ export async function GET(request) {
 
     const q = url.searchParams.get('q')
     const filter = url.searchParams.get('filter')
-    const page = parseInt(url.searchParams.get('page') || '1')
-    const pageSize = parseInt(url.searchParams.get('page_size') || '20')
+    const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10) || 1)
+    const pageSize = Math.min(50, Math.max(1, parseInt(url.searchParams.get('page_size') || '20', 10) || 20))
 
     const f = { clinic_id: cid, is_archived: { $ne: true } }
 
@@ -63,25 +63,44 @@ export async function GET(request) {
     }
 
     if (q) {
-      const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
-      f.$or = [{ name: re }, { phone: re }, { patient_code: re }]
+      const trimmed = q.trim()
+      const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const digits = trimmed.replace(/\D/g, '')
+      const or = [
+        { name: new RegExp(escaped, 'i') },
+        { patient_code: new RegExp('^' + escaped, 'i') },
+      ]
+      if (digits.length >= 2) or.push({ phone: new RegExp('^' + digits) })
+      else or.push({ phone: new RegExp(escaped, 'i') })
+      f.$or = or
     }
     if (filter === 'week') f.last_visit_date = { $gte: weekStart() }
     else if (filter === 'month') f.last_visit_date = { $gte: monthBack(1) }
     else if (filter === 'inactive') f.$and = [{ $or: [{ last_visit_date: { $lt: monthBack(3) } }, { last_visit_date: null }] }]
 
-    const [result] = await db.collection('patients').aggregate([
-      { $match: f },
-      {
-        $facet: {
-          data: [{ $sort: { created_at: -1 } }, { $skip: (page - 1) * pageSize }, { $limit: pageSize }],
-          totalCount: [{ $count: 'total' }],
-        },
-      },
-    ]).toArray()
+    const listProjection = {
+      _id: 0,
+      id: 1,
+      name: 1,
+      phone: 1,
+      age: 1,
+      gender: 1,
+      patient_code: 1,
+      last_visit_date: 1,
+      next_followup_date: 1,
+      created_at: 1,
+    }
 
-    const patients = result?.data || []
-    const totalCount = result?.totalCount?.[0]?.total || 0
+    const [patients, totalCount] = await Promise.all([
+      db.collection('patients')
+        .find(f)
+        .project(listProjection)
+        .sort({ created_at: -1 })
+        .skip((page - 1) * pageSize)
+        .limit(pageSize)
+        .toArray(),
+      db.collection('patients').countDocuments(f),
+    ])
     const totalPages = Math.ceil(totalCount / pageSize)
 
     return json({

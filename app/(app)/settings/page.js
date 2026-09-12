@@ -115,7 +115,7 @@ function ClinicTab({ me, reload }) {
     setSaving(true)
     const r = await fetch('/api/clinic', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name: c.name, phone: c.phone, address: c.address, city: c.city, gstin: c.gstin, logo_url: c.logo_url, working_hours: hours }) })
     setSaving(false)
-    if (r.ok) { toast.success('Saved'); reload(); refreshRole() } else toast.error('Failed')
+    else toast.error(d.error || 'Could not save settings')
   }
   const updateSlug = async () => {
     const r = await fetch('/api/clinic', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ slug: c.slug }) })
@@ -128,7 +128,7 @@ function ClinicTab({ me, reload }) {
   const saveTpl = async () => {
     const url = tpl.id ? `/api/treatment_templates/${tpl.id}` : '/api/treatment_templates'
     const r = await fetch(url, { method: tpl.id?'PUT':'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(tpl) })
-    if (r.ok) { toast.success('Saved'); setTplOpen(false); fetch('/api/treatment_templates').then(r=>r.json()).then(d=>setTemplates(d.templates||[])) } else toast.error('Failed')
+    else toast.error('Could not save treatment template')
   }
   const deleteTpl = async id => {
     if (!confirm('Delete template?')) return
@@ -285,7 +285,7 @@ function TeamTab() {
   const updateConsultationFee = async (m) => {
     const r = await fetch(`/api/team/${m.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ consultation_fee: feeValue === '' ? null : feeValue }) })
     if (r.ok) { toast.success('Consultation fee updated'); setEditingFee(null); load() }
-    else toast.error('Failed')
+    else toast.error('Could not save changes')
   }
   const updateWhatsApp = async (m) => {
     if (!/^\d{10}$/.test(whatsappValue)) {
@@ -294,7 +294,7 @@ function TeamTab() {
     }
     const r = await fetch(`/api/team/${m.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ whatsapp_number: whatsappValue }) })
     if (r.ok) { toast.success('WhatsApp number updated'); setEditingWhatsApp(null); setWhatsappValue(''); load() }
-    else toast.error('Failed')
+    else toast.error('Could not save changes')
   }
   const openEditMember = (m) => {
     setEditMember(m)
@@ -466,20 +466,20 @@ function ConsentFormsTab() {
     const url = template.id ? `/api/consent-templates/${template.id}` : '/api/consent-templates'
     const r = await fetch(url, { method: template.id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(template) })
     if (r.ok) { toast.success('Saved'); setOpen(false); setTemplate({ id: null, name: '', category: 'General', content: '', active: true }); load() }
-    else toast.error('Failed')
+    else toast.error('Could not save changes')
   }
 
   const deleteTemplate = async (id) => {
     if (!confirm('Delete this template?')) return
     const r = await fetch(`/api/consent-templates/${id}`, { method: 'DELETE' })
     if (r.ok) { toast.success('Deleted'); setTemplates(p => p.filter(t => t.id !== id)) }
-    else toast.error('Failed')
+    else toast.error('Could not save changes')
   }
 
   const toggleActive = async (t) => {
     const r = await fetch(`/api/consent-templates/${t.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ active: !t.active }) })
     if (r.ok) { toast.success('Updated'); load() }
-    else toast.error('Failed')
+    else toast.error('Could not save changes')
   }
 
   const seedDefaults = async () => {
@@ -605,7 +605,7 @@ function DoctorAvailabilityTab({ me }) {
       toast.success('Deleted')
       load()
     } else {
-      toast.error('Failed')
+      toast.error('Could not save settings')
     }
   }
 

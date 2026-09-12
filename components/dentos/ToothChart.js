@@ -144,12 +144,12 @@ function ToothChart({ visitId, patientId, readOnly = false, onChartChange }) {
         if (onChartChange) onChartChange(teeth)
         setTimeout(() => setSaveStatus('idle'), 2000)
       } else {
-        toast.error('Failed to save tooth chart')
+        toast.error('Could not save the tooth chart')
         setSaveStatus('idle')
       }
     } catch (e) {
       console.error('Failed to save tooth chart:', e)
-      toast.error('Failed to save tooth chart')
+      toast.error('Could not save the tooth chart')
       setSaveStatus('idle')
     } finally {
       setSaving(false)

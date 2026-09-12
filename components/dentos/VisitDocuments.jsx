@@ -108,10 +108,10 @@ export function VisitDocuments({ visitId, patientId, onAddFindings }) {
         toast.success('Document deleted')
         setDocuments(prev => prev.filter(d => d._id !== doc._id))
       } else {
-        toast.error('Failed to delete document')
+        toast.error('Could not delete this document')
       }
     } catch {
-      toast.error('Failed to delete document')
+      toast.error('Could not delete this document')
     }
   }
 

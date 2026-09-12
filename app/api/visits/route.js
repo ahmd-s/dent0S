@@ -38,17 +38,69 @@ export async function GET(request) {
   const cid = profile.clinic_id
   const url = new URL(request.url)
   const patient_id = url.searchParams.get('patient_id')
+  const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10) || 1)
+  const pageSize = Math.min(100, Math.max(1, parseInt(url.searchParams.get('page_size') || '50', 10) || 50))
+  const includeRx = url.searchParams.get('include') === 'prescriptions' || !!patient_id
   const f = { clinic_id: cid }
   if (patient_id) f.patient_id = patient_id
-  const list = await db.collection('visits').find(f).sort({ visit_date: -1, created_at: -1 }).toArray()
+
+  const listProjection = patient_id
+    ? { _id: 0 }
+    : {
+      _id: 0,
+      id: 1,
+      patient_id: 1,
+      doctor_id: 1,
+      visit_date: 1,
+      chief_complaint: 1,
+      created_at: 1,
+      appointment_id: 1,
+      workflow_status: 1,
+    }
+
+  const cursor = db.collection('visits')
+    .find(f, { projection: listProjection })
+    .sort({ visit_date: -1, created_at: -1 })
+  const list = patient_id
+    ? await cursor.toArray()
+    : await cursor.skip((page - 1) * pageSize).limit(pageSize).toArray()
   const uniqueList = Array.from(new Map(list.map(v => [v.id, v])).values())
   const dids = [...new Set(uniqueList.map(v => v.doctor_id).filter(Boolean))]
-  const docs = dids.length ? await db.collection('profiles').find({ id: { $in: dids }, clinic_id: cid }).toArray() : []
+  const pids = [...new Set(uniqueList.map(v => v.patient_id).filter(Boolean))]
+  const visitIds = uniqueList.map(v => v.id)
+
+  const [docs, rxs, pts] = await Promise.all([
+    dids.length
+      ? db.collection('profiles').find(
+        { id: { $in: dids }, clinic_id: cid },
+        { projection: { _id: 0, id: 1, full_name: 1 } }
+      ).toArray()
+      : [],
+    includeRx && visitIds.length
+      ? db.collection('prescriptions').find({ clinic_id: cid, visit_id: { $in: visitIds } }).toArray()
+      : [],
+    !patient_id && pids.length
+      ? db.collection('patients').find(
+        { id: { $in: pids }, clinic_id: cid },
+        { projection: { _id: 0, id: 1, name: 1 } }
+      ).toArray()
+      : [],
+  ])
   const dmap = Object.fromEntries(docs.map(d => [d.id, d.full_name]))
-  const rxs = await db.collection('prescriptions').find({ clinic_id: cid, visit_id: { $in: uniqueList.map(v => v.id) } }).toArray()
+  const pmap = Object.fromEntries(pts.map(p => [p.id, p.name]))
   const rxmap = {}
   for (const r of rxs) (rxmap[r.visit_id] = rxmap[r.visit_id] || []).push(clean(r))
-  return json({ visits: uniqueList.map(v => { const { prescriptions: _vRx, ...cleanV } = clean(v); return { ...cleanV, doctor_name: dmap[v.doctor_id] || '', prescriptions: rxmap[v.id] || [] } }) })
+  return json({
+    visits: uniqueList.map(v => {
+      const { prescriptions: _vRx, ...cleanV } = clean(v)
+      return {
+        ...cleanV,
+        doctor_name: dmap[v.doctor_id] || '',
+        patient_name: pmap[v.patient_id] || undefined,
+        ...(includeRx ? { prescriptions: rxmap[v.id] || [] } : {}),
+      }
+    }),
+  })
 }
 
 export async function POST(request) {
@@ -111,10 +163,8 @@ export async function POST(request) {
         // Create new patient if no match found
         if (!patientId) {
           patientId = uuidv4()
-          const count = await db.collection('patients').countDocuments({
-            clinic_id: cid
-          })
-          const code = 'PT' + String(count + 1).padStart(5, '0')
+          const { nextPatientCode } = await import('@/lib/patient-code')
+          const code = await nextPatientCode(db, cid)
           await db.collection('patients').insertOne({
             id: patientId,
             clinic_id: cid,
@@ -159,10 +209,8 @@ export async function POST(request) {
           // If no existing patient found, create new one
           if (!patientId) {
             patientId = uuidv4()
-            const count = await db.collection('patients').countDocuments({
-              clinic_id: cid
-            })
-            const code = 'PT' + String(count + 1).padStart(5, '0')
+            const { nextPatientCode } = await import('@/lib/patient-code')
+            const code = await nextPatientCode(db, cid)
             await db.collection('patients').insertOne({
               id: patientId,
               clinic_id: cid,

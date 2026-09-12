@@ -13,8 +13,11 @@ const DEFAULT_CHAIRS = [
 ]
 
 async function ensureDefaultChairs(db, clinicId) {
-  const count = await db.collection('clinic_chairs').countDocuments({ clinic_id: clinicId })
-  if (count > 0) return
+  const existing = await db.collection('clinic_chairs').findOne(
+    { clinic_id: clinicId },
+    { projection: { _id: 1 } }
+  )
+  if (existing) return
   const now = new Date()
   const docs = DEFAULT_CHAIRS.map(c => ({
     id: uuidv4(),

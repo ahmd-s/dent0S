@@ -218,7 +218,7 @@ function MarkPaidDialog({ open, onClose, invoice, onSaved }) {
   const [mode, setMode] = useState('cash')
   const submit = async () => {
     const r = await fetch(`/api/invoices/${invoice.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ payment_status:'paid', payment_mode: mode }) })
-    if (r.ok) { toast.success('Marked paid'); onClose(); onSaved && onSaved() } else toast.error('Failed')
+    if (r.ok) { toast.success('Marked paid'); onClose(); onSaved && onSaved() } else toast.error('Could not mark this invoice as paid')
   }
   return (
     <Dialog open={open} onOpenChange={v=>{if(!v) onClose()}}>

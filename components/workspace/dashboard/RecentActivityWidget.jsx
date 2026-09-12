@@ -1,24 +1,29 @@
 'use client'
 
-import { memo, useEffect, useState } from 'react'
+import { memo, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Card } from '@/components/ui/card'
 import { Activity } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ActivityTimeline from '@/components/dentos/ActivityTimeline'
 import { DASHBOARD_PANEL_CLASS, DASHBOARD_PANEL_TITLE_CLASS } from './dashboard-panel-styles'
+import { useClinicSync } from '@/hooks/useClinicSync'
 
 export const RecentActivityWidget = memo(function RecentActivityWidget({ className }) {
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
+  const load = useCallback((silent = false) => {
+    if (!silent) setLoading(true)
     fetch('/api/timeline/clinic?limit=8')
       .then(r => r.json())
       .then(d => setEvents(d.events || []))
-      .catch(() => setEvents([]))
+      .catch(() => { if (!silent) setEvents([]) })
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => { load() }, [load])
+  useClinicSync(() => load(true))
 
   return (
     <Card className={cn(DASHBOARD_PANEL_CLASS, className)}>

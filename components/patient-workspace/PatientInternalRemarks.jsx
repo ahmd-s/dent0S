@@ -45,7 +45,7 @@ export default function PatientInternalRemarks({ patient, onSaved, readonly = fa
       await saveNow()
       toast.success('Notes saved')
     } catch {
-      toast.error('Failed to save')
+      toast.error('Could not save remarks')
     }
   }
 

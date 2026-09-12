@@ -55,10 +55,10 @@ export function EditInvoiceDateDialog({ open, onClose, invoice, onSaved }) {
         onClose()
         onSaved?.(data.invoice)
       } else {
-        toast.error(data.error || 'Failed to update invoice date')
+        toast.error(data.error || 'Could not update the invoice date')
       }
     } catch {
-      toast.error('Failed to update invoice date')
+      toast.error('Could not update the invoice date')
     } finally {
       setSaving(false)
     }

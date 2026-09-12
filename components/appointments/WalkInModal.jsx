@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { readAppointmentApiError } from '@/lib/appointment-api-error'
+import { publishClinicSync } from '@/hooks/useClinicSync'
 
 export default function WalkInModal({ open, setOpen, date, onCreated }) {
   const [doctors, setDoctors] = useState([])
@@ -47,7 +48,7 @@ export default function WalkInModal({ open, setOpen, date, onCreated }) {
       const r = await fetch('/api/patients', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: walkinForm.name, phone: walkinForm.phone }) })
       const d = await r.json()
       if (r.ok) patient_id = d.id
-      else { toast.error('Failed to create patient'); setBusy(false); return }
+      else { toast.error(d.error || 'Could not create patient'); setBusy(false); return }
     }
     if (!patient_id && !walkinForm.name) { toast.error('Select a patient'); setBusy(false); return }
 
@@ -69,6 +70,7 @@ export default function WalkInModal({ open, setOpen, date, onCreated }) {
     setBusy(false)
     if (r.ok) {
       toast.success('Walk-in added to queue')
+      publishClinicSync('appointment')
       setOpen(false)
       setPicked(null)
       setPq('')

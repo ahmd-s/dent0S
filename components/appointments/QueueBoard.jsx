@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import AppointmentCard from './AppointmentCard'
 import { toast } from 'sonner'
+import { useClinicSync, publishClinicSync } from '@/hooks/useClinicSync'
 
 const COLUMNS = [
   { id: 'checked_in', label: 'Checked In', statuses: ['checked_in', 'arrived'] },
@@ -30,17 +31,27 @@ export default function QueueBoard({ date, onRefresh, onStartVisit, onBalanceCli
   const [loading, setLoading] = useState(true)
   const [dragId, setDragId] = useState(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    const r = await fetch(`/api/appointments/queue?date=${date}`)
-    const d = await r.json()
-    setQueue(d.queue || [])
-    setAllAppts(d.all || d.queue || [])
-    setStats(d.stats || null)
-    setLoading(false)
+  const load = useCallback(async ({ silent } = {}) => {
+    if (!silent) setLoading(true)
+    try {
+      const r = await fetch(`/api/appointments/queue?date=${date}`)
+      const d = await r.json()
+      if (!r.ok) {
+        toast.error(d.error || 'Could not load the queue')
+        return
+      }
+      setQueue(d.queue || [])
+      setAllAppts(d.all || d.queue || [])
+      setStats(d.stats || null)
+    } catch {
+      if (!silent) toast.error('Could not load the queue. Check your connection.')
+    } finally {
+      if (!silent) setLoading(false)
+    }
   }, [date])
 
   useEffect(() => { load() }, [load])
+  useClinicSync(() => load({ silent: true }), [date])
 
   const setStatus = async (id, status) => {
     const r = await fetch(`/api/appointments/${id}`, {
@@ -48,8 +59,15 @@ export default function QueueBoard({ date, onRefresh, onStartVisit, onBalanceCli
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
     })
-    if (r.ok) { toast.success('Updated'); load(); onRefresh?.() }
-    else toast.error('Failed to update')
+    if (r.ok) {
+      toast.success('Updated')
+      publishClinicSync('appointment')
+      load({ silent: true })
+      onRefresh?.()
+    } else {
+      const d = await r.json().catch(() => ({}))
+      toast.error(d.error || d.message || 'Could not update queue status')
+    }
   }
 
   const callNext = async () => {

@@ -1,11 +1,11 @@
 'use client'
-import { useEffect, useState, useRef, useMemo } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { LogOut, Search, Plus, Menu, X, Moon, Sun, ChevronUp, CreditCard, Settings } from 'lucide-react'
 import NotificationBell from './NotificationBell'
 import { ClinicLogo } from './Logo'
-import { useRole } from './RoleContext'
+import { useRole, clearMeCache } from './RoleContext'
 import { useWorkspace } from '@/components/workspace/useWorkspace'
 import WorkspaceGate from '@/components/workspace/WorkspaceGate'
 import { Badge } from '@/components/ui/badge'
@@ -18,6 +18,7 @@ import { NAV_REGISTRY } from '@/lib/workspace-nav-registry'
 import { CLINIC_ACCESS_PAUSED_MESSAGE } from '@/lib/clinic-access'
 import { ImpersonationBanner } from '@/components/platform-admin/ImpersonationBanner'
 import { HomepageRedirect } from '@/components/workspace/HomepageRedirect'
+import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 
 const INVENTORY_SUBNAV = [
   { href: '/inventory', label: 'Dashboard' },
@@ -73,19 +74,21 @@ export default function AppShell({ children }) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [searchExpanded, setSearchExpanded] = useState(false)
-  const debounceRef = useRef(null)
+  const debouncedQ = useDebouncedValue(q, 300)
 
   useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    if (!q.trim()) { setResults([]); return }
-    debounceRef.current = setTimeout(async () => {
-      const r = await fetch(`/api/patients?q=${encodeURIComponent(q)}`)
-      const d = await r.json()
-      setResults((d.patients||[]).slice(0,5))
-    }, 300)
-  }, [q])
+    if (!debouncedQ.trim()) { setResults([]); return }
+    const controller = new AbortController()
+    const params = new URLSearchParams({ q: debouncedQ, page: '1', page_size: '5' })
+    fetch(`/api/patients?${params}`, { signal: controller.signal })
+      .then(r => r.json())
+      .then(d => setResults(d.patients || []))
+      .catch(() => {})
+    return () => controller.abort()
+  }, [debouncedQ])
 
   const logout = async () => {
+    clearMeCache()
     await fetch('/api/auth/logout', { method: 'POST' })
     window.location.assign('/login')
   }

@@ -5,6 +5,7 @@ import { ClipboardList, Loader2 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useRole } from '@/components/dentos/RoleContext'
+import { useClinicSync } from '@/hooks/useClinicSync'
 
 export default function ReceptionistPendingTasks() {
   const { isReceptionist, canManageBilling, canManageInventory } = useRole()
@@ -13,7 +14,8 @@ export default function ReceptionistPendingTasks() {
 
   const show = isReceptionist() || canManageBilling() || canManageInventory()
 
-  const load = () => {
+  const load = (silent = false) => {
+    if (!silent) setLoading(true)
     fetch('/api/visits/pending-tasks')
       .then(r => r.json())
       .then(d => setTasks(d.tasks || []))
@@ -24,6 +26,7 @@ export default function ReceptionistPendingTasks() {
     if (show) load()
     else setLoading(false)
   }, [show])
+  useClinicSync(() => { if (show) load(true) }, [show])
 
   if (!show || (!loading && tasks.length === 0)) return null
 

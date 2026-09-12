@@ -3,9 +3,12 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Loader2, ExternalLink } from 'lucide-react'
+import { ExternalLink } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { TableSkeleton } from '@/components/dentos/PageSkeleton'
+import { useClinicSync } from '@/hooks/useClinicSync'
+import { toast } from 'sonner'
 
 const fmtDate = d => {
   if (!d) return '—'
@@ -18,17 +21,31 @@ export default function VisitsPage() {
   const [visits, setVisits] = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetch('/api/visits')
-      .then(r => r.json())
-      .then(d => setVisits(d.visits || []))
+  const load = (silent = false) => {
+    if (!silent) setLoading(true)
+    fetch('/api/visits?page=1&page_size=50')
+      .then(async r => {
+        const d = await r.json()
+        if (!r.ok) throw new Error(d.error || 'Could not load visits')
+        setVisits(d.visits || [])
+      })
+      .catch(err => {
+        if (!silent) toast.error(err.message || 'Could not load visits')
+      })
       .finally(() => setLoading(false))
-  }, [])
+  }
 
-  if (loading) {
+  useEffect(() => { load() }, [])
+  useClinicSync(() => load(true))
+
+  if (loading && visits.length === 0) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="w-6 h-6 animate-spin text-[#0D9488]" />
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-4">
+          <h1 className="text-xl font-semibold text-foreground">Visits</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Clinical visits across all patients</p>
+        </div>
+        <TableSkeleton rows={8} />
       </div>
     )
   }
@@ -54,7 +71,7 @@ export default function VisitsPage() {
                   <th className="px-4 py-3 font-medium">Patient</th>
                   <th className="px-4 py-3 font-medium">Doctor</th>
                   <th className="px-4 py-3 font-medium">Chief complaint</th>
-                  <th className="px-4 py-3 font-medium text-right">Action</th>
+                  <th className="px-4 py-3 text-right font-medium">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -64,7 +81,7 @@ export default function VisitsPage() {
                     <td className="px-4 py-3">
                       {v.patient_id ? (
                         <Link href={`/patients/${v.patient_id}`} className="font-medium hover:text-[#0D9488]">
-                          View patient
+                          {v.patient_name || 'View patient'}
                         </Link>
                       ) : (
                         '—'

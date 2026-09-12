@@ -206,7 +206,8 @@ function App() {
         })
         setTimeout(() => router.push(`/patients/${cur.v.patient_id}`), 500)
       } else {
-        toast.error('Failed to complete visit')
+      const fail = await r.json().catch(() => ({}))
+      toast.error(fail.error || 'Could not complete this visit')
       }
     } finally {
       setSaving(false)

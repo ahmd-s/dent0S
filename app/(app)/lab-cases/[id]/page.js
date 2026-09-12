@@ -87,7 +87,7 @@ function App() {
     if (!confirm('Delete this lab case permanently?')) return
     const r = await fetch(`/api/lab-cases/${id}`, { method: 'DELETE' })
     if (r.ok) { toast.success('Lab case deleted'); router.push('/lab-cases') }
-    else toast.error('Failed to delete')
+    else toast.error((await r.json().catch(() => ({}))).error || 'Could not delete this lab case')
   }
 
   const copyLink = async () => {

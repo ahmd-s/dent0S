@@ -20,6 +20,7 @@ Living document. Update this at the end of every work session so a new chat/AI t
 - Multi-clinic isolation on sampled routes — `clinic_id` always server-derived, never client-trusted. (Only `patients` + `dashboard/stats` fully verified so far — rest of the ~81 routes still need the same sweep.)
 - Consent-signing flow (token-based, expiry-checked, correctly scoped without needing `clinic_id`).
 - Voice transcription + AI clinical summary features — functionally good, positive user feedback (auth/security issue on the transcribe endpoint is separate, see below).
+- Dashboard / queue live sync via clinic version clock (`/api/sync`) + BroadcastChannel (bookings and status changes no longer require a manual refresh).
 
 ### Confirmed gaps (verified, not guessed)
 - No doctor-to-doctor scoping anywhere — multi-doctor clinics currently show all doctors' data to each other. Design decision not yet made (see Open Questions).
@@ -30,7 +31,6 @@ Living document. Update this at the end of every work session so a new chat/AI t
 - CORS defaults wide open (`*` + credentials) if `CORS_ORIGINS` unset.
 - Password reset is a dead link — no backend flow exists.
 - No Google/social login.
-- Dashboard fetches data once on mount only — no polling/revalidation, so new bookings don't appear without a manual browser refresh. Likely affects other queue views too (unverified which ones exactly).
 - "Logs in with nonexistent email" — reported by stakeholder, could NOT reproduce from static code (login route correctly checks `is_active` + password hash). Found a related but distinct bug: broken "already logged in" check in `app/login/page.js` checking a cookie/key that doesn't exist. Needs live re-test to confirm/deny the original report.
 - Razorpay integration exists but is "not as useful as it should be" per stakeholder — recurring/auto-pay not yet confirmed functional.
 - Super Admin (Connec8-level, cross-clinic) role does not exist yet.
@@ -53,6 +53,17 @@ Living document. Update this at the end of every work session so a new chat/AI t
 
 ## Session Log
 (Add new entries above this line as work happens — newest at top.)
+
+### 2026-09-12 — Performance & live-sync sprint
+**Phase worked on:** Performance, caching, dashboard load, real-time sync, perceived latency
+**Changed:**
+- Clinic version clock (`clinic_sync` + `/api/sync` + `useClinicSync`) so dashboards/queues refresh within ~3s of mutations and online bookings, without 25s full-payload polling
+- Dashboard core-first fetch, combined Mongo aggregations, session bootstrap (`/api/auth/me` includes workspace, sessionStorage hydrate)
+- Server-side list projections, patient find+count pagination, visits list pagination, invoice summary aggregation, appointment enrichment projections, queue single enrich, doctor `distinct` scoping
+- Client-side navigation instead of `window.location` on patients/lab lists; silent live refresh; optimistic appointment status; meaningful toasts
+**Verified how:** `npm test` (includes new `lib/__tests__/clinic-sync.test.js`); source-scan coverage for public booking invalidation
+**Still open:** Live browser timing against a populated clinic DB (this session could not profile production Atlas latency); Redis still not recommended
+**New decisions made this session:** Real-time = Mongo version clock + short poll + BroadcastChannel (not Redis, not change streams on Vercel)
 
 ### 2026-07-22 — Phase 8 (continuation pass)
 **Phase worked on:** Phase 8 — Multi-Role RBAC rebuild (post–Checkpoint 1)

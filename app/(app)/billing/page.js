@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { useRole } from '@/components/dentos/RoleContext'
-import { useLiveRefresh } from '@/hooks/useLiveRefresh'
+import { useClinicSync } from '@/hooks/useClinicSync'
 import { EmptyState } from '@/components/dentos/EmptyState'
 
 const inr = n => '₹' + (n||0).toLocaleString('en-IN')
@@ -42,7 +42,7 @@ function App() {
   }, [from, to, status, q])
 
   useEffect(() => { load() }, [load])
-  useLiveRefresh(load, [from, to, status, q])
+  useClinicSync(load, [from, to, status, q])
 
   const handleSearchChange = useCallback((value) => {
     if (searchTimeoutRef.current) {
@@ -161,7 +161,8 @@ function MarkPaidModal({ invoice, onClose, onSaved }) {
     setBusy(true)
     const r = await fetch(`/api/invoices/${invoice.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ payment_status:'paid', payment_mode: mode }) })
     setBusy(false)
-    if (r.ok) { toast.success('Marked paid'); onClose(); onSaved && onSaved() } else toast.error('Failed')
+    if (r.ok) { toast.success('Marked paid'); onClose(); onSaved && onSaved() }
+    else toast.error((await r.json().catch(() => ({}))).error || 'Could not mark this invoice as paid')
   }
   return (
     <Dialog open={!!invoice} onOpenChange={v=>{ if (!v) onClose() }}>

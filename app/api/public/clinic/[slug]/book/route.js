@@ -122,6 +122,9 @@ export async function POST(request, { params }) {
       created_at: new Date()
     })
 
+    const { invalidateClinicDashboard } = await import('@/lib/dashboard-invalidation')
+    invalidateClinicDashboard(clinic.id, 'appointment')
+
     return NextResponse.json({
       ok: true,
       appointment_id: appointmentId,

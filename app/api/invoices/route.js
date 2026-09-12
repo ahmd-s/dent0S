@@ -38,19 +38,61 @@ export async function GET(request) {
     if (status && status !== 'all') f.payment_status = status
     if (patient_id) f.patient_id = patient_id
     if (from || to) { f.invoice_date = {}; if (from) f.invoice_date.$gte = from; if (to) f.invoice_date.$lte = to }
-    const list = await db.collection('invoices').find(f).sort({ invoice_date: -1, created_at: -1 }).toArray()
-    const pids = [...new Set(list.map(i=>i.patient_id).filter(Boolean))]
-    const pts = pids.length ? await db.collection('patients').find({ id: { $in: pids }, clinic_id: cid }).toArray() : []
-    let pmap = Object.fromEntries(pts.map(p=>[p.id, p.name]))
-    let arr = list.map(i => stripInvoiceAuditFields({ ...clean(i), patient_name: pmap[i.patient_id] || '—' }))
-    if (q) { const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'i'); arr = arr.filter(i => re.test(i.patient_name) || re.test(i.invoice_number||'')) }
-    // monthly summary
     const mStart = monthBack(1)
-    const monthInv = await db.collection('invoices').find({ clinic_id: cid, invoice_date: { $gte: mStart } }).toArray()
+    const [list, summaryRows] = await Promise.all([
+      db.collection('invoices')
+        .find(f, {
+          projection: {
+            _id: 0,
+            id: 1,
+            clinic_id: 1,
+            patient_id: 1,
+            visit_id: 1,
+            invoice_number: 1,
+            invoice_date: 1,
+            total_amount: 1,
+            amount_paid: 1,
+            payment_status: 1,
+            payment_mode: 1,
+            created_at: 1,
+          },
+        })
+        .sort({ invoice_date: -1, created_at: -1 })
+        .limit(300)
+        .toArray(),
+      db.collection('invoices').aggregate([
+        { $match: { clinic_id: cid, invoice_date: { $gte: mStart } } },
+        {
+          $group: {
+            _id: null,
+            collected: {
+              $sum: { $cond: [{ $eq: ['$payment_status', 'paid'] }, '$total_amount', 0] },
+            },
+            pending: {
+              $sum: { $cond: [{ $in: ['$payment_status', ['pending', 'partial']] }, '$total_amount', 0] },
+            },
+            total: { $sum: '$total_amount' },
+          },
+        },
+      ]).toArray(),
+    ])
+    const pids = [...new Set(list.map(i => i.patient_id).filter(Boolean))]
+    const pts = pids.length
+      ? await db.collection('patients').find(
+        { id: { $in: pids }, clinic_id: cid },
+        { projection: { _id: 0, id: 1, name: 1 } }
+      ).toArray()
+      : []
+    const pmap = Object.fromEntries(pts.map(p => [p.id, p.name]))
+    let arr = list.map(i => stripInvoiceAuditFields({ ...clean(i), patient_name: pmap[i.patient_id] || '—' }))
+    if (q) {
+      const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
+      arr = arr.filter(i => re.test(i.patient_name) || re.test(i.invoice_number || ''))
+    }
     const summary = {
-      collected: monthInv.filter(i=>i.payment_status==='paid').reduce((s,i)=>s+(i.total_amount||0),0),
-      pending: monthInv.filter(i=>['pending','partial'].includes(i.payment_status)).reduce((s,i)=>s+(i.total_amount||0),0),
-      total: monthInv.reduce((s,i)=>s+(i.total_amount||0),0),
+      collected: summaryRows[0]?.collected || 0,
+      pending: summaryRows[0]?.pending || 0,
+      total: summaryRows[0]?.total || 0,
     }
     return json({ invoices: arr, summary })
   } catch (e) {

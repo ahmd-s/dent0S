@@ -3,8 +3,9 @@ import { getDb } from '@/lib/mongo'
 import { getCurrentUser, getCurrentImpersonatedUser } from '@/lib/auth'
 import { loadUserContext } from '@/lib/auth-context'
 import { isPlatformAdminProfile } from '@/lib/platform-admin'
-import { ensureProfileRolesMigrated } from '@/lib/profile-roles'
+import { ensureProfileRolesMigrated, getProfileRoles } from '@/lib/profile-roles'
 import { shouldShowTrialWarning, trialDaysRemaining } from '@/lib/subscription-helpers'
+import { createDefaultWorkspace } from '@/lib/workspace-engine'
 
 // Reads cookies/headers per request, so it can never be statically rendered.
 export const dynamic = 'force-dynamic'
@@ -54,25 +55,55 @@ export async function GET() {
     if (!ctx) return err('Unauthorized', 401)
     const isPA = isPlatformAdminProfile(ctx.profile)
     if (!isPA && ctx.profile?.clinic_id) {
+      const hadRoles = Array.isArray(ctx.profile.roles) && ctx.profile.roles.length > 0
       await ensureProfileRolesMigrated(ctx.db, ctx.profile)
-      ctx.profile = await ctx.db.collection('profiles').findOne({ id: ctx.profile.id })
-    }
-
-    let subscription_hint = null
-    if (!isPA && ctx.clinic) {
-      const sub = await ctx.db.collection('subscriptions').findOne({ clinic_id: ctx.clinic.id })
-      const days = trialDaysRemaining(ctx.clinic, sub)
-      subscription_hint = {
-        trial_days_remaining: days,
-        show_trial_warning: shouldShowTrialWarning(ctx.clinic, sub),
+      if (!hadRoles) {
+        ctx.profile = await ctx.db.collection('profiles').findOne({ id: ctx.profile.id }) || ctx.profile
       }
     }
+
+    const clinicId = ctx.clinic?.id || ctx.profile?.clinic_id
+    const [subscription_hint, workspacePayload] = await Promise.all([
+      (!isPA && ctx.clinic)
+        ? ctx.db.collection('subscriptions').findOne({ clinic_id: ctx.clinic.id }).then(sub => {
+          const days = trialDaysRemaining(ctx.clinic, sub)
+          return {
+            trial_days_remaining: days,
+            show_trial_warning: shouldShowTrialWarning(ctx.clinic, sub),
+          }
+        })
+        : Promise.resolve(null),
+      (!isPA && clinicId)
+        ? createDefaultWorkspace(ctx.db, clinicId).then(result => {
+          if (!result?.ok) return null
+          const list = getProfileRoles(ctx.profile)
+          const role = list.includes('admin')
+            ? 'admin'
+            : list.includes('doctor')
+              ? 'doctor'
+              : list.includes('receptionist')
+                ? 'receptionist'
+                : (list[0] || 'admin')
+          return {
+            workspace: result.workspace,
+            workspace_role: role,
+            workspace_config: result.workspace?.[role] || null,
+          }
+        }).catch(err => {
+          console.error('Auth me workspace load failed:', err?.message || err)
+          return null
+        })
+        : Promise.resolve(null),
+    ])
 
     return json({
       user: { id: ctx.profile.id, email: ctx.profile.email },
       profile: clean(ctx.profile),
       clinic: clean(ctx.clinic),
       subscription_hint,
+      workspace: workspacePayload?.workspace || null,
+      workspace_role: workspacePayload?.workspace_role || null,
+      workspace_config: workspacePayload?.workspace_config || null,
       is_platform_admin: isPA,
       platform_session_active: isPA && !!ctx.token?.pa,
       is_impersonating: ctx.isImpersonated === true,

@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { ClinicLogo } from '@/components/dentos/Logo'
 import { toast } from 'sonner'
+import { publishClinicSync } from '@/hooks/useClinicSync'
 
 const todayIso = () => new Date().toISOString().slice(0, 10)
 const fmtFull = d => {
@@ -195,6 +196,7 @@ export default function BookingPage() {
       })
       const d = await r.json()
       if (!r.ok) { toast.error(d.error || 'Could not book'); return }
+      publishClinicSync('appointment')
       sessionStorage.setItem('dentos_booking', JSON.stringify({
         ...d, date, time,
         doctor_name: d.doctor_name,

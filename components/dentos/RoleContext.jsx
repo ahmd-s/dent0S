@@ -14,8 +14,33 @@ import {
 } from '@/lib/rbac'
 import { getProfileRoles, hasRole } from '@/lib/profile-roles'
 
+const ME_CACHE_KEY = 'dentos_session_me'
+
+function readMeCache() {
+  try {
+    const raw = sessionStorage.getItem(ME_CACHE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (!parsed?.user?.id || !parsed?.profile) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function writeMeCache(data) {
+  try {
+    if (data?.user?.id) sessionStorage.setItem(ME_CACHE_KEY, JSON.stringify(data))
+  } catch { /* quota / private mode */ }
+}
+
+export function clearMeCache() {
+  try { sessionStorage.removeItem(ME_CACHE_KEY) } catch { /* noop */ }
+}
+
 async function redirectPlatformAdmin(router, d) {
   if (!d?.is_platform_admin) return false
+  clearMeCache()
   if (d.platform_session_active) {
     router.push('/platform-admin')
     return true
@@ -32,30 +57,44 @@ export function RoleProvider({ children }) {
   const [me, setMe] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  const applyMe = useCallback((d) => {
+    setMe(d)
+    writeMeCache(d)
+  }, [])
+
   const refresh = useCallback(async () => {
     const r = await fetch('/api/auth/me')
     const d = await r.json()
     if (!d?.user) {
+      clearMeCache()
       router.push('/login')
       return null
     }
     if (await redirectPlatformAdmin(router, d)) return null
     if (!d.clinic?.onboarding_complete) {
+      clearMeCache()
       router.push('/onboarding')
       return null
     }
-    setMe(d)
+    applyMe(d)
     return d
-  }, [router])
+  }, [router, applyMe])
 
   useEffect(() => {
     let cancelled = false
+    const cached = readMeCache()
+    if (cached?.clinic?.onboarding_complete) {
+      setMe(cached)
+      setLoading(false)
+    }
+
     ;(async () => {
-      setLoading(true)
+      if (!cached) setLoading(true)
       const r = await fetch('/api/auth/me')
       const d = await r.json()
       if (cancelled) return
       if (!d?.user) {
+        clearMeCache()
         router.push('/login')
         setLoading(false)
         return
@@ -70,15 +109,16 @@ export function RoleProvider({ children }) {
         return
       }
       if (!d.clinic?.onboarding_complete) {
+        clearMeCache()
         router.push('/onboarding')
         setLoading(false)
         return
       }
-      setMe(d)
+      applyMe(d)
       setLoading(false)
     })()
     return () => { cancelled = true }
-  }, [router])
+  }, [router, applyMe])
 
   const value = useMemo(() => {
     const roles = getProfileRoles(me?.profile)

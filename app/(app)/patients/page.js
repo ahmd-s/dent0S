@@ -1,6 +1,7 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Plus, Phone, Search, Eye, CalendarPlus, X, Loader2, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,13 +14,14 @@ import { toast } from 'sonner'
 import { useRole } from '@/components/dentos/RoleContext'
 import ImportPatientsModal from '@/components/dentos/ImportPatientsModal'
 import { EmptyState } from '@/components/dentos/EmptyState'
-import { useLiveRefresh } from '@/hooks/useLiveRefresh'
+import { useClinicSync, publishClinicSync } from '@/hooks/useClinicSync'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 
 const fmtDate = d => d ? `${String(new Date(d).getDate()).padStart(2,'0')}/${String(new Date(d).getMonth()+1).padStart(2,'0')}/${new Date(d).getFullYear()}` : '—'
 const PAGE_SIZE = 20
 
 function App() {
+  const router = useRouter()
   const [list, setList] = useState([])
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState('all')
@@ -35,20 +37,29 @@ function App() {
   // regex query against `patients`.
   const debouncedQ = useDebouncedValue(q, 300)
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  const load = useCallback(async ({ silent } = {}) => {
+    if (!silent) setLoading(true)
     const params = new URLSearchParams({ page: String(page), page_size: String(PAGE_SIZE) })
     if (debouncedQ) params.set('q', debouncedQ)
     if (filter !== 'all') params.set('filter', filter)
-    const r = await fetch('/api/patients?' + params)
-    const d = await r.json()
-    setList(d.patients || [])
-    setPagination(d.pagination || null)
-    setLoading(false)
+    try {
+      const r = await fetch('/api/patients?' + params)
+      const d = await r.json()
+      if (!r.ok) {
+        toast.error(d.error || 'Could not load patients')
+        return
+      }
+      setList(d.patients || [])
+      setPagination(d.pagination || null)
+    } catch {
+      toast.error('Could not load patients. Check your connection.')
+    } finally {
+      if (!silent) setLoading(false)
+    }
   }, [debouncedQ, filter, page])
 
   useEffect(() => { load() }, [load])
-  useLiveRefresh(load)
+  useClinicSync(() => load({ silent: true }))
 
   // A new query or filter invalidates the page cursor.
   useEffect(() => { setPage(1) }, [debouncedQ, filter])
@@ -99,7 +110,9 @@ function App() {
             <SelectItem value="inactive">Not Visited in 3 Months</SelectItem>
           </SelectContent>
         </Select>
-        <span className="text-sm text-muted-foreground whitespace-nowrap">{list.length} patients</span>
+        <span className="text-sm text-muted-foreground whitespace-nowrap">
+          {pagination?.total_count != null ? `${pagination.total_count} patients` : `${list.length} patients`}
+        </span>
       </Card>
       <Card className="mt-4 bg-card border-border rounded-lg overflow-hidden">
         {loading && (
@@ -144,7 +157,7 @@ function App() {
                     const fudate = p.next_followup_date ? new Date(p.next_followup_date) : null
                     const overdue = fudate && fudate < new Date()
                     return (
-                      <tr key={p.id} className="border-t border-border hover:bg-muted/50 cursor-pointer" onClick={()=>window.location.href=`/patients/${p.id}`}>
+                      <tr key={p.id} className="border-t border-border hover:bg-muted/50 cursor-pointer" onClick={()=>router.push(`/patients/${p.id}`)}>
                         <td className="px-5 py-3"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-full bg-[#0D9488]/10 flex items-center justify-center text-sm font-semibold text-[#0D9488]">{p.name?.[0]?.toUpperCase()}</div><div><div className="font-medium text-foreground">{p.name}</div><div className="text-xs text-muted-foreground">{p.patient_code}</div></div></div></td>
                         <td className="px-5 py-3 text-muted-foreground"><div className="flex items-center gap-1.5"><Phone className="w-3 h-3"/>+91 {p.phone}</div></td>
                         <td className="px-5 py-3 text-muted-foreground">{p.age||'—'}</td>
@@ -163,11 +176,13 @@ function App() {
                 const ok = confirm('Delete this patient permanently?')
                 if (!ok) return
                 const r = await fetch(`/api/patients/${p.id}`, { method: 'DELETE' })
+                const d = await r.json().catch(() => ({}))
                 if (r.ok) {
                   toast.success('Patient deleted')
-                  load()
+                  publishClinicSync('patient')
+                  load({ silent: true })
                 } else {
-                  toast.error('Failed to delete patient')
+                  toast.error(d.error || 'Could not delete this patient')
                 }
               }}
             >
@@ -213,11 +228,13 @@ function App() {
                           const ok = confirm('Delete this patient permanently?')
                           if (!ok) return
                           const r = await fetch(`/api/patients/${p.id}`, { method: 'DELETE' })
+                          const d = await r.json().catch(() => ({}))
                           if (r.ok) {
                             toast.success('Patient deleted')
-                            load()
+                            publishClinicSync('patient')
+                            load({ silent: true })
                           } else {
-                            toast.error('Failed to delete patient')
+                            toast.error(d.error || 'Could not delete this patient')
                           }
                         }}
                         className="h-10 px-3"
@@ -247,6 +264,7 @@ function App() {
 }
 
 function AddPatientButton({ onCreated, open, setOpen }) {
+  const router = useRouter()
   const [f, setF] = useState({ name:'', phone:'', dob:'', age:'', gender:'', blood_group:'', allergies:'', medical_history:'', address:'', referral_source:'' })
   const [loading, setLoading] = useState(false)
   const reset = () => setF({ name:'', phone:'', dob:'', age:'', gender:'', blood_group:'', allergies:'', medical_history:'', address:'', referral_source:'' })
@@ -263,10 +281,17 @@ function AddPatientButton({ onCreated, open, setOpen }) {
     if (!/^\d{10}$/.test(f.phone)) { toast.error('Phone must be 10 digits'); return }
     setLoading(true)
     const r = await fetch('/api/patients', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ...f, age: f.age?parseInt(f.age):null }) })
-    const d = await r.json()
+    const d = await r.json().catch(() => ({}))
     setLoading(false)
-    if (r.ok) { toast.success('Patient added'); reset(); setOpen(false); onCreated && onCreated(); window.location.href = `/patients/${d.id}` }
-    else toast.error(d.error||'Failed')
+    if (r.ok) {
+      toast.success(d.existing ? 'Opened existing patient' : 'Patient added')
+      reset()
+      setOpen(false)
+      publishClinicSync('patient')
+      onCreated && onCreated()
+      if (d.id) router.push(`/patients/${d.id}`)
+    }
+    else toast.error(d.error || 'Could not save this patient')
   }
   return (
     <Dialog open={open} onOpenChange={setOpen}>

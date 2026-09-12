@@ -32,7 +32,7 @@ import GettingStarted from '@/components/dentos/GettingStarted'
 import { StatGridSkeleton } from '@/components/dentos/PageSkeleton'
 import PatientCombobox from '@/components/dentos/PatientCombobox'
 import ConflictWarnings from '@/components/appointments/ConflictWarnings'
-import { useLiveRefresh } from '@/hooks/useLiveRefresh'
+import { useClinicSync, publishClinicSync } from '@/hooks/useClinicSync'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { readAppointmentApiError } from '@/lib/appointment-api-error'
 import { localTodayIso, minutesToTimeLabel, timeSlots } from '@/lib/appointment-time'
@@ -81,11 +81,14 @@ function App() {
     const mode = opts.mode === 'core' ? 'core' : 'full'
     const qs = mode === 'core' ? '?mode=core' : ''
     return fetch(`/api/dashboard/stats${qs}`)
-      .then(r => r.json())
+      .then(async r => {
+        const d = await r.json()
+        if (!r.ok) throw new Error(d.error || 'Could not load dashboard')
+        return d
+      })
       .then(d => {
         setStats(prev => {
           if (mode === 'core' && prev) {
-            // Preserve heavy module payloads during live refresh
             return {
               ...prev,
               ...d,
@@ -100,22 +103,31 @@ function App() {
         })
         setStatsLoading(false)
       })
-      .catch(() => {
+      .catch(err => {
         setStatsLoading(false)
-        // Keep prior stats if a refresh fails so widgets stay usable
+        if (!opts.silent) {
+          toast.error(err.message || 'Could not load dashboard')
+        }
       })
   }, [])
 
   const loadFull = useCallback(() => load({ mode: 'full' }), [load])
-  const loadCore = useCallback(() => load({ mode: 'core' }), [load])
+  const loadCore = useCallback(() => load({ mode: 'core', silent: true }), [load])
 
-  useEffect(() => { loadFull() }, [loadFull])
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      await load({ mode: 'core' })
+      if (!cancelled) load({ mode: 'full', silent: true })
+    })()
+    return () => { cancelled = true }
+  }, [load])
   useEffect(() => {
     if (typeof window === 'undefined') return
     const stored = localStorage.getItem(QUEUE_TOGGLE_KEY)
     if (stored !== null) setShowQueue(stored === 'true')
   }, [])
-  useLiveRefresh(loadCore)
+  useClinicSync(loadCore)
 
   const toggleQueue = useCallback(v => {
     setShowQueue(v)
@@ -123,20 +135,43 @@ function App() {
   }, [])
 
   const setStatus = useCallback(async (id, status) => {
-    await fetch(`/api/appointments/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) })
-    toast.success('Updated')
-    loadFull()
-  }, [loadFull])
+    setStats(prev => prev ? {
+      ...prev,
+      today_queue: (prev.today_queue || []).map(a => a.id === id ? { ...a, status } : a),
+    } : prev)
+    try {
+      const r = await fetch(`/api/appointments/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) {
+        toast.error(d.error || d.message || 'Could not update appointment status')
+        loadCore()
+        return
+      }
+      toast.success('Updated')
+      publishClinicSync('appointment')
+    } catch {
+      toast.error('Could not update appointment status. Check your connection.')
+      loadCore()
+    }
+  }, [loadCore])
 
   const startVisit = useCallback(async apt => {
-    const r = await fetch('/api/visits', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ appointment_id: apt.id, patient_id: apt.patient_id, doctor_id: apt.doctor_id, chief_complaint: apt.chief_complaint }),
-    })
-    const d = await r.json()
-    if (r.ok) router.push(`/visits/${d.id}`)
-    else toast.error(d.error || 'Failed')
+    try {
+      const r = await fetch('/api/visits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointment_id: apt.id, patient_id: apt.patient_id, doctor_id: apt.doctor_id, chief_complaint: apt.chief_complaint }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (r.ok) router.push(`/visits/${d.id}`)
+      else toast.error(d.error || 'Could not start the visit')
+    } catch {
+      toast.error('Could not start the visit. Check your connection.')
+    }
   }, [router])
 
   const cont = useCallback(
@@ -402,6 +437,7 @@ const BookAppointmentModal = memo(function BookAppointmentModal({ open, setOpen,
       })
       if (r.ok) {
         toast.success('Appointment booked')
+        publishClinicSync('appointment')
         setOpen(false)
         onCreated && onCreated()
         return
