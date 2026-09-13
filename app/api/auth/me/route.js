@@ -5,7 +5,7 @@ import { loadUserContext } from '@/lib/auth-context'
 import { isPlatformAdminProfile } from '@/lib/platform-admin'
 import { ensureProfileRolesMigrated, getProfileRoles } from '@/lib/profile-roles'
 import { shouldShowTrialWarning, trialDaysRemaining } from '@/lib/subscription-helpers'
-import { createDefaultWorkspace } from '@/lib/workspace-engine'
+import { getWorkspaceForSession } from '@/lib/workspace-engine'
 
 // Reads cookies/headers per request, so it can never be statically rendered.
 export const dynamic = 'force-dynamic'
@@ -74,7 +74,7 @@ export async function GET() {
         })
         : Promise.resolve(null),
       (!isPA && clinicId)
-        ? createDefaultWorkspace(ctx.db, clinicId).then(result => {
+        ? getWorkspaceForSession(ctx.db, clinicId).then(result => {
           if (!result?.ok) return null
           const list = getProfileRoles(ctx.profile)
           const role = list.includes('admin')
@@ -84,10 +84,11 @@ export async function GET() {
               : list.includes('receptionist')
                 ? 'receptionist'
                 : (list[0] || 'admin')
+          const roleConfig = result.workspace?.[role] || null
           return {
-            workspace: result.workspace,
+            workspace: roleConfig ? { [role]: roleConfig } : null,
             workspace_role: role,
-            workspace_config: result.workspace?.[role] || null,
+            workspace_config: roleConfig,
           }
         }).catch(err => {
           console.error('Auth me workspace load failed:', err?.message || err)

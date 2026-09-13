@@ -22,7 +22,19 @@ export const RecentActivityWidget = memo(function RecentActivityWidget({ classNa
       .finally(() => setLoading(false))
   }, [])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    let cancelled = false
+    const run = () => { if (!cancelled) load() }
+    const idleId = typeof window.requestIdleCallback === 'function'
+      ? window.requestIdleCallback(run, { timeout: 1200 })
+      : null
+    const timeoutId = idleId == null ? window.setTimeout(run, 400) : null
+    return () => {
+      cancelled = true
+      if (idleId != null && window.cancelIdleCallback) window.cancelIdleCallback(idleId)
+      if (timeoutId != null) clearTimeout(timeoutId)
+    }
+  }, [load])
   useClinicSync(() => load(true))
 
   return (

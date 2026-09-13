@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useCallback, useEffect, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Plus, Search, ChevronDown, LayoutGrid, Loader2 } from 'lucide-react'
@@ -36,6 +36,11 @@ import { useClinicSync, publishClinicSync } from '@/hooks/useClinicSync'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { readAppointmentApiError } from '@/lib/appointment-api-error'
 import { localTodayIso, minutesToTimeLabel, timeSlots } from '@/lib/appointment-time'
+import {
+  fetchDashboardCore,
+  readCachedDashboardStats,
+  writeCachedDashboardStats,
+} from '@/lib/dashboard-client-cache'
 
 const QUEUE_TOGGLE_KEY = 'dentos_show_booking_queue'
 const todayIso = () => localTodayIso()
@@ -47,15 +52,18 @@ const fmtDate = d => {
 
 function App() {
   const router = useRouter()
-  const { canAccessClinical, isDoctor } = useRole()
+  const { me, canAccessClinical, isDoctor } = useRole()
   const { dashboardWidgets, layoutClasses, isDashboardEnabled } = useWorkspace()
   const canStartVisit = canAccessClinical()
   const showQueueToggle = isDoctor()
+  const clinicId = me?.clinic?.id
   const [showQueue, setShowQueue] = useState(true)
-  const [stats, setStats] = useState(null)
-  const [statsLoading, setStatsLoading] = useState(true)
+  const [stats, setStats] = useState(() => readCachedDashboardStats(clinicId))
+  const [statsLoading, setStatsLoading] = useState(() => !readCachedDashboardStats(clinicId))
   const [bookOpen, setBookOpen] = useState(false)
   const [metricsExpanded, setMetricsExpanded] = useState(false)
+  const [fullLoaded, setFullLoaded] = useState(false)
+  const paintedFromCache = useRef(stats != null)
 
   const primaryStatIds = useMemo(
     () => PRIMARY_DASHBOARD_STAT_IDS.filter(id => dashboardWidgets.includes(id) && isDashboardEnabled(id)),
@@ -79,13 +87,14 @@ function App() {
 
   const load = useCallback((opts = {}) => {
     const mode = opts.mode === 'core' ? 'core' : 'full'
-    const qs = mode === 'core' ? '?mode=core' : ''
-    return fetch(`/api/dashboard/stats${qs}`)
-      .then(async r => {
+    const request = mode === 'core'
+      ? fetchDashboardCore()
+      : fetch('/api/dashboard/stats').then(async r => {
         const d = await r.json()
         if (!r.ok) throw new Error(d.error || 'Could not load dashboard')
         return d
       })
+    return request
       .then(d => {
         setStats(prev => {
           if (mode === 'core' && prev) {
@@ -101,6 +110,8 @@ function App() {
           }
           return d
         })
+        if (mode === 'core' && clinicId) writeCachedDashboardStats(clinicId, d)
+        if (mode === 'full') setFullLoaded(true)
         setStatsLoading(false)
       })
       .catch(err => {
@@ -109,19 +120,18 @@ function App() {
           toast.error(err.message || 'Could not load dashboard')
         }
       })
-  }, [])
+  }, [clinicId])
 
   const loadFull = useCallback(() => load({ mode: 'full' }), [load])
   const loadCore = useCallback(() => load({ mode: 'core', silent: true }), [load])
 
   useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      await load({ mode: 'core' })
-      if (!cancelled) load({ mode: 'full', silent: true })
-    })()
-    return () => { cancelled = true }
+    load({ mode: 'core', silent: paintedFromCache.current })
   }, [load])
+  useEffect(() => {
+    if (!metricsExpanded || fullLoaded) return
+    load({ mode: 'full', silent: true })
+  }, [metricsExpanded, fullLoaded, load])
   useEffect(() => {
     if (typeof window === 'undefined') return
     const stored = localStorage.getItem(QUEUE_TOGGLE_KEY)

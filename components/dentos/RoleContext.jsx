@@ -13,6 +13,7 @@ import {
   canAccessSettings,
 } from '@/lib/rbac'
 import { getProfileRoles, hasRole } from '@/lib/profile-roles'
+import { prefetchDashboardCore, clearCachedDashboardStats } from '@/lib/dashboard-client-cache'
 
 const ME_CACHE_KEY = 'dentos_session_me'
 
@@ -36,6 +37,7 @@ function writeMeCache(data) {
 
 export function clearMeCache() {
   try { sessionStorage.removeItem(ME_CACHE_KEY) } catch { /* noop */ }
+  clearCachedDashboardStats()
 }
 
 async function redirectPlatformAdmin(router, d) {
@@ -86,6 +88,7 @@ export function RoleProvider({ children }) {
     if (cached?.clinic?.onboarding_complete) {
       setMe(cached)
       setLoading(false)
+      prefetchDashboardCore()
     }
 
     ;(async () => {
@@ -116,6 +119,7 @@ export function RoleProvider({ children }) {
       }
       applyMe(d)
       setLoading(false)
+      prefetchDashboardCore()
     })()
     return () => { cancelled = true }
   }, [router, applyMe])

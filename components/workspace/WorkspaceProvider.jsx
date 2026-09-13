@@ -58,9 +58,9 @@ export function WorkspaceProvider({ children }) {
 
   useEffect(() => {
     if (!me) return
-    if (me.workspace && me.workspace_config) {
-      setWorkspace(me.workspace)
-      setRole(me.workspace_role)
+    if (me.workspace_config) {
+      setWorkspace(me.workspace || { [me.workspace_role || getEffectiveWorkspaceRole(roles)]: me.workspace_config })
+      setRole(me.workspace_role || getEffectiveWorkspaceRole(roles))
       setConfig(me.workspace_config)
       setLoading(false)
       setError(null)
@@ -73,7 +73,7 @@ export function WorkspaceProvider({ children }) {
       if (!cancelled) setLoading(false)
     })()
     return () => { cancelled = true }
-  }, [me, refreshWorkspace])
+  }, [me, refreshWorkspace, roles])
 
   useEffect(() => {
     const onUpdated = () => { refreshWorkspace() }

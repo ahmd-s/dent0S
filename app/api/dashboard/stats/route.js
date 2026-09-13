@@ -26,7 +26,13 @@ export async function GET(request) {
       skipCache,
       timings,
     })
-    return json(stats)
+    const res = json(stats)
+    if (mode === 'core') {
+      res.headers.set('Cache-Control', 'private, max-age=8, stale-while-revalidate=20')
+    } else {
+      res.headers.set('Cache-Control', 'private, no-store')
+    }
+    return res
   } catch (e) {
     console.error('Dashboard stats error:', e)
     return err('Internal server error', 500)
