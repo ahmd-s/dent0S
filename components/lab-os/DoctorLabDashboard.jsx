@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Loader2, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useRole } from '@/components/dentos/RoleContext'
-import LabCaseCard from './LabCaseCard'
+import LabCaseTable from './LabCaseTable'
 import { NewLabCaseDialog } from '@/components/dentos/NewLabCaseDialog'
 import { CLOSED_STATUSES, normalizeLabStatus } from '@/lib/lab-case-helpers'
 
@@ -65,10 +65,8 @@ export default function DoctorLabDashboard() {
 function Section({ title, cases }) {
   return (
     <section>
-      <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">{title}</h3>
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-        {cases.map(c => <LabCaseCard key={c.id} labCase={c} showActions={false} />)}
-      </div>
+      <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">{title}</h3>
+      <LabCaseTable cases={cases} showActions={false} />
     </section>
   )
 }

@@ -5,23 +5,20 @@ import { Loader2 } from 'lucide-react'
 import LabWorkflowDashboard from '@/components/lab-os/LabWorkflowDashboard'
 import DoctorLabDashboard from '@/components/lab-os/DoctorLabDashboard'
 import ReceptionLabDashboard from '@/components/lab-os/ReceptionLabDashboard'
-import { useRole } from '@/components/dentos/RoleContext'
 import LegacyLabList from './LegacyLabList'
 
 const VIEWS = [
-  { id: 'workflow', label: 'Workflow' },
+  { id: 'workflow', label: 'Overview' },
   { id: 'doctor', label: 'Doctor' },
   { id: 'reception', label: 'Reception' },
   { id: 'list', label: 'List' },
 ]
 
 function App() {
-  const { isDoctor, isReceptionist } = useRole()
-  const defaultView = isDoctor() && !isReceptionist() ? 'doctor' : isReceptionist() ? 'reception' : 'workflow'
-  const [view, setView] = useState(defaultView)
+  const [view, setView] = useState('workflow')
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-5">
       <div className="flex items-center justify-end">
         <div className="flex bg-muted/70 rounded-lg p-0.5">
           {VIEWS.map(v => (

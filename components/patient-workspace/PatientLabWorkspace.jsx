@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import LabCaseCard from '@/components/lab-os/LabCaseCard'
+import LabCaseTable from '@/components/lab-os/LabCaseTable'
 import LabTimeline from '@/components/lab-os/LabTimeline'
 import VendorDashboardPanel from '@/components/lab-os/VendorDashboardPanel'
 import { Card } from '@/components/ui/card'
@@ -52,12 +52,8 @@ export default function PatientLabWorkspace({ patientId: _patientId, labCases = 
         {current && <LabTimeline labCaseId={current.id} />}
 
         <section>
-          <h4 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">All cases · {labCases.length}</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {labCases.map(c => (
-              <LabCaseCard key={c.id} labCase={c} showActions={!readonly} />
-            ))}
-          </div>
+          <h4 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">All cases · {labCases.length}</h4>
+          <LabCaseTable cases={labCases} showActions={false} />
         </section>
       </div>
     </LazyTabPanel>

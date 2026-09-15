@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import InventoryItemCard from './InventoryItemCard'
+import InventoryTable from './InventoryTable'
 
 export default function DoctorInventoryDashboard() {
   const [items, setItems] = useState([])
@@ -42,19 +42,16 @@ export default function DoctorInventoryDashboard() {
   const warnings = items.filter(i => ['low_stock', 'critical', 'out_of_stock', 'expired'].includes(i.status))
 
   return (
-    <div className="space-y-8">
-      <div className="grid grid-cols-2 gap-4 max-w-lg">
-        <div className="rounded-xl border border-border/70 bg-card px-5 py-4">
-          <div className="text-xs text-muted-foreground">Used today</div>
-          <div className="text-2xl font-semibold tabular-nums mt-1">{metrics?.today_consumption ?? 0}</div>
-        </div>
-        <div className="rounded-xl border border-border/70 bg-card px-5 py-4">
-          <div className="text-xs text-muted-foreground">Need attention</div>
-          <div className={`text-2xl font-semibold tabular-nums mt-1 ${warnings.length ? 'text-amber-600' : 'text-foreground'}`}>
-            {warnings.length}
-          </div>
-        </div>
-      </div>
+    <div className="space-y-5">
+      <p className="text-sm text-muted-foreground">
+        Used today <span className="text-foreground font-medium tabular-nums">{metrics?.today_consumption ?? 0}</span>
+        {warnings.length > 0 && (
+          <span>
+            {' · '}
+            <span className="text-amber-600 font-medium tabular-nums">{warnings.length}</span> need attention
+          </span>
+        )}
+      </p>
 
       {warnings.length > 0 && (
         <p className="text-sm text-amber-700 dark:text-amber-300">
@@ -69,17 +66,7 @@ export default function DoctorInventoryDashboard() {
         </p>
       )}
 
-      <div>
-        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">Stock</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {frequent.map(item => (
-            <InventoryItemCard key={item.id} item={item} onAction={runAction} />
-          ))}
-          {!frequent.length && (
-            <p className="text-sm text-muted-foreground col-span-full py-12 text-center">No items in stock</p>
-          )}
-        </div>
-      </div>
+      <InventoryTable items={frequent} onAction={runAction} empty="No items in stock" />
     </div>
   )
 }

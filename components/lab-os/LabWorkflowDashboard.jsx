@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Loader2, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import LabCaseCard from './LabCaseCard'
+import LabCaseTable from './LabCaseTable'
 import { NewLabCaseDialog } from '@/components/dentos/NewLabCaseDialog'
 import { CLOSED_STATUSES, normalizeLabStatus } from '@/lib/lab-case-helpers'
 
@@ -86,14 +86,7 @@ export default function LabWorkflowDashboard({ onRefresh }) {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-        {visible.map(c => (
-          <LabCaseCard key={c.id} labCase={c} onAction={runAction} />
-        ))}
-        {visible.length === 0 && (
-          <p className="text-sm text-muted-foreground col-span-full py-16 text-center">No lab cases found</p>
-        )}
-      </div>
+      <LabCaseTable cases={visible} onAction={runAction} />
 
       <NewLabCaseDialog open={open} setOpen={setOpen} onCreated={load} />
     </div>

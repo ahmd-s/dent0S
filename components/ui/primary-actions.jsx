@@ -13,7 +13,7 @@ import {
  * One primary action plus overflow for the rest.
  * actions: [{ id, label, onSelect, primary, destructive }]
  */
-export default function PrimaryActions({ actions = [], className = '' }) {
+export default function PrimaryActions({ actions = [], className = '', quiet = false }) {
   const list = actions.filter(Boolean)
   if (!list.length) return null
   const primary = list.find(a => a.primary) || list[0]
@@ -23,8 +23,8 @@ export default function PrimaryActions({ actions = [], className = '' }) {
     <div className={`flex items-center gap-1.5 ${className}`}>
       <Button
         size="sm"
-        variant={primary.destructive ? 'destructive' : 'default'}
-        className="h-8 text-xs"
+        variant={primary.destructive ? 'destructive' : quiet ? 'outline' : 'default'}
+        className="h-7 text-xs"
         onClick={e => {
           e.preventDefault()
           e.stopPropagation()

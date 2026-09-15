@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import InventoryItemCard from './InventoryItemCard'
+import InventoryTable from './InventoryTable'
 import PurchasePanel from './PurchasePanel'
 import StockAlertsPanel from './StockAlertsPanel'
 
@@ -83,21 +83,25 @@ export default function InventoryDashboard({ compact = false, showPurchases = tr
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {metrics && !compact && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {[
-            { label: 'Items', val: metrics.total_items },
-            { label: 'Stock value', val: inr(metrics.total_value) },
-            { label: 'Low stock', val: metrics.low_stock_count, alert: metrics.low_stock_count > 0 },
-            { label: 'Critical', val: (metrics.critical_stock_count || 0) + (metrics.expired_count || 0), alert: ((metrics.critical_stock_count || 0) + (metrics.expired_count || 0)) > 0 },
-          ].map(s => (
-            <div key={s.label} className="rounded-xl border border-border/70 bg-card px-5 py-4">
-              <div className="text-xs text-muted-foreground">{s.label}</div>
-              <div className={`text-2xl font-semibold tabular-nums mt-1 ${s.alert ? 'text-amber-600' : 'text-foreground'}`}>{s.val}</div>
-            </div>
-          ))}
-        </div>
+        <p className="text-sm text-muted-foreground">
+          <span className="text-foreground font-medium tabular-nums">{metrics.total_items}</span> items
+          {(metrics.low_stock_count || metrics.critical_stock_count || metrics.expired_count) ? (
+            <span>
+              {' · '}
+              <span className="text-amber-600 font-medium tabular-nums">
+                {(metrics.low_stock_count || 0) + (metrics.critical_stock_count || 0) + (metrics.expired_count || 0)}
+              </span>
+              {' need attention'}
+            </span>
+          ) : (
+            ' · stock looks fine'
+          )}
+          {metrics.total_value != null && (
+            <span> · {inr(metrics.total_value)}</span>
+          )}
+        </p>
       )}
 
       <div className="flex flex-wrap gap-2 items-center justify-between">
@@ -129,21 +133,14 @@ export default function InventoryDashboard({ compact = false, showPurchases = tr
       </div>
 
       {showAlerts && alerts && !compact && <StockAlertsPanel alerts={alerts} onRefresh={load} />}
-      {showPurchases && !compact && <PurchasePanel onRefresh={load} />}
 
-      <div className={`grid gap-4 ${compact ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3'}`}>
-        {visible.map(item => (
-          <InventoryItemCard
-            key={item.id}
-            item={item}
-            onAction={handleCardAction}
-            primaryAction="receive"
-          />
-        ))}
-        {!visible.length && (
-          <p className="text-sm text-muted-foreground col-span-full text-center py-8">No items match this filter.</p>
-        )}
-      </div>
+      <InventoryTable
+        items={visible}
+        onAction={handleCardAction}
+        primaryAction="receive"
+      />
+
+      {showPurchases && !compact && <PurchasePanel onRefresh={load} />}
 
       <Dialog open={!!actionItem} onOpenChange={o => !o && setActionItem(null)}>
         <DialogContent>

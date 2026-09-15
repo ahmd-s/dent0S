@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Loader2 } from 'lucide-react'
-import LabCaseCard from './LabCaseCard'
+import LabCaseTable from './LabCaseTable'
 import { normalizeLabStatus } from '@/lib/lab-case-helpers'
 import { toast } from 'sonner'
 
@@ -63,10 +63,8 @@ export default function ReceptionLabDashboard() {
 function Section({ title, cases, onAction, showActions = true }) {
   return (
     <section>
-      <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">{title} · {cases.length}</h3>
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-        {cases.map(c => <LabCaseCard key={c.id} labCase={c} onAction={onAction} showActions={showActions} />)}
-      </div>
+      <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">{title} · {cases.length}</h3>
+      <LabCaseTable cases={cases} onAction={onAction} showActions={showActions} />
     </section>
   )
 }

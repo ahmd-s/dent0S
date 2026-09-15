@@ -5,7 +5,6 @@ import { Loader2 } from 'lucide-react'
 import InventoryDashboard from '@/components/inventory-os/InventoryDashboard'
 import DoctorInventoryDashboard from '@/components/inventory-os/DoctorInventoryDashboard'
 import ReceptionInventoryDashboard from '@/components/inventory-os/ReceptionInventoryDashboard'
-import { useRole } from '@/components/dentos/RoleContext'
 
 const VIEWS = [
   { id: 'dashboard', label: 'Overview' },
@@ -35,12 +34,10 @@ function LegacyAnalytics() {
 }
 
 function App() {
-  const { isDoctor, isReceptionist } = useRole()
-  const defaultView = isDoctor() && !isReceptionist() ? 'doctor' : isReceptionist() ? 'reception' : 'dashboard'
-  const [view, setView] = useState(defaultView)
+  const [view, setView] = useState('dashboard')
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-5">
       <div className="flex items-center justify-end">
         <div className="flex bg-muted/70 rounded-lg p-0.5">
           {VIEWS.map(v => (
