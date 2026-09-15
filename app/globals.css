@@ -159,11 +159,14 @@ html, body {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  /* Sprint 20 — unified interaction polish */
+  /* Quiet surfaces — color and weight only when a state needs attention */
   .dentos-card {
-    @apply bg-card border border-border rounded-lg shadow-sm;
+    @apply bg-card border border-border/70 rounded-xl shadow-none;
   }
   .dentos-btn-primary {
     @apply bg-primary hover:bg-primary/90 text-primary-foreground;
+  }
+  .dentos-chip {
+    @apply inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium bg-muted/70 text-muted-foreground;
   }
 }

@@ -30,7 +30,7 @@ function BalanceBadge({ patientId, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-medium rounded-full border border-amber-200 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1"
+      className="inline-flex items-center gap-1 text-amber-700 text-xs font-medium hover:underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1"
       type="button"
       aria-label={`Outstanding balance ${inrFormatter.format(balance)}. View details.`}
     >

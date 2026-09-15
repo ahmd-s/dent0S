@@ -83,9 +83,9 @@ function App() {
   const openStockOut = (item) => { setStockItem(item); setStockOutOpen(true) }
 
   const getStatus = (item) => {
-    if (item.current_stock === 0) return { label: 'Out of Stock', color: 'bg-red-50 text-red-600 border-red-200' }
-    if (item.current_stock <= item.minimum_stock) return { label: 'Low Stock', color: 'bg-amber-50 text-amber-600 border-amber-200' }
-    return { label: 'In Stock', color: 'bg-green-50 text-green-600 border-green-200' }
+    if (item.current_stock === 0) return { label: 'Out of stock', color: 'text-red-600' }
+    if (item.current_stock <= item.minimum_stock) return { label: 'Low stock', color: 'text-amber-600' }
+    return { label: 'In stock', color: 'text-muted-foreground' }
   }
 
   return (
@@ -155,7 +155,7 @@ function App() {
                       <td className="px-4 py-3 text-sm text-muted-foreground">{item.unit}</td>
                       <td className="px-4 py-3 text-sm font-medium">{item.current_stock}</td>
                       <td className="px-4 py-3 text-sm text-muted-foreground">{item.minimum_stock}</td>
-                      <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded-full border ${status.color}`}>{status.label}</span></td>
+                      <td className="px-4 py-3"><span className={`text-xs font-medium ${status.color}`}>{status.label}</span></td>
                       <td className="px-4 py-3 text-sm text-muted-foreground">{vendor?.name || '-'}</td>
                       {canManageInventory() && (
                         <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
@@ -184,7 +184,7 @@ function App() {
                       <div className="font-medium text-sm">{item.item_name}</div>
                       <div className="text-xs text-muted-foreground mt-1">{item.category}</div>
                     </div>
-                    <span className={`text-xs px-2 py-0.5 rounded-full border ${status.color} flex-shrink-0 ml-2`}>{status.label}</span>
+                    <span className={`text-xs font-medium ${status.color} flex-shrink-0 ml-2`}>{status.label}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs mb-3">
                     <div><span className="text-muted-foreground">Stock:</span> {item.current_stock} {item.unit}</div>

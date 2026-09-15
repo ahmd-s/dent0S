@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { semanticStatColor } from '@/lib/ui-status'
 import SmartInsightsPanel from './SmartInsightsPanel'
 import DoctorPerformancePanel from './DoctorPerformancePanel'
 
@@ -21,12 +22,13 @@ const HEALTH_COLORS = {
 }
 
 function KpiCard({ label, value, sub, trend, href, icon: Icon, color = '#0D9488' }) {
+  const accent = semanticStatColor(color, value)
   const inner = (
-    <Card className={`p-4 md:p-5 bg-card border-border rounded-xl h-full transition-all ${href ? 'hover:border-[#0D9488]/40 hover:shadow-sm cursor-pointer group' : ''}`}>
+    <Card className={`p-4 md:p-5 bg-card border-border/70 rounded-xl h-full ${href ? 'hover:bg-muted/20 cursor-pointer group' : ''}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="text-xs md:text-sm text-muted-foreground">{label}</div>
-          <div className="text-2xl md:text-3xl font-bold mt-1.5 tabular-nums" style={{ color }}>{value}</div>
+          <div className="text-2xl md:text-3xl font-semibold mt-1.5 tabular-nums text-foreground" style={accent ? { color: accent } : undefined}>{value}</div>
           {sub && <div className="text-[11px] text-muted-foreground mt-1">{sub}</div>}
           {trend != null && (
             <div className={`flex items-center gap-1 text-xs mt-1.5 ${trend >= 0 ? 'text-green-600' : 'text-red-500'}`}>
@@ -36,8 +38,8 @@ function KpiCard({ label, value, sub, trend, href, icon: Icon, color = '#0D9488'
           )}
         </div>
         <div className="flex flex-col items-end gap-2">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: color + '15' }}>
-            <Icon className="w-5 h-5" style={{ color }} />
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-muted/70 text-muted-foreground">
+            <Icon className="w-4 h-4" style={accent ? { color: accent } : undefined} />
           </div>
           {href && <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />}
         </div>

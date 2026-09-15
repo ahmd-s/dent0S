@@ -1,72 +1,117 @@
 'use client'
 
-import { Package, Calendar, IndianRupee } from 'lucide-react'
-import { Card } from '@/components/ui/card'
+import { useState } from 'react'
+import { Package } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AsyncImage } from '@/components/ui/async-image'
+import PrimaryActions from '@/components/ui/primary-actions'
 
 const inr = n => '₹' + (n || 0).toLocaleString('en-IN')
 
-export default function InventoryItemCard({ item, compact, onAction }) {
-  const badge = item.status_badge || { label: item.status, className: 'bg-slate-100 text-slate-600' }
+function DetailRow({ label, value }) {
+  if (value == null || value === '') return null
+  return (
+    <div className="flex items-baseline justify-between gap-4 py-2 border-b border-border/60 last:border-0">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-sm text-foreground text-right">{value}</span>
+    </div>
+  )
+}
+
+export default function InventoryItemCard({ item, onAction, primaryAction = 'consume' }) {
+  const [open, setOpen] = useState(false)
+  const problem = item.status && item.status !== 'healthy'
+  const badge = item.status_badge
+  const unit = item.unit || ''
+
+  const run = (type) => {
+    onAction?.(type, item)
+  }
+
+  const actions = onAction ? [
+    { id: 'consume', label: 'Consume', onSelect: () => run('consume'), primary: primaryAction === 'consume' },
+    { id: 'receive', label: 'Stock In', onSelect: () => run('receive'), primary: primaryAction === 'receive' },
+    { id: 'reserve', label: 'Reserve', onSelect: () => run('reserve') },
+  ] : []
 
   return (
-    <Card className={`overflow-hidden border-border bg-card hover:border-[#0D9488]/30 transition-colors ${compact ? 'p-3' : 'p-4'}`}>
-      <div className="flex gap-3">
-        <div className={`flex-shrink-0 rounded-lg bg-muted flex items-center justify-center ${compact ? 'w-12 h-12' : 'w-16 h-16'}`}>
-          <AsyncImage
-            src={item.image_url}
-            className="w-full h-full object-cover rounded-lg"
-            fallback={<Package className={`text-muted-foreground ${compact ? 'w-5 h-5' : 'w-7 h-7'}`} />}
-          />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <h3 className={`font-semibold truncate ${compact ? 'text-sm' : 'text-base'}`}>{item.item_name}</h3>
-              <p className="text-xs text-muted-foreground">{item.category}{item.vendor_name ? ` · ${item.vendor_name}` : ''}</p>
-            </div>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full border whitespace-nowrap ${badge.className}`}>
-              {badge.label}
-            </span>
+    <>
+      <div className="rounded-xl border border-border/70 bg-card hover:border-border hover:bg-muted/20 transition-colors">
+        <button type="button" className="w-full text-left px-5 py-4" onClick={() => setOpen(true)}>
+          <div className="flex items-start justify-between gap-3">
+            <h3 className="text-[15px] font-semibold text-foreground truncate leading-snug">{item.item_name}</h3>
+            {problem && badge && (
+              <span className={`text-[11px] font-medium shrink-0 rounded-md px-2 py-0.5 ${badge.className}`}>
+                {badge.label}
+              </span>
+            )}
           </div>
-
-          {!compact && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-1 mt-3 text-xs">
-              <div><span className="text-muted-foreground">Stock</span> <strong>{item.current_stock}</strong> {item.unit}</div>
-              <div><span className="text-muted-foreground">Reserved</span> {item.reserved_stock || 0}</div>
-              <div><span className="text-muted-foreground">Available</span> {item.available_stock}</div>
-              <div><span className="text-muted-foreground">Min</span> {item.minimum_stock}</div>
-              {item.batch_number && <div><span className="text-muted-foreground">Batch</span> {item.batch_number}</div>}
-              {item.expiry_date && (
-                <div className="flex items-center gap-1">
-                  <Calendar className="w-3 h-3 text-muted-foreground" />
-                  {item.days_remaining != null ? `${item.days_remaining}d left` : item.expiry_date.slice(0, 10)}
-                </div>
-              )}
-              <div className="flex items-center gap-1">
-                <IndianRupee className="w-3 h-3 text-muted-foreground" />
-                {inr(item.current_value)}
-              </div>
-            </div>
-          )}
-
-          {compact && (
-            <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
-              <span>Stock: <strong className="text-foreground">{item.current_stock}</strong></span>
-              <span>Avail: {item.available_stock}</span>
-            </div>
-          )}
-
-          {onAction && (
-            <div className="flex gap-1.5 mt-3 flex-wrap">
-              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => onAction('receive', item)}>Stock In</Button>
-              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => onAction('reserve', item)}>Reserve</Button>
-              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => onAction('consume', item)}>Consume</Button>
-            </div>
-          )}
-        </div>
+          <div className="mt-2.5 flex items-baseline gap-1.5">
+            <span className="text-2xl font-semibold tabular-nums tracking-tight">{item.current_stock ?? 0}</span>
+            <span className="text-sm text-muted-foreground">{unit || 'in stock'}</span>
+          </div>
+        </button>
+        {actions.length > 0 && (
+          <div className="px-5 pb-3.5">
+            <PrimaryActions actions={actions} />
+          </div>
+        )}
       </div>
-    </Card>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="pr-6">{item.item_name}</DialogTitle>
+          </DialogHeader>
+          <div className="flex gap-4">
+            <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
+              <AsyncImage
+                src={item.image_url}
+                className="w-full h-full object-cover rounded-lg"
+                fallback={<Package className="w-6 h-6 text-muted-foreground" />}
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-2xl font-semibold tabular-nums">{item.current_stock ?? 0} <span className="text-sm font-normal text-muted-foreground">{unit}</span></div>
+              {badge && (
+                <span className={`inline-flex mt-1.5 text-[11px] font-medium rounded-md px-2 py-0.5 ${badge.className}`}>
+                  {badge.label}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="mt-1">
+            <DetailRow label="Category" value={item.category} />
+            <DetailRow label="Supplier" value={item.vendor_name} />
+            <DetailRow label="Available" value={item.available_stock} />
+            <DetailRow label="Reserved" value={item.reserved_stock || 0} />
+            <DetailRow label="Minimum" value={item.minimum_stock} />
+            <DetailRow label="Batch" value={item.batch_number} />
+            <DetailRow
+              label="Expiry"
+              value={item.expiry_date
+                ? (item.days_remaining != null ? `${item.expiry_date.slice(0, 10)} · ${item.days_remaining}d` : item.expiry_date.slice(0, 10))
+                : null}
+            />
+            <DetailRow label="Value" value={inr(item.current_value)} />
+          </div>
+          {onAction && (
+            <div className="flex flex-wrap gap-2 pt-2">
+              <Button size="sm" onClick={() => { setOpen(false); run(primaryAction) }}>
+                {primaryAction === 'receive' ? 'Stock In' : 'Consume'}
+              </Button>
+              {primaryAction !== 'receive' && (
+                <Button size="sm" variant="outline" onClick={() => { setOpen(false); run('receive') }}>Stock In</Button>
+              )}
+              <Button size="sm" variant="outline" onClick={() => { setOpen(false); run('reserve') }}>Reserve</Button>
+              {primaryAction === 'receive' && (
+                <Button size="sm" variant="outline" onClick={() => { setOpen(false); run('consume') }}>Consume</Button>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

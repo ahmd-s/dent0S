@@ -1,118 +1,77 @@
 'use client'
 
 import Link from 'next/link'
-import { User, Box, AlertTriangle, Clock, FlaskConical } from 'lucide-react'
-import { LAB_CASE_STATUS_META, statusLabel } from '@/lib/lab-case-helpers'
-import { AsyncImage } from '@/components/ui/async-image'
-
-const urgencyColor = u => ({
-  routine: 'bg-slate-100 text-slate-600',
-  urgent: 'bg-amber-100 text-amber-700',
-  emergency: 'bg-red-100 text-red-700',
-}[u] || 'bg-slate-100 text-slate-600')
+import { statusLabel } from '@/lib/lab-case-helpers'
+import PrimaryActions from '@/components/ui/primary-actions'
 
 const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—'
 
-export default function LabCaseCard({ labCase: c, onAction, showActions = true, compact = false }) {
-  const badge = LAB_CASE_STATUS_META[c.status]?.badge || 'bg-slate-100 text-slate-700'
+function treatmentLabel(c) {
+  const type = c.case_type || 'Lab case'
+  return c.tooth_numbers ? `${type} · #${c.tooth_numbers}` : type
+}
+
+export function getLabCaseActions(c, onAction) {
+  const s = c.status
+  const run = (action) => () => onAction(action, c)
+  const actions = []
+  if (s === 'pending') actions.push({ id: 'impression_ready', label: 'Impression Ready', onSelect: run('impression_ready') })
+  if (['pending', 'impression_ready'].includes(s)) actions.push({ id: 'send_to_lab', label: 'Send to Lab', onSelect: run('send_to_lab'), primary: true })
+  if (s === 'sent') actions.push({ id: 'mark_received', label: 'Received', onSelect: run('mark_received'), primary: true })
+  if (s === 'lab_received') actions.push({ id: 'start_manufacturing', label: 'Manufacturing', onSelect: run('start_manufacturing'), primary: true })
+  if (['in_production', 'in_progress'].includes(s)) actions.push({ id: 'start_qc', label: 'Quality Check', onSelect: run('start_qc') })
+  if (['in_production', 'quality_check', 'in_progress'].includes(s)) actions.push({ id: 'mark_ready', label: 'Mark Ready', onSelect: run('mark_ready'), primary: true })
+  if (s === 'ready') actions.push({ id: 'mark_delivered', label: 'Delivered', onSelect: run('mark_delivered'), primary: true })
+  if (['delivered', 'received'].includes(s)) actions.push({ id: 'mark_installed', label: 'Installed', onSelect: run('mark_installed'), primary: true })
+  if (['installed', 'delivered'].includes(s)) actions.push({ id: 'complete', label: 'Complete', onSelect: run('complete'), primary: true })
+  if (!['completed', 'cancelled'].includes(s)) actions.push({ id: 'mark_delayed', label: 'Mark Delayed', onSelect: run('mark_delayed') })
+  return actions
+}
+
+export default function LabCaseCard({ labCase: c, onAction, showActions = true }) {
+  const overdue = !!(c.is_delayed || c.overdue)
+  const showPriority = c.urgency === 'emergency' || c.urgency === 'urgent'
+  const actions = showActions && onAction ? getLabCaseActions(c, onAction) : []
 
   return (
-    <div className={`rounded-xl border bg-card shadow-sm hover:shadow-md transition-all ${c.is_delayed || c.overdue ? 'border-red-300/50' : 'border-border'}`}>
-      <Link href={`/lab-cases/${c.id}`} className="block p-3">
-        <div className="flex gap-3">
-          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
-            <AsyncImage
-              src={c.patient_photo_url}
-              className="w-full h-full object-cover"
-              fallback={<User className="w-5 h-5 text-muted-foreground" />}
-            />
+    <div className="rounded-xl border border-border/70 bg-card hover:border-border hover:bg-muted/20 transition-colors">
+      <Link href={`/lab-cases/${c.id}`} className="block px-5 py-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="text-[15px] font-semibold text-foreground truncate leading-snug">
+              {c.patient_name || 'Unknown patient'}
+            </h3>
+            <p className="mt-0.5 text-sm text-muted-foreground truncate">{treatmentLabel(c)}</p>
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <div className="font-semibold text-sm text-[#0D9488]">{c.case_number}</div>
-                <div className="font-medium text-sm truncate">{c.patient_name}</div>
-              </div>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap ${badge}`}>{statusLabel(c.status)}</span>
-            </div>
+          {showPriority && (
+            <span className={`text-[11px] font-medium shrink-0 mt-0.5 ${c.urgency === 'emergency' ? 'text-red-600' : 'text-amber-600'}`}>
+              {c.urgency === 'emergency' ? 'Emergency' : 'Urgent'}
+            </span>
+          )}
+        </div>
 
-            {!compact && (
-              <div className="mt-1.5 text-xs text-muted-foreground space-y-0.5">
-                <div>{c.case_type}{c.tooth_numbers ? ` · #${c.tooth_numbers}` : ''}</div>
-                <div>Dr. {c.doctor_name || '—'} · {c.vendor_name || '—'}</div>
-              </div>
+        <div className="mt-3.5 flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-sm text-foreground">{statusLabel(c.status)}</div>
+            {c.vendor_name && (
+              <div className="text-xs text-muted-foreground mt-0.5 truncate">{c.vendor_name}</div>
             )}
-
-            <div className="flex flex-wrap gap-1 mt-2">
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full capitalize ${urgencyColor(c.urgency)}`}>{c.urgency || 'routine'}</span>
-              {c.stl_uploaded && <Badge icon={Box} label="STL" className="bg-indigo-50 text-indigo-700" />}
-              {c.impression_received && <Badge icon={FlaskConical} label="Impression" className="bg-cyan-50 text-cyan-700" />}
-              {(c.is_delayed || c.overdue) && <Badge icon={AlertTriangle} label="Delayed" className="bg-red-50 text-red-600" />}
-            </div>
-
-            <div className="flex items-center justify-between mt-2 text-xs">
-              <span className={`flex items-center gap-1 ${c.overdue ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
-                <Clock className="w-3 h-3" />
-                Due {fmtDate(c.expected_delivery_date)}
-                {c.days_remaining != null && (
-                  <span className={c.days_remaining < 0 ? 'text-red-600' : c.days_remaining <= 2 ? 'text-amber-600' : ''}>
-                    ({c.days_remaining < 0 ? `${Math.abs(c.days_remaining)}d late` : `${c.days_remaining}d left`})
-                  </span>
-                )}
-              </span>
-              {c.estimated_completion && (
-                <span className="text-muted-foreground">Est. {fmtDate(c.estimated_completion)}</span>
-              )}
-            </div>
+          </div>
+          <div className={`text-sm tabular-nums text-right shrink-0 ${overdue ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
+            Due {fmtDate(c.expected_delivery_date)}
           </div>
         </div>
       </Link>
-      {showActions && onAction && (
-        <div className="border-t border-border px-2 py-1.5">
-          <LabQuickActions labCase={c} onAction={onAction} />
+
+      {actions.length > 0 && (
+        <div className="px-5 pb-3.5 -mt-1">
+          <PrimaryActions actions={actions} />
         </div>
       )}
     </div>
   )
 }
 
-function Badge({ label, className, icon: Icon }) {
-  return (
-    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium inline-flex items-center gap-0.5 ${className}`}>
-      {Icon && <Icon className="w-2.5 h-2.5" />}{label}
-    </span>
-  )
+export function LabQuickActions({ labCase: c, onAction }) {
+  return <PrimaryActions actions={getLabCaseActions(c, onAction)} />
 }
-
-function LabQuickActions({ labCase: c, onAction }) {
-  const s = c.status
-  const btn = (action, label, variant = 'outline') => (
-    <button
-      key={action}
-      type="button"
-      onClick={e => { e.preventDefault(); e.stopPropagation(); onAction(action, c) }}
-      className={`text-[10px] px-2 py-1 rounded-md border transition-colors ${
-        variant === 'primary' ? 'bg-[#0D9488] text-white border-[#0D9488]' : 'border-border hover:bg-muted'
-      }`}
-    >
-      {label}
-    </button>
-  )
-
-  const actions = []
-  if (s === 'pending') actions.push(btn('impression_ready', 'Impression Ready', 'primary'))
-  if (['pending', 'impression_ready'].includes(s)) actions.push(btn('send_to_lab', 'Send to Lab', 'primary'))
-  if (s === 'sent') actions.push(btn('mark_received', 'Received'))
-  if (s === 'lab_received') actions.push(btn('start_manufacturing', 'Manufacturing', 'primary'))
-  if (['in_production', 'in_progress'].includes(s)) actions.push(btn('start_qc', 'QC'))
-  if (['in_production', 'quality_check', 'in_progress'].includes(s)) actions.push(btn('mark_ready', 'Ready', 'primary'))
-  if (s === 'ready') actions.push(btn('mark_delivered', 'Delivered', 'primary'))
-  if (['delivered', 'received'].includes(s)) actions.push(btn('mark_installed', 'Installed', 'primary'))
-  if (['installed', 'delivered'].includes(s)) actions.push(btn('complete', 'Complete', 'primary'))
-  if (!['completed', 'cancelled'].includes(s)) actions.push(btn('mark_delayed', 'Mark Delayed'))
-
-  if (!actions.length) return null
-  return <div className="flex flex-wrap gap-1">{actions}</div>
-}
-
-export { LabQuickActions }

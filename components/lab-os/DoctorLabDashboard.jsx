@@ -27,39 +27,47 @@ export default function DoctorLabDashboard() {
   const doctorId = me?.profile?.id
   const mine = useMemo(() => cases.filter(c => c.created_by === doctorId), [cases, doctorId])
   const active = mine.filter(c => !CLOSED_STATUSES.includes(normalizeLabStatus(c.status)))
-  const due = active.filter(c => c.days_remaining != null && c.days_remaining <= 3)
   const delayed = active.filter(c => c.overdue || c.is_delayed)
+  const delayedIds = new Set(delayed.map(c => c.id))
+  const dueSoon = active.filter(c => !delayedIds.has(c.id) && c.days_remaining != null && c.days_remaining <= 3)
+  const attentionIds = new Set([...delayed, ...dueSoon].map(c => c.id))
   const awaitingInstall = mine.filter(c => ['delivered', 'received'].includes(normalizeLabStatus(c.status)))
+  const awaitingIds = new Set(awaitingInstall.map(c => c.id))
+  const restActive = active.filter(c => !attentionIds.has(c.id) && !awaitingIds.has(c.id))
   const recentDelivered = mine.filter(c => normalizeLabStatus(c.status) === 'completed').slice(0, 5)
 
   if (loading) {
-    return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]" /></div>
+    return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold">My Lab Cases ({active.length} active)</h3>
-        <Button onClick={() => setOpen(true)} size="sm" className="bg-[#0D9488]"><Plus className="w-4 h-4 mr-1" />New Case</Button>
+    <div className="space-y-8">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-base font-semibold text-foreground">{active.length} active cases</h2>
+        <Button onClick={() => setOpen(true)} size="sm"><Plus className="w-4 h-4 mr-1" />New Case</Button>
       </div>
 
-      {due.length > 0 && <Section title="Due Soon" cases={due} />}
-      {delayed.length > 0 && <Section title="Delayed" cases={delayed} />}
-      {awaitingInstall.length > 0 && <Section title="Awaiting Installation" cases={awaitingInstall} />}
-      {active.length > 0 && <Section title="Active Cases" cases={active} />}
-      {recentDelivered.length > 0 && <Section title="Recently Completed" cases={recentDelivered} compact />}
+      {delayed.length > 0 && <Section title="Needs attention" cases={delayed} />}
+      {dueSoon.length > 0 && <Section title="Due soon" cases={dueSoon} />}
+      {awaitingInstall.length > 0 && <Section title="Ready to install" cases={awaitingInstall} />}
+      {restActive.length > 0 && <Section title={attentionIds.size ? 'Other cases' : 'Active cases'} cases={restActive} />}
+      {recentDelivered.length > 0 && <Section title="Recently completed" cases={recentDelivered} />}
+
+      {!active.length && !recentDelivered.length && (
+        <p className="text-sm text-muted-foreground text-center py-16">No lab cases yet</p>
+      )}
 
       <NewLabCaseDialog open={open} setOpen={setOpen} onCreated={load} />
     </div>
   )
 }
 
-function Section({ title, cases, compact }) {
+function Section({ title, cases }) {
   return (
     <section>
-      <h4 className="text-sm font-medium text-muted-foreground mb-2">{title}</h4>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {cases.map(c => <LabCaseCard key={c.id} labCase={c} showActions={false} compact={compact} />)}
+      <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">{title}</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+        {cases.map(c => <LabCaseCard key={c.id} labCase={c} showActions={false} />)}
       </div>
     </section>
   )

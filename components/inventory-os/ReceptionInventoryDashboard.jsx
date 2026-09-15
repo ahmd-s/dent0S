@@ -38,29 +38,29 @@ export default function ReceptionInventoryDashboard() {
     else toast.error((await r.json()).error || 'Failed')
   }
 
-  if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]" /></div>
+  if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
 
   const pending = purchases.filter(p => ['requested', 'approved', 'ordered'].includes(p.status))
   const received = purchases.filter(p => p.status === 'received').slice(0, 5)
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="rounded-xl border p-3 bg-card">
-          <div className="text-xs text-muted-foreground">Purchase Requests</div>
-          <div className="text-2xl font-bold">{metrics?.purchase_requests ?? 0}</div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="rounded-xl border border-border/70 bg-card px-5 py-4">
+          <div className="text-xs text-muted-foreground">Purchase requests</div>
+          <div className="text-2xl font-semibold tabular-nums mt-1">{metrics?.purchase_requests ?? 0}</div>
         </div>
-        <div className="rounded-xl border p-3 bg-card">
-          <div className="text-xs text-muted-foreground">Low Stock</div>
-          <div className="text-2xl font-bold text-amber-600">{metrics?.low_stock_count ?? 0}</div>
+        <div className="rounded-xl border border-border/70 bg-card px-5 py-4">
+          <div className="text-xs text-muted-foreground">Low stock</div>
+          <div className={`text-2xl font-semibold tabular-nums mt-1 ${(metrics?.low_stock_count || 0) > 0 ? 'text-amber-600' : ''}`}>{metrics?.low_stock_count ?? 0}</div>
         </div>
-        <div className="rounded-xl border p-3 bg-card">
-          <div className="text-xs text-muted-foreground">Pending Deliveries</div>
-          <div className="text-2xl font-bold">{metrics?.pending_deliveries ?? 0}</div>
+        <div className="rounded-xl border border-border/70 bg-card px-5 py-4">
+          <div className="text-xs text-muted-foreground">Incoming</div>
+          <div className="text-2xl font-semibold tabular-nums mt-1">{metrics?.pending_deliveries ?? 0}</div>
         </div>
-        <div className="rounded-xl border p-3 bg-card">
-          <div className="text-xs text-muted-foreground">Received This Month</div>
-          <div className="text-2xl font-bold text-green-600">{metrics?.received_orders ?? 0}</div>
+        <div className="rounded-xl border border-border/70 bg-card px-5 py-4">
+          <div className="text-xs text-muted-foreground">Received this month</div>
+          <div className="text-2xl font-semibold tabular-nums mt-1">{metrics?.received_orders ?? 0}</div>
         </div>
       </div>
 
@@ -93,14 +93,9 @@ export default function ReceptionInventoryDashboard() {
       </div>
 
       {alerts?.low_stock?.length > 0 && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 p-3">
-          <p className="text-sm font-medium">Low stock items need reorder</p>
-          <ul className="text-xs mt-1 space-y-0.5">
-            {alerts.low_stock.slice(0, 8).map(i => (
-              <li key={i.id}>{i.item_name} — {i.current_stock} left (min {i.minimum_stock})</li>
-            ))}
-          </ul>
-        </div>
+        <p className="text-sm text-amber-700 dark:text-amber-300">
+          Low stock: {alerts.low_stock.slice(0, 8).map(i => `${i.item_name} (${i.current_stock})`).join(' · ')}
+        </p>
       )}
 
       {received.length > 0 && (

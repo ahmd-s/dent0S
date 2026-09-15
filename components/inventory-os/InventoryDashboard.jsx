@@ -13,11 +13,11 @@ import StockAlertsPanel from './StockAlertsPanel'
 
 const STATUS_FILTERS = [
   { id: 'all', label: 'All' },
-  { id: 'healthy', label: 'Healthy' },
-  { id: 'low_stock', label: 'Low Stock' },
+  { id: 'healthy', label: 'In stock' },
+  { id: 'low_stock', label: 'Low' },
   { id: 'critical', label: 'Critical' },
   { id: 'expired', label: 'Expired' },
-  { id: 'out_of_stock', label: 'Out of Stock' },
+  { id: 'out_of_stock', label: 'Out' },
 ]
 
 const inr = n => '₹' + (n || 0).toLocaleString('en-IN')
@@ -79,37 +79,35 @@ export default function InventoryDashboard({ compact = false, showPurchases = tr
   }
 
   if (loading) {
-    return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]" /></div>
+    return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
   }
 
   return (
     <div className="space-y-4">
       {metrics && !compact && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
-            { label: 'Total Value', val: inr(metrics.total_value), color: '#6366F1' },
-            { label: 'Items', val: metrics.total_items, color: '#0D9488' },
-            { label: 'Low Stock', val: metrics.low_stock_count, color: '#F59E0B' },
-            { label: 'Critical', val: metrics.critical_stock_count, color: '#EF4444' },
-            { label: 'Expiring', val: metrics.expiring_soon_count, color: '#8B5CF6' },
-            { label: 'Health', val: `${metrics.inventory_health_pct}%`, color: '#22C55E' },
+            { label: 'Items', val: metrics.total_items },
+            { label: 'Stock value', val: inr(metrics.total_value) },
+            { label: 'Low stock', val: metrics.low_stock_count, alert: metrics.low_stock_count > 0 },
+            { label: 'Critical', val: (metrics.critical_stock_count || 0) + (metrics.expired_count || 0), alert: ((metrics.critical_stock_count || 0) + (metrics.expired_count || 0)) > 0 },
           ].map(s => (
-            <div key={s.label} className="rounded-xl border border-border bg-card p-3">
+            <div key={s.label} className="rounded-xl border border-border/70 bg-card px-5 py-4">
               <div className="text-xs text-muted-foreground">{s.label}</div>
-              <div className="text-xl font-bold tabular-nums" style={{ color: s.color }}>{s.val}</div>
+              <div className={`text-2xl font-semibold tabular-nums mt-1 ${s.alert ? 'text-amber-600' : 'text-foreground'}`}>{s.val}</div>
             </div>
           ))}
         </div>
       )}
 
       <div className="flex flex-wrap gap-2 items-center justify-between">
-        <div className="flex gap-1 flex-wrap">
+        <div className="flex bg-muted/70 rounded-lg p-0.5 flex-wrap">
           {STATUS_FILTERS.map(f => (
             <button
               key={f.id}
               onClick={() => setFilter(f.id)}
-              className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                filter === f.id ? 'bg-[#0D9488] text-white border-[#0D9488]' : 'border-border hover:bg-muted'
+              className={`text-xs px-3 py-1.5 rounded-md transition-colors ${
+                filter === f.id ? 'bg-background text-foreground font-medium shadow-sm' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               {f.label}
@@ -133,13 +131,13 @@ export default function InventoryDashboard({ compact = false, showPurchases = tr
       {showAlerts && alerts && !compact && <StockAlertsPanel alerts={alerts} onRefresh={load} />}
       {showPurchases && !compact && <PurchasePanel onRefresh={load} />}
 
-      <div className={`grid gap-3 ${compact ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3'}`}>
+      <div className={`grid gap-4 ${compact ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3'}`}>
         {visible.map(item => (
           <InventoryItemCard
             key={item.id}
             item={item}
-            compact={compact}
             onAction={handleCardAction}
+            primaryAction="receive"
           />
         ))}
         {!visible.length && (

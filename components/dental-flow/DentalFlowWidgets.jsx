@@ -1,29 +1,9 @@
 'use client'
 
-import Link from 'next/link'
 import { Clock, Armchair, Stethoscope, Users, AlertTriangle, Activity, Calendar, CheckCircle2, XCircle, UserX, IndianRupee, TrendingUp } from 'lucide-react'
-import { Card } from '@/components/ui/card'
+import StatCard from '@/components/ui/stat-card'
 
 const inr = n => '₹' + (n || 0).toLocaleString('en-IN')
-
-function StatCard({ label, val, sub, icon: Icon, color, href }) {
-  const inner = (
-    <Card className={`p-3.5 sm:p-4 bg-card border-border rounded-xl h-full ${href ? 'hover:border-[#0D9488]/40 transition-colors cursor-pointer' : ''}`}>
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1 min-w-0">
-          <div className="text-xs text-muted-foreground">{label}</div>
-          <div className="text-2xl font-bold mt-1 tabular-nums" style={{ color }}>{val}</div>
-          {sub && <div className="text-[11px] text-muted-foreground mt-1">{sub}</div>}
-        </div>
-        <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: color + '15' }}>
-          <Icon className="w-4 h-4" style={{ color }} />
-        </div>
-      </div>
-    </Card>
-  )
-  if (href) return <Link href={href} className="block h-full">{inner}</Link>
-  return inner
-}
 
 export function TodaysQueueStatWidget({ stats }) {
   return <StatCard label="Today's Queue" val={stats?.flow?.waiting_count ?? stats?.today_queue?.length ?? '—'} sub="Patients in flow" icon={Users} color="#0D9488" href="/appointments" />

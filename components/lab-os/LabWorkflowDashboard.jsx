@@ -55,43 +55,43 @@ export default function LabWorkflowDashboard({ onRefresh }) {
   }, [cases, filter])
 
   if (loading) {
-    return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]" /></div>
+    return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
   }
 
   const filters = [
     { id: 'active', label: 'Active', count: stats?.open_cases },
-    { id: 'due_today', label: 'Due Today', count: stats?.due_today },
+    { id: 'due_today', label: 'Due today', count: stats?.due_today },
     { id: 'delayed', label: 'Delayed', count: stats?.delayed_cases },
     { id: 'all', label: 'All', count: stats?.total_cases },
   ]
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex gap-2 flex-wrap">
+    <div className="space-y-5">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex bg-muted/70 rounded-lg p-0.5">
           {filters.map(f => (
             <button
               key={f.id}
               onClick={() => setFilter(f.id)}
-              className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                filter === f.id ? 'bg-[#0D9488] text-white border-[#0D9488]' : 'border-border hover:bg-muted'
+              className={`text-xs px-3 py-1.5 rounded-md transition-colors ${
+                filter === f.id ? 'bg-background text-foreground font-medium shadow-sm' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              {f.label}{f.count != null ? ` (${f.count})` : ''}
+              {f.label}{f.count != null ? ` ${f.count}` : ''}
             </button>
           ))}
         </div>
-        <Button onClick={() => setOpen(true)} className="bg-[#0D9488] hover:bg-[#0B7E73] h-9">
-          <Plus className="w-4 h-4 mr-1" />New Lab Case
+        <Button onClick={() => setOpen(true)} size="sm">
+          <Plus className="w-4 h-4 mr-1" />New Case
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {visible.map(c => (
           <LabCaseCard key={c.id} labCase={c} onAction={runAction} />
         ))}
         {visible.length === 0 && (
-          <p className="text-sm text-muted-foreground col-span-full py-12 text-center">No lab cases found</p>
+          <p className="text-sm text-muted-foreground col-span-full py-16 text-center">No lab cases found</p>
         )}
       </div>
 

@@ -36,11 +36,11 @@ export default function ReceptionLabDashboard() {
   }
 
   if (loading) {
-    return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]" /></div>
+    return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {readyForPickup.length > 0 && (
         <Section title="Ready For Pickup" cases={readyForPickup} onAction={runAction} />
       )}
@@ -63,8 +63,8 @@ export default function ReceptionLabDashboard() {
 function Section({ title, cases, onAction, showActions = true }) {
   return (
     <section>
-      <h4 className="text-sm font-semibold text-muted-foreground mb-2">{title} ({cases.length})</h4>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">{title} · {cases.length}</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {cases.map(c => <LabCaseCard key={c.id} labCase={c} onAction={onAction} showActions={showActions} />)}
       </div>
     </section>

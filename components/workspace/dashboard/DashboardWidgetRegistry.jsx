@@ -14,10 +14,12 @@ import {
   AlertTriangle,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
+import StatCard from '@/components/ui/stat-card'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
+import { STATUS_COLORS, statusLabel } from '@/lib/appointment-status'
 import { DASHBOARD_PANEL_CLASS, DASHBOARD_PANEL_TITLE_CLASS } from './dashboard-panel-styles'
 
 const fmtDate = d => {
@@ -26,48 +28,11 @@ const fmtDate = d => {
 }
 const inr = n => '₹' + (n || 0).toLocaleString('en-IN')
 
-const statusBadge = s => {
-  const map = {
-    scheduled: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
-    confirmed: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-300',
-    checked_in: 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300',
-    waiting: 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300',
-    called: 'bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-300',
-    in_treatment: 'bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300',
-    arrived: 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300',
-    in_progress: 'bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300',
-    completed: 'bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-300',
-    cancelled: 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400',
-    no_show: 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400',
-  }
-  const label = { checked_in: 'Checked In', in_treatment: 'In Treatment', arrived: 'Checked In', in_progress: 'In Treatment' }[s] || s?.replace('_', ' ')
-  return (
-    <span className={`text-xs px-2 py-1 rounded-full capitalize whitespace-nowrap ${map[s] || 'bg-slate-100 dark:bg-slate-800'}`}>
-      {label}
-    </span>
-  )
-}
-
-const StatCard = memo(function StatCard({ label, val, sub, icon: Icon, color, href, compact = false }) {
-  const inner = (
-    <Card className={`bg-card border-border h-full rounded-xl ${compact ? 'p-3.5 sm:p-4' : 'p-4 sm:p-5 md:p-5 min-h-[108px]'} ${href ? 'hover:border-[#0D9488]/40 transition-colors cursor-pointer active:scale-[0.98]' : ''}`}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <div className={`text-muted-foreground leading-snug ${compact ? 'text-xs line-clamp-1' : 'text-xs md:text-sm line-clamp-2'}`}>{label}</div>
-          <div className={`font-bold leading-none tabular-nums ${compact ? 'text-xl sm:text-2xl mt-1' : 'text-2xl md:text-3xl mt-2 md:mt-2.5'}`} style={{ color }}>{val}</div>
-          {sub && (
-            <div className={`text-muted-foreground leading-snug ${compact ? 'text-[11px] mt-1 line-clamp-1' : 'text-[11px] sm:text-xs mt-2 line-clamp-2'}`}>{sub}</div>
-          )}
-        </div>
-        <div className={`rounded-lg flex items-center justify-center flex-shrink-0 ${compact ? 'w-9 h-9' : 'w-10 h-10 md:w-11 md:h-11'}`} style={{ backgroundColor: color + '15' }}>
-          <Icon className={compact ? 'w-4 h-4' : 'w-5 h-5'} style={{ color }} />
-        </div>
-      </div>
-    </Card>
-  )
-  if (href) return <Link href={href} className="min-w-0 block h-full">{inner}</Link>
-  return <div className="min-w-0 h-full">{inner}</div>
-})
+const statusBadge = s => (
+  <span className={`text-xs px-2 py-0.5 rounded-md capitalize whitespace-nowrap ${STATUS_COLORS[s] || STATUS_COLORS.scheduled}`}>
+    {statusLabel(s)}
+  </span>
+)
 
 export { DASHBOARD_PANEL_CLASS, DASHBOARD_PANEL_TITLE_CLASS } from './dashboard-panel-styles'
 

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import InventoryItemCard from './InventoryItemCard'
 
@@ -37,52 +36,50 @@ export default function DoctorInventoryDashboard() {
     else toast.error((await r.json()).error || 'Failed')
   }
 
-  if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-[#0D9488]" /></div>
+  if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
 
   const frequent = items.filter(i => (i.current_stock || 0) > 0).slice(0, 8)
-  const warnings = items.filter(i => ['low_stock', 'critical', 'out_of_stock'].includes(i.status))
+  const warnings = items.filter(i => ['low_stock', 'critical', 'out_of_stock', 'expired'].includes(i.status))
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="rounded-xl border p-3 bg-card">
-          <div className="text-xs text-muted-foreground">Today&apos;s Consumption</div>
-          <div className="text-2xl font-bold text-[#0D9488]">{metrics?.today_consumption ?? 0}</div>
+    <div className="space-y-8">
+      <div className="grid grid-cols-2 gap-4 max-w-lg">
+        <div className="rounded-xl border border-border/70 bg-card px-5 py-4">
+          <div className="text-xs text-muted-foreground">Used today</div>
+          <div className="text-2xl font-semibold tabular-nums mt-1">{metrics?.today_consumption ?? 0}</div>
         </div>
-        <div className="rounded-xl border p-3 bg-card">
-          <div className="text-xs text-muted-foreground">Low Stock Warnings</div>
-          <div className="text-2xl font-bold text-amber-600">{warnings.length}</div>
-        </div>
-        <div className="rounded-xl border p-3 bg-card col-span-2">
-          <div className="text-xs text-muted-foreground mb-1">Top Consumed This Month</div>
-          {(metrics?.top_consumed || []).slice(0, 3).map(t => (
-            <div key={t.item_name} className="text-sm flex justify-between">
-              <span>{t.item_name}</span>
-              <span className="text-muted-foreground">{t.total}</span>
-            </div>
-          ))}
+        <div className="rounded-xl border border-border/70 bg-card px-5 py-4">
+          <div className="text-xs text-muted-foreground">Need attention</div>
+          <div className={`text-2xl font-semibold tabular-nums mt-1 ${warnings.length ? 'text-amber-600' : 'text-foreground'}`}>
+            {warnings.length}
+          </div>
         </div>
       </div>
 
       {warnings.length > 0 && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 p-3">
-          <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Low stock warnings</p>
-          <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
-            {warnings.slice(0, 5).map(i => i.item_name).join(', ')}
-          </p>
-        </div>
+        <p className="text-sm text-amber-700 dark:text-amber-300">
+          {warnings.slice(0, 5).map(i => i.item_name).join(' · ')}
+          {warnings.length > 5 ? ` · +${warnings.length - 5} more` : ''}
+        </p>
+      )}
+
+      {(metrics?.top_consumed || []).length > 0 && (
+        <p className="text-sm text-muted-foreground">
+          Most used this month: {(metrics.top_consumed || []).slice(0, 3).map(t => t.item_name).join(' · ')}
+        </p>
       )}
 
       <div>
-        <h3 className="text-sm font-semibold mb-2">Frequently Used Materials</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">Stock</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {frequent.map(item => (
-            <InventoryItemCard key={item.id} item={item} compact onAction={runAction} />
+            <InventoryItemCard key={item.id} item={item} onAction={runAction} />
           ))}
+          {!frequent.length && (
+            <p className="text-sm text-muted-foreground col-span-full py-12 text-center">No items in stock</p>
+          )}
         </div>
       </div>
-
-      <Button variant="outline" size="sm" onClick={load}>Refresh</Button>
     </div>
   )
 }

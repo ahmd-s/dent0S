@@ -125,7 +125,7 @@ export default function AppShell({ children }) {
             return (
               <div key={n.key}>
                 <Link href={n.href} onClick={()=>setMobileOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition ${active?'bg-[#0D9488] text-white':'text-white/70 hover:bg-white/5 hover:text-white'}`}>
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition ${active?'bg-white/10 text-white':'text-white/55 hover:bg-white/5 hover:text-white'}`}>
                   <Icon className="w-4 h-4"/>
                   <span className="flex-1">{n.label}</span>
                   {isNavBadgeEnabled(n.key) && (

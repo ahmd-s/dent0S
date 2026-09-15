@@ -79,11 +79,11 @@ export default function PatientTreatmentWorkspace({ visits = [], onNewVisit, can
 }
 
 function StatCard({ label, value, color }) {
-  const colors = { green: 'bg-green-50 text-green-700', amber: 'bg-amber-50 text-amber-700', teal: 'bg-[#0D9488]/10 text-[#0D9488]' }
+  const tones = { green: 'text-green-700', amber: 'text-amber-700', teal: 'text-foreground' }
   return (
-    <Card className={`p-4 rounded-xl border-0 ${colors[color]}`}>
-      <div className="text-2xl font-bold">{value}</div>
-      <div className="text-xs mt-0.5 opacity-80">{label}</div>
+    <Card className="p-4 rounded-xl border-border/70 bg-card shadow-none">
+      <div className={`text-2xl font-semibold tabular-nums ${tones[color] || 'text-foreground'}`}>{value}</div>
+      <div className="text-xs mt-0.5 text-muted-foreground">{label}</div>
     </Card>
   )
 }

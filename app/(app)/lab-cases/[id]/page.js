@@ -8,11 +8,12 @@ import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { toast } from 'sonner'
 import { useRole } from '@/components/dentos/RoleContext'
 import { LabCaseAttachments } from '@/components/dentos/LabCaseAttachments'
 import STLViewer from '@/components/STLViewer'
-import { LAB_CASE_STATUS_META, statusLabel } from '@/lib/lab-case-helpers'
+import { LAB_CASE_STATUS_META, statusLabel, hasStlUploaded, hasImpressionReceived } from '@/lib/lab-case-helpers'
 
 const fmtDate = d => d ? `${String(new Date(d).getDate()).padStart(2,'0')}/${String(new Date(d).getMonth()+1).padStart(2,'0')}/${new Date(d).getFullYear()}` : '—'
 const fmtDateTime = d => {
@@ -151,14 +152,29 @@ function App() {
     <div className="max-w-7xl mx-auto">
       <Link href="/lab-cases" className="text-sm text-muted-foreground hover:text-[#0D9488] flex items-center gap-1 mb-4"><ArrowLeft className="w-4 h-4"/>Back to Lab Cases</Link>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-foreground">{lc.case_number}</h1>
-            {statusBadge(lc.status)}
-            {lc.overdue && <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-700 font-medium flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5"/>Overdue</span>}
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">{lc.patient_name || 'Unknown patient'}</h1>
+          <div className="text-sm text-muted-foreground mt-1">
+            {lc.case_type}{lc.tooth_numbers ? ` · #${lc.tooth_numbers}` : ''}
+            <span className="mx-1.5">·</span>
+            <span className="tabular-nums">{lc.case_number}</span>
+            {lc.patient_id && (
+              <>
+                <span className="mx-1.5">·</span>
+                <Link href={`/patients/${lc.patient_id}`} className="hover:text-foreground hover:underline">Patient file</Link>
+              </>
+            )}
           </div>
-          <div className="text-sm text-muted-foreground mt-1">{lc.case_type} · for <Link href={`/patients/${lc.patient_id}`} className="text-[#0D9488] hover:underline">{lc.patient_name}</Link></div>
+          <div className="flex items-center gap-2 mt-2.5">
+            <span className="text-sm">{statusLabel(lc.status)}</span>
+            {lc.overdue && <span className="text-sm text-red-600 font-medium flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5"/>Overdue</span>}
+            {(lc.urgency === 'emergency' || lc.urgency === 'urgent') && (
+              <span className={`text-sm font-medium ${lc.urgency === 'emergency' ? 'text-red-600' : 'text-amber-600'}`}>
+                {lc.urgency === 'emergency' ? 'Emergency' : 'Urgent'}
+              </span>
+            )}
+          </div>
         </div>
         {canManage && <Button variant="outline" onClick={del} className="text-red-600 hover:text-red-700 hover:bg-red-50"><Trash2 className="w-4 h-4 mr-1"/>Delete</Button>}
       </div>
@@ -166,8 +182,8 @@ function App() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1 space-y-6">
           {/* PROMINENT VENDOR CONTACT — primary value: call the lab fast */}
-          <Card className="p-5 bg-card border-2 border-[#0D9488]/30 rounded-lg">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-[#0D9488] font-semibold mb-3"><Building2 className="w-4 h-4"/>Vendor Contact</div>
+          <Card className="p-5 bg-card border-border/70 rounded-xl">
+            <div className="text-xs uppercase tracking-wider text-muted-foreground font-medium mb-3 flex items-center gap-2"><Building2 className="w-4 h-4"/>Lab</div>
             <div className="text-lg font-bold text-foreground">{lc.vendor_name}</div>
             {lc.vendor_contact_person && <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2"><User className="w-4 h-4"/>Contact: {lc.vendor_contact_person}</div>}
             {lc.vendor_phone ? (
@@ -224,13 +240,17 @@ function App() {
             <h3 className="font-semibold text-foreground mb-4">Case Details</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               <Field label="Patient" value={lc.patient_name}/>
-              <Field label="Case Type" value={lc.case_type}/>
+              <Field label="Doctor" value={lc.doctor_name}/>
+              <Field label="Case type" value={lc.case_type}/>
               <Field label="Urgency" value={lc.urgency}/>
-              <Field label="Tooth Numbers" value={lc.tooth_numbers}/>
+              <Field label="Tooth numbers" value={lc.tooth_numbers}/>
               <Field label="Shade" value={lc.shade}/>
               <Field label="Material" value={lc.material}/>
-              <Field label="Expected Delivery" value={lc.expected_delivery_date ? fmtDate(lc.expected_delivery_date) : null}/>
+              <Field label="Lab" value={lc.vendor_name}/>
+              <Field label="Expected delivery" value={lc.expected_delivery_date ? fmtDate(lc.expected_delivery_date) : null}/>
               <Field label="Created" value={fmtDate(lc.created_at)}/>
+              <Field label="STL" value={hasStlUploaded(lc) ? 'Uploaded' : 'Not uploaded'}/>
+              <Field label="Impression" value={hasImpressionReceived(lc) ? 'Received' : 'Pending'}/>
             </div>
             {lc.description && (
               <div className="mt-4 pt-4 border-t border-border">
@@ -319,8 +339,14 @@ function App() {
           </Card>
 
           {/* AUDIT LOG */}
-          <Card className="p-6 bg-card border-border rounded-lg">
-            <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2"><ScrollText className="w-4 h-4"/>Audit Log</h3>
+          <Collapsible>
+            <Card className="p-6 bg-card border-border/70 rounded-xl">
+              <CollapsibleTrigger className="w-full flex items-center justify-between text-left">
+                <h3 className="font-semibold text-foreground flex items-center gap-2"><ScrollText className="w-4 h-4"/>Audit log</h3>
+                <span className="text-xs text-muted-foreground">Show</span>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="mt-4">
             {audit.length === 0 && <div className="text-sm text-muted-foreground">No audit entries yet</div>}
             {audit.length > 0 && (
               <div className="overflow-x-auto">
@@ -334,14 +360,17 @@ function App() {
                         <td className="py-2 pr-4 whitespace-nowrap text-muted-foreground">{fmtDateTime(a.at)}</td>
                         <td className="py-2 pr-4 text-foreground">{a.action}</td>
                         <td className="py-2 pr-4 text-muted-foreground">{a.actor_name || '—'}</td>
-                        <td className="py-2"><span className={`text-[10px] px-1.5 py-0.5 rounded-full ${a.source==='Lab Portal'?'bg-purple-50 text-purple-700 dark:bg-purple-950/30 dark:text-purple-300':a.source==='System'?'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400':'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}`}>{a.source}</span></td>
+                        <td className="py-2 text-xs text-muted-foreground">{a.source}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             )}
-          </Card>
+                </div>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
         </div>
       </div>
     </div>

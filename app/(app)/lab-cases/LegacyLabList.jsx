@@ -34,8 +34,9 @@ const statusBadge = (s) => {
   return <span className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${cls}`}>{statusLabel(s)}</span>
 }
 const urgencyBadge = (u) => {
-  const map = { routine: 'bg-slate-100 text-slate-600', urgent: 'bg-amber-100 text-amber-700', emergency: 'bg-red-100 text-red-700' }
-  return <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${map[u]||'bg-slate-100'}`}>{u||'routine'}</span>
+  if (!u || u === 'routine') return <span className="text-muted-foreground">—</span>
+  const map = { urgent: 'text-amber-700', emergency: 'text-red-600' }
+  return <span className={`text-xs font-medium capitalize ${map[u] || 'text-muted-foreground'}`}>{u}</span>
 }
 
 export default function LegacyLabList() {

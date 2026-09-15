@@ -1,27 +1,7 @@
 'use client'
 
-import Link from 'next/link'
 import { FlaskConical, Clock, AlertTriangle, Truck, Wrench, Activity, CheckCircle2, Package } from 'lucide-react'
-import { Card } from '@/components/ui/card'
-
-function StatCard({ label, val, sub, icon: Icon, color, href }) {
-  const inner = (
-    <Card className={`p-3.5 bg-card border-border rounded-xl h-full ${href ? 'hover:border-[#0D9488]/40 cursor-pointer' : ''}`}>
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className="text-xs text-muted-foreground">{label}</div>
-          <div className="text-2xl font-bold mt-1 tabular-nums" style={{ color }}>{val}</div>
-          {sub && <div className="text-[11px] text-muted-foreground mt-1">{sub}</div>}
-        </div>
-        <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: color + '15' }}>
-          <Icon className="w-4 h-4" style={{ color }} />
-        </div>
-      </div>
-    </Card>
-  )
-  if (href) return <Link href={href} className="block h-full">{inner}</Link>
-  return inner
-}
+import StatCard from '@/components/ui/stat-card'
 
 export function LabQueueWidget({ stats }) {
   return <StatCard label="Lab Queue" val={stats?.lab?.open_cases ?? '—'} sub="Open cases" icon={FlaskConical} color="#6366F1" href="/lab-cases" />
